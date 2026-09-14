@@ -70,7 +70,7 @@ MCPServer ──> MCPToolSet ──> MCPCapability ──> MCPGrant ──> subj
 | CRD | Says |
 |---|---|
 | **MCPServer** | Where a backend is. The tool catalog is discovered from it, not declared. |
-| **MCPToolSet** | A subset of one server's tools. |
+| **MCPToolSet** | A subset of one server's tools, by name or glob pattern (`code.*`), with optional exclusions. Its status lists what it resolves to. |
 | **MCPCapability** | A useful ability, combining tool sets — possibly from several servers. |
 | **MCPGrant** | Which capabilities a subject holds. |
 

@@ -3,6 +3,8 @@ package controller
 import (
 	"context"
 	"fmt"
+	"slices"
+	"strings"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -20,6 +22,7 @@ import (
 
 	gatev1alpha1 "forgejo.metapatrol.local/platform/mcp-gate/api/v1alpha1"
 	"forgejo.metapatrol.local/platform/mcp-gate/internal/discovery"
+	"forgejo.metapatrol.local/platform/mcp-gate/internal/policy"
 )
 
 // requeueCatalogPending is how soon a tool set is verified again when its server
@@ -73,8 +76,11 @@ func (r *MCPToolSetReconciler) verify(ctx context.Context, toolSet *gatev1alpha1
 		msg := fmt.Sprintf("MCPServer %q does not exist", serverName)
 		setCondition(&status.Conditions, gen, gatev1alpha1.ConditionValid, metav1.ConditionFalse, gatev1alpha1.ReasonServerNotFound, msg)
 		setCondition(&status.Conditions, gen, gatev1alpha1.ConditionReady, metav1.ConditionFalse, gatev1alpha1.ReasonInvalid, msg)
-		status.MissingTools = nil
 		status.CatalogRevision = ""
+		status.ResolvedTools = nil
+		status.ResolvedToolCount = 0
+		status.MissingTools = nil
+		status.UnmatchedPatterns = nil
 		return ctrl.Result{}, nil
 	}
 	setCondition(&status.Conditions, gen, gatev1alpha1.ConditionValid, metav1.ConditionTrue, gatev1alpha1.ReasonResolved,
@@ -98,21 +104,33 @@ func (r *MCPToolSetReconciler) verify(ctx context.Context, toolSet *gatev1alpha1
 		return ctrl.Result{RequeueAfter: requeueCatalogPending}, nil
 	}
 
-	var missing []string
-	for _, tool := range toolSet.Spec.Tools {
-		if _, ok := catalog.Tool(tool); !ok {
-			missing = append(missing, tool)
-		}
-	}
+	sel := policy.Select(toolSet.Spec, catalog.Names())
 	status.CatalogRevision = catalog.Revision
-	status.MissingTools = missing
-	if len(missing) > 0 {
-		setCondition(&status.Conditions, gen, gatev1alpha1.ConditionReady, metav1.ConditionFalse, gatev1alpha1.ReasonMissingTools,
-			fmt.Sprintf("%s %s not currently exposed by %s", quoted(missing), plural(len(missing), "is", "are"), serverName))
-		return ctrl.Result{}, nil
+	status.ResolvedTools = sel.Tools
+	status.ResolvedToolCount = len(sel.Tools)
+	status.MissingTools = sel.Missing
+	status.UnmatchedPatterns = sel.Unmatched
+
+	var problems []string
+	if len(sel.Missing) > 0 {
+		problems = append(problems, fmt.Sprintf("%s %s not currently exposed by %s",
+			quoted(sel.Missing), plural(len(sel.Missing), "is", "are"), serverName))
 	}
-	setCondition(&status.Conditions, gen, gatev1alpha1.ConditionReady, metav1.ConditionTrue, gatev1alpha1.ReasonAvailable,
-		fmt.Sprintf("all %d %s exposed by %s", len(toolSet.Spec.Tools), plural(len(toolSet.Spec.Tools), "tool is", "tools are"), serverName))
+	if len(sel.Unmatched) > 0 {
+		problems = append(problems, fmt.Sprintf("%s %s no tool of %s",
+			quoted(sel.Unmatched), plural(len(sel.Unmatched), "selects", "select"), serverName))
+	}
+	switch {
+	case len(sel.Missing) > 0:
+		setCondition(&status.Conditions, gen, gatev1alpha1.ConditionReady, metav1.ConditionFalse, gatev1alpha1.ReasonMissingTools,
+			strings.Join(problems, "; "))
+	case len(sel.Unmatched) > 0:
+		setCondition(&status.Conditions, gen, gatev1alpha1.ConditionReady, metav1.ConditionFalse, gatev1alpha1.ReasonUnmatchedPatterns,
+			strings.Join(problems, "; "))
+	default:
+		setCondition(&status.Conditions, gen, gatev1alpha1.ConditionReady, metav1.ConditionTrue, gatev1alpha1.ReasonAvailable,
+			fmt.Sprintf("%d %s selected from %s", len(sel.Tools), plural(len(sel.Tools), "tool", "tools"), serverName))
+	}
 	return ctrl.Result{}, nil
 }
 
@@ -169,12 +187,30 @@ type dependencyChanged struct {
 }
 
 func (dependencyChanged) Update(e event.UpdateEvent) bool {
-	if e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration() {
+	if e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration() || selectionChanged(e) {
 		return true
 	}
 	oldConditions, newConditions := conditionsOf(e.ObjectOld), conditionsOf(e.ObjectNew)
 	return conditionChanged(oldConditions, newConditions, gatev1alpha1.ConditionValid) ||
 		conditionChanged(oldConditions, newConditions, gatev1alpha1.ConditionReady)
+}
+
+// toolSetSelectionChanged passes tool set updates that change what the tool set
+// selects: a new spec, or a new resolution of its patterns against the catalog.
+// A pattern matching a tool the backend just added can create a name conflict
+// without any spec changing.
+type toolSetSelectionChanged struct {
+	predicate.Funcs
+}
+
+func (toolSetSelectionChanged) Update(e event.UpdateEvent) bool {
+	return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration() || selectionChanged(e)
+}
+
+func selectionChanged(e event.UpdateEvent) bool {
+	oldSet, ok1 := e.ObjectOld.(*gatev1alpha1.MCPToolSet)
+	newSet, ok2 := e.ObjectNew.(*gatev1alpha1.MCPToolSet)
+	return ok1 && ok2 && !slices.Equal(oldSet.Status.ResolvedTools, newSet.Status.ResolvedTools)
 }
 
 func conditionChanged(oldConditions, newConditions []metav1.Condition, conditionType string) bool {

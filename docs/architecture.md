@@ -111,7 +111,11 @@ The gateway keeps one MCP server per subject. Its registered tools are, at all
 times, what the subject's grants resolve to against the catalogs currently usable:
 
 ```text
-for each tool the subject's grants resolve to (server, tool):
+for each tool set the subject's grants reach:
+    its exact names                        (claimed whether or not the backend has them)
+    and its patterns, expanded against the server's usable catalog
+    minus its exclusions
+for each tool claimed by exactly one (server, tool):
     the server's catalog is usable        (discovered, not failing for longer than --catalog-max-age)
     and the catalog contains the tool
     → exposed under the tool's own name, with the backend's definition
@@ -119,7 +123,14 @@ for each tool the subject's grants resolve to (server, tool):
 
 When the policy or a catalog changes, every subject's list is recomputed and only
 the differences are applied. The SDK then sends
-`notifications/tools/list_changed` to that subject's open sessions.
+`notifications/tools/list_changed` to that subject's open sessions. A catalog
+change alone can therefore change what a subject gets: a pattern like `code.*`
+picks up a tool the backend adds, with no manifest touched.
+
+Resolution is `internal/policy`, a pure function of the manifests and the
+catalogs' tool names, and the controller calls the same function with its own
+catalogs — so the `resolvedTools` of a tool set and the conflicts a capability
+reports describe what the gateway enforces.
 
 ### Instructions
 
@@ -237,7 +248,7 @@ same catalog changes nothing and notifies no one.
 | Kind | `Valid` | `Ready` |
 |---|---|---|
 | MCPServer | — | discovery succeeded (`Discovered` / `DiscoveryFailed`) |
-| MCPToolSet | server exists (`ServerNotFound`) | server Ready and every tool exposed (`ServerUnavailable`, `MissingTools`, `CatalogPending`) |
+| MCPToolSet | server exists (`ServerNotFound`) | server Ready, every name exposed, every pattern selects something (`ServerUnavailable`, `MissingTools`, `UnmatchedPatterns`, `CatalogPending`) |
 | MCPCapability | tool sets exist, no name conflict (`ToolSetNotFound`, `ToolNameConflict`) | every tool set Ready (`ToolSetNotReady`) |
 | MCPGrant | capabilities exist, no name conflict (`CapabilityNotFound`, `ToolNameConflict`) | every capability Ready, no conflict with the subject's other grants (`CapabilityNotReady`, `ToolNameConflict`) |
 
@@ -251,7 +262,8 @@ generation.
 | A backend is unreachable | Its tools stay listed for `--catalog-max-age` (5m), calls to them return a tool error; then they drop out of the lists until discovery succeeds again. Other backends are unaffected. The server goes `Ready=False`, its tool sets follow. |
 | A tool disappears from a backend | It is no longer exposed; the rest of its tool set is. The tool set reports `MissingTools`. |
 | A grant names a capability that does not exist | That name grants nothing; the rest of the grant still applies. `Valid=False, CapabilityNotFound`. An unresolved reference can narrow access, never widen it. |
-| Two backends expose the same name to one subject | Neither is exposed. The capability or grant reports `ToolNameConflict`, naming both. |
+| Two backends expose the same name to one subject | Neither is exposed. The capability or grant reports `ToolNameConflict`, naming both. With patterns this can happen when a backend adds a tool. |
+| A pattern matches nothing | It selects nothing; the rest of the tool set still applies. The tool set reports `UnmatchedPatterns`. |
 | The OAuth provider is down | JWTs keep verifying against the last fetched key set. Introspection fails with 500, not 401, so clients do not start refetching tokens from the provider that is down. |
 | The controller is down | Nothing changes for agents. Status goes stale. |
 | The gateway starts before the API is readable | It is not ready until it has built its first policy snapshot, and serves no traffic before. |

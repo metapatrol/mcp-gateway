@@ -1,22 +1,23 @@
 // Package policy resolves what a subject may use: MCPGrant to MCPCapability to
 // MCPToolSet to a tool on an MCPServer.
 //
-// It is pure. A Snapshot is built from the four kinds as listed at one moment
-// and answers from that alone, with no client, no clock and no catalog. The
-// gateway resolves every call through it, and the controller reports through it
-// what the gateway will do — one implementation, so the status a resource shows
-// cannot disagree with the enforcement it describes.
+// It is pure. A Snapshot is built from the four kinds as listed at one moment,
+// and resolution takes the backends' tool names as a further input; it has no
+// client and no clock. The gateway resolves every call through it, and the
+// controller reports through it what the gateway will do — one implementation,
+// so the status a resource shows cannot disagree with the enforcement it
+// describes.
 //
-// Whether a backend currently exposes a resolved tool is a separate question,
-// answered by the catalog. Keeping it out of here is what makes a name conflict
-// a property of the manifests: it does not appear and disappear as backends go
-// up and down.
+// The catalogs are an input because tool sets select with patterns, and a
+// pattern means nothing until it meets the names a backend offers. Exact names
+// do not need them: a tool set naming a tool claims that name whether or not the
+// backend currently has it. Whether a claimed tool is actually exposed is still
+// the gateway's check against the catalog.
 package policy
 
 import (
 	"slices"
 	"sort"
-	"sync"
 
 	gatev1alpha1 "forgejo.metapatrol.local/platform/mcp-gate/api/v1alpha1"
 )
@@ -32,6 +33,22 @@ type ToolRef struct {
 // String renders the ref as server/tool, the form used in logs and messages.
 func (r ToolRef) String() string { return r.Server + "/" + r.Tool }
 
+// Catalogs reports the tool names a server currently offers, and whether its
+// catalog may be used at all. A nil Catalogs knows no catalog: patterns then
+// select nothing, and exact names still claim what they name.
+type Catalogs func(server string) (names []string, ok bool)
+
+func (c Catalogs) names(server string) []string {
+	if c == nil {
+		return nil
+	}
+	names, ok := c(server)
+	if !ok {
+		return nil
+	}
+	return names
+}
+
 // Snapshot is the declared policy at one moment.
 type Snapshot struct {
 	servers      map[string]bool
@@ -40,10 +57,6 @@ type Snapshot struct {
 	// grants maps a subject to the capability names its grants name, in grant
 	// name order so that resolution does not depend on list order.
 	grants map[string][]grant
-
-	// resolved memoises Resolve per subject. A snapshot never changes once
-	// built, and the gateway asks the same question on every call.
-	resolved sync.Map // subject -> Resolution
 }
 
 type grant struct {
@@ -131,30 +144,23 @@ func (s *Snapshot) Subjects() []string {
 }
 
 // Resolve returns everything subject is granted, across all of its grants.
-//
-// The result is shared between callers and must not be modified.
-func (s *Snapshot) Resolve(subject string) Resolution {
-	if res, ok := s.resolved.Load(subject); ok {
-		return res.(Resolution)
-	}
+func (s *Snapshot) Resolve(subject string, catalogs Catalogs) Resolution {
 	var capabilities []string
 	for _, g := range s.grants[subject] {
 		capabilities = append(capabilities, g.capabilities...)
 	}
-	res := s.ResolveCapabilities(capabilities)
-	s.resolved.Store(subject, res)
-	return res
+	return s.ResolveCapabilities(capabilities, catalogs)
 }
 
 // Authorize reports which backend tool subject reaches under name, if any.
 // It is the check the gateway makes on every tools/call.
-func (s *Snapshot) Authorize(subject, name string) (ToolRef, bool) {
-	ref, ok := s.Resolve(subject).Tools[name]
+func (s *Snapshot) Authorize(subject, name string, catalogs Catalogs) (ToolRef, bool) {
+	ref, ok := s.Resolve(subject, catalogs).Tools[name]
 	return ref, ok
 }
 
 // ResolveCapabilities returns what the named capabilities come to together.
-func (s *Snapshot) ResolveCapabilities(names []string) Resolution {
+func (s *Snapshot) ResolveCapabilities(names []string, catalogs Catalogs) Resolution {
 	var toolSets []string
 	var missingCapabilities []string
 	for _, name := range names {
@@ -165,14 +171,14 @@ func (s *Snapshot) ResolveCapabilities(names []string) Resolution {
 		}
 		toolSets = append(toolSets, sets...)
 	}
-	res := s.ResolveToolSets(toolSets)
+	res := s.ResolveToolSets(toolSets, catalogs)
 	res.MissingCapabilities = sortedUnique(missingCapabilities)
 	return res
 }
 
 // ResolveToolSets returns what the named tool sets come to together.
-func (s *Snapshot) ResolveToolSets(names []string) Resolution {
-	claims := map[string][]ToolRef{}
+func (s *Snapshot) ResolveToolSets(names []string, catalogs Catalogs) Resolution {
+	claimants := map[string][]ToolRef{}
 	var missingToolSets, missingServers []string
 	for _, name := range names {
 		spec, ok := s.toolSets[name]
@@ -184,23 +190,23 @@ func (s *Snapshot) ResolveToolSets(names []string) Resolution {
 			missingServers = append(missingServers, spec.ServerRef)
 			continue
 		}
-		for _, tool := range spec.Tools {
+		for _, tool := range claims(spec, catalogs.names(spec.ServerRef)) {
 			ref := ToolRef{Server: spec.ServerRef, Tool: tool}
 			// The same backend tool reached through two tool sets is one tool,
 			// not a conflict.
-			if !slices.Contains(claims[tool], ref) {
-				claims[tool] = append(claims[tool], ref)
+			if !slices.Contains(claimants[tool], ref) {
+				claimants[tool] = append(claimants[tool], ref)
 			}
 		}
 	}
 
 	res := Resolution{
-		Tools:           make(map[string]ToolRef, len(claims)),
+		Tools:           make(map[string]ToolRef, len(claimants)),
 		Conflicts:       map[string][]ToolRef{},
 		MissingToolSets: sortedUnique(missingToolSets),
 		MissingServers:  sortedUnique(missingServers),
 	}
-	for name, refs := range claims {
+	for name, refs := range claimants {
 		if len(refs) == 1 {
 			res.Tools[name] = refs[0]
 			continue

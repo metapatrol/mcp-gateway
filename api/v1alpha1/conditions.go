@@ -51,6 +51,9 @@ const (
 	// ReasonMissingTools: the server is up and does not expose some of the
 	// declared tools.
 	ReasonMissingTools = "MissingTools"
+	// ReasonUnmatchedPatterns: the server is up and some of the declared
+	// patterns select none of its tools.
+	ReasonUnmatchedPatterns = "UnmatchedPatterns"
 	// ReasonToolSetNotReady: a referenced tool set is not Ready.
 	ReasonToolSetNotReady = "ToolSetNotReady"
 	// ReasonCapabilityNotReady: a referenced capability is not Ready.

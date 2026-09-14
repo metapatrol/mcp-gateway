@@ -60,19 +60,22 @@ Printer columns: `Endpoint`, `Available`, `Tools`, `Ready`.
 
 ## MCPToolSet
 
-A curated subset of the tools of **one** server. Short name `mcpts`.
+A curated subset of the tools of **one** server, selected by name or by glob
+pattern. Short name `mcpts`.
 
 ```yaml
 apiVersion: mcp.gate.metapatrol.com/v1alpha1
 kind: MCPToolSet
 metadata:
-  name: source-intelligence-analysis
+  name: source-intelligence-read
 spec:
   serverRef: source-intelligence
   tools:
-    - source_search
-    - source_get
-    - symbol_search
+    - code.*            # every tool whose name starts with "code."
+    - repositories.*
+    - refs.list         # an exact name
+  exclude:
+    - repositories.read_file
 ```
 
 ### spec
@@ -80,29 +83,52 @@ spec:
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `serverRef` | string | yes | Name of the `MCPServer`. |
-| `tools` | []string | yes | Tool names as the backend lists them. At least one; no duplicates. |
+| `tools` | []string | yes | Tool names or glob patterns. At least one; no duplicates. |
+| `exclude` | []string | no | Tool names or glob patterns removed from the selection. Wins over `tools`. |
+
+**Patterns.** `*` matches any run of characters — dots included, and the empty
+run — and `?` exactly one character. Matching is case-sensitive and anchored at
+both ends: `code.*` matches `code.search`, not `xcode.search`; `*` matches every
+tool. An entry without `*` or `?` is an exact name, so a tool set written with
+names only keeps its meaning.
+
+A pattern selects what the backend offers **now**. A tool the backend adds later
+and a pattern matches is granted without a manifest changing — convenient for
+`code.*`, and worth an `exclude` for anything destructive the backend might add:
+
+```yaml
+tools: ["artifact_*"]
+exclude: ["artifact_delete"]
+```
+
+`status.resolvedTools` always shows what the tool set selects at the moment.
 
 ### status
 
 | Field | Description |
 |---|---|
 | `catalogRevision` | The server catalog the tools were last verified against. |
-| `missingTools` | Selected tools the server does not currently expose. |
+| `resolvedTools` | What the tool set selects from that catalog, sorted: matched patterns and present names, minus exclusions. What a grant on it hands out. |
+| `resolvedToolCount` | Length of `resolvedTools`. |
+| `missingTools` | Exact names in `tools` the server does not currently expose. |
+| `unmatchedPatterns` | Patterns in `tools` that select no tool — none matches, or every match is excluded. |
 
 | Condition | Reason | Meaning |
 |---|---|---|
 | `Valid=True` | `Resolved` | The server exists. |
 | `Valid=False` | `ServerNotFound` | `serverRef` names no `MCPServer`. |
-| `Ready=True` | `Available` | The server is Ready and exposes every selected tool. |
+| `Ready=True` | `Available` | The server is Ready, every name is exposed and every pattern selects something — `7 tools selected from source-intelligence`. |
 | `Ready=False` | `Invalid` | The tool set is not valid. |
 | `Ready=False` | `ServerUnavailable` | The server is not Ready. |
-| `Ready=False` | `MissingTools` | Some tools are not exposed — `"symbol_search" is not currently exposed by source-intelligence`. |
+| `Ready=False` | `MissingTools` | Some names are not exposed — `"symbol_search" is not currently exposed by source-intelligence`. Takes precedence when patterns are unmatched too; the message lists both. |
+| `Ready=False` | `UnmatchedPatterns` | Some patterns select nothing — `"cod.*" selects no tool of source-intelligence`. A wildcard that matches nothing is almost always a typo. |
 | `Ready=Unknown` | `CatalogPending` | The controller has not read the server's catalog since it started. |
 
-The gateway exposes the tools that do exist; a missing tool does not take the
-rest of the set with it.
+The gateway exposes what does resolve; a missing tool or an unmatched pattern
+does not take the rest of the set with it.
 
-Printer columns: `Server`, `Valid`, `Ready`, and `Reason` with `-o wide`.
+Printer columns: `Server`, `Tools` (the resolved count), `Valid`, `Ready`, and
+`Reason` and `Resolved` with `-o wide`.
 
 ---
 
@@ -142,6 +168,11 @@ spec:
 | `Ready=False` | `ToolSetNotReady` | Some tool sets are not Ready; the message says which and why. |
 
 The same backend tool reached through two tool sets is one tool, not a conflict.
+
+A conflict between exact names is a property of the manifests. One that patterns
+cause exists only once a backend offers a tool both match — `*` on two servers
+that each gain a `search` tool — so `Valid` can turn False without a spec
+changing. The gateway exposes neither tool either way.
 
 Printer columns: `ToolSets`, `Valid`, `Ready`, and `Reason` with `-o wide`.
 

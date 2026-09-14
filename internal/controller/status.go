@@ -21,6 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	gatev1alpha1 "forgejo.metapatrol.local/platform/mcp-gate/api/v1alpha1"
+	"forgejo.metapatrol.local/platform/mcp-gate/internal/discovery"
 	"forgejo.metapatrol.local/platform/mcp-gate/internal/metrics"
 	"forgejo.metapatrol.local/platform/mcp-gate/internal/policy"
 )
@@ -141,6 +142,22 @@ func observeResource(kind, name string, current client.Object) {
 		byReady[string(status)]++
 	}
 	metrics.SetResources(kind, byReady)
+}
+
+// registryCatalogs gives policy resolution the tool names of the catalogs this
+// controller has read, so that patterns — and the conflicts they can cause —
+// resolve against the same backends the gateway serves.
+func registryCatalogs(registry *discovery.Registry) policy.Catalogs {
+	if registry == nil {
+		return nil
+	}
+	return func(server string) ([]string, bool) {
+		catalog, _, ok := registry.Catalog(server)
+		if !ok {
+			return nil, false
+		}
+		return catalog.Names(), true
+	}
 }
 
 // loadSnapshot builds a policy snapshot from the cache, the same one the gateway

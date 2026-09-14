@@ -17,6 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	gatev1alpha1 "forgejo.metapatrol.local/platform/mcp-gate/api/v1alpha1"
+	"forgejo.metapatrol.local/platform/mcp-gate/internal/discovery"
 	"forgejo.metapatrol.local/platform/mcp-gate/internal/policy"
 )
 
@@ -25,6 +26,8 @@ import (
 type MCPGrantReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	// Registry holds the catalogs tool set patterns resolve against.
+	Registry *discovery.Registry
 }
 
 // +kubebuilder:rbac:groups=mcp.gate.metapatrol.com,resources=mcpgrants,verbs=get;list;watch
@@ -49,7 +52,8 @@ func (r *MCPGrantReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	gen := grant.Generation
 	status := &grant.Status
 	status.ObservedGeneration = gen
-	own := snapshot.ResolveCapabilities(grant.Spec.Capabilities)
+	catalogs := registryCatalogs(r.Registry)
+	own := snapshot.ResolveCapabilities(grant.Spec.Capabilities, catalogs)
 
 	switch {
 	case len(own.MissingCapabilities) > 0:
@@ -75,7 +79,7 @@ func (r *MCPGrantReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		shared := sharedConflicts(snapshot.Resolve(grant.Spec.Subject), own)
+		shared := sharedConflicts(snapshot.Resolve(grant.Spec.Subject, catalogs), own)
 		switch {
 		case len(notReady) > 0:
 			setCondition(&status.Conditions, gen, gatev1alpha1.ConditionReady, metav1.ConditionFalse, gatev1alpha1.ReasonCapabilityNotReady,
@@ -137,13 +141,14 @@ func (r *MCPGrantReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(r.grantsForCapability),
 			builder.WithPredicates(dependencyChanged{}),
 		).
-		// A tool set gaining a tool can create a conflict between capabilities
-		// that each still resolve cleanly, so no capability status changes and
-		// the watch above never fires.
+		// A tool set gaining a tool — by a spec change, or by a pattern
+		// matching a tool the backend added — can create a conflict between
+		// capabilities that each still resolve cleanly, so no capability
+		// status changes and the watch above never fires.
 		Watches(
 			&gatev1alpha1.MCPToolSet{},
 			handler.EnqueueRequestsFromMapFunc(r.allGrants),
-			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
+			builder.WithPredicates(toolSetSelectionChanged{}),
 		).
 		// Grants for one subject share a tool namespace: a change to one can
 		// create or clear a conflict in the others.

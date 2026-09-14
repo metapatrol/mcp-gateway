@@ -18,6 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	gatev1alpha1 "forgejo.metapatrol.local/platform/mcp-gate/api/v1alpha1"
+	"forgejo.metapatrol.local/platform/mcp-gate/internal/discovery"
 )
 
 // MCPCapabilityReconciler checks that a capability's tool sets exist, fit
@@ -25,6 +26,8 @@ import (
 type MCPCapabilityReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	// Registry holds the catalogs tool set patterns resolve against.
+	Registry *discovery.Registry
 }
 
 // +kubebuilder:rbac:groups=mcp.gate.metapatrol.com,resources=mcpcapabilities,verbs=get;list;watch
@@ -49,7 +52,7 @@ func (r *MCPCapabilityReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	gen := capability.Generation
 	status := &capability.Status
 	status.ObservedGeneration = gen
-	res := snapshot.ResolveToolSets(capability.Spec.ToolSets)
+	res := snapshot.ResolveToolSets(capability.Spec.ToolSets, registryCatalogs(r.Registry))
 
 	switch {
 	case len(res.MissingToolSets) > 0:

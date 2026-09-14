@@ -22,6 +22,9 @@ spec:
     - jsonPath: .spec.serverRef
       name: Server
       type: string
+    - jsonPath: .status.resolvedToolCount
+      name: Tools
+      type: integer
     - jsonPath: .status.conditions[?(@.type=="Valid")].status
       name: Valid
       type: string
@@ -30,6 +33,10 @@ spec:
       type: string
     - jsonPath: .status.conditions[?(@.type=="Ready")].reason
       name: Reason
+      priority: 1
+      type: string
+    - jsonPath: .status.resolvedTools
+      name: Resolved
       priority: 1
       type: string
     - jsonPath: .metadata.creationTimestamp
@@ -66,6 +73,16 @@ spec:
               and keeping the two apart means a tool set can be verified against a single
               catalog.
             properties:
+              exclude:
+                description: |-
+                  Exclude removes tools from the selection, by name or glob pattern, and
+                  wins over tools: "artifact_*" with exclude "artifact_delete" selects every
+                  artifact tool but that one — including artifact tools added later.
+                items:
+                  minLength: 1
+                  type: string
+                type: array
+                x-kubernetes-list-type: set
               serverRef:
                 description: ServerRef is the name of the MCPServer the tools come
                   from.
@@ -73,9 +90,14 @@ spec:
                 type: string
               tools:
                 description: |-
-                  Tools are the names of the tools selected, exactly as the backend lists
-                  them. A name the backend does not expose makes the tool set Ready=False,
-                  and the gateway exposes the tools that do exist.
+                  Tools selects tools by name or by glob pattern: "*" matches any run of
+                  characters, dots included, and "?" exactly one — so "code.*" selects every
+                  tool whose name starts with "code.", and "*" selects them all.
+
+                  An exact name the backend does not expose makes the tool set Ready=False,
+                  as does a pattern that selects nothing. The gateway exposes what does
+                  resolve. A pattern also selects tools the backend adds later, without a
+                  change here; status.resolvedTools shows what it selects right now.
                 items:
                   minLength: 1
                   type: string
@@ -157,7 +179,8 @@ spec:
                 - type
                 x-kubernetes-list-type: map
               missingTools:
-                description: MissingTools are the selected tools the server does not
+                description: |-
+                  MissingTools are the exact names in spec.tools the server does not
                   currently expose.
                 items:
                   type: string
@@ -166,6 +189,26 @@ spec:
                 description: ObservedGeneration is the generation this status describes.
                 format: int64
                 type: integer
+              resolvedToolCount:
+                description: ResolvedToolCount is the length of resolvedTools, for
+                  kubectl's columns.
+                type: integer
+              resolvedTools:
+                description: |-
+                  ResolvedTools are the tools the tool set selects from the catalog it was
+                  last verified against, sorted: the names and pattern matches the server
+                  exposes, minus the exclusions. It is what a grant on this tool set hands
+                  out.
+                items:
+                  type: string
+                type: array
+              unmatchedPatterns:
+                description: |-
+                  UnmatchedPatterns are the patterns in spec.tools that select no tool of
+                  the current catalog — none matches, or every match is excluded.
+                items:
+                  type: string
+                type: array
             type: object
         type: object
     served: true

@@ -55,7 +55,7 @@ func concept() *Snapshot {
 }
 
 func TestResolve_ExposesOnlyTheGrantedSubset(t *testing.T) {
-	res := concept().Resolve("coding-agent")
+	res := concept().Resolve("coding-agent", nil)
 
 	assert.Equal(t, map[string]ToolRef{
 		"source_search":   {Server: "source-intelligence", Tool: "source_search"},
@@ -69,7 +69,7 @@ func TestResolve_ExposesOnlyTheGrantedSubset(t *testing.T) {
 }
 
 func TestResolve_UnknownSubjectGetsNothing(t *testing.T) {
-	res := concept().Resolve("somebody-else")
+	res := concept().Resolve("somebody-else", nil)
 	assert.Empty(t, res.Tools)
 }
 
@@ -89,7 +89,7 @@ func TestResolve_SameToolThroughTwoToolSetsIsNoConflict(t *testing.T) {
 		[]gatev1alpha1.MCPGrant{grantFor("g", "agent", "read", "write")},
 	)
 
-	res := s.Resolve("agent")
+	res := s.Resolve("agent", nil)
 	assert.Empty(t, res.Conflicts)
 	assert.Equal(t, ToolRef{Server: "artifact", Tool: "artifact_get"}, res.Tools["artifact_get"])
 	assert.Len(t, res.Tools, 2)
@@ -108,7 +108,7 @@ func TestResolve_ConflictExposesNeither(t *testing.T) {
 		[]gatev1alpha1.MCPGrant{grantFor("g", "agent", "both")},
 	)
 
-	res := s.Resolve("agent")
+	res := s.Resolve("agent", nil)
 	assert.NotContains(t, res.Tools, "search")
 	assert.Equal(t, []ToolRef{
 		{Server: "engram", Tool: "search"},
@@ -132,7 +132,7 @@ func TestResolve_GrantsForOneSubjectAddUp(t *testing.T) {
 		[]gatev1alpha1.MCPGrant{grantFor("first", "agent", "ca"), grantFor("second", "agent", "cb")},
 	)
 
-	res := s.Resolve("agent")
+	res := s.Resolve("agent", nil)
 	assert.Contains(t, res.Tools, "one")
 	assert.Contains(t, res.Tools, "two")
 	assert.Contains(t, res.Conflicts, "shared")
@@ -151,7 +151,7 @@ func TestResolve_UnresolvedReferencesNarrowNeverWiden(t *testing.T) {
 		[]gatev1alpha1.MCPGrant{grantFor("g", "agent", "research", "typo")},
 	)
 
-	res := s.Resolve("agent")
+	res := s.Resolve("agent", nil)
 	assert.Equal(t, map[string]ToolRef{"artifact_get": {Server: "artifact", Tool: "artifact_get"}}, res.Tools)
 	assert.Equal(t, []string{"typo"}, res.MissingCapabilities)
 	assert.Equal(t, []string{"never-created"}, res.MissingToolSets)
@@ -169,25 +169,25 @@ func TestResolve_ObjectsBeingDeletedGrantNothing(t *testing.T) {
 		[]gatev1alpha1.MCPCapability{capability("code-research", "artifact-read")},
 		[]gatev1alpha1.MCPGrant{g},
 	)
-	assert.Empty(t, s.Resolve("agent").Tools)
+	assert.Empty(t, s.Resolve("agent", nil).Tools)
 }
 
 func TestAuthorize(t *testing.T) {
 	s := concept()
 
-	ref, ok := s.Authorize("coding-agent", "artifact_get")
+	ref, ok := s.Authorize("coding-agent", "artifact_get", nil)
 	assert.True(t, ok)
 	assert.Equal(t, ToolRef{Server: "artifact", Tool: "artifact_get"}, ref)
 
-	_, ok = s.Authorize("coding-agent", "artifact_publish")
+	_, ok = s.Authorize("coding-agent", "artifact_publish", nil)
 	assert.False(t, ok, "a tool the backend has but the grant does not must be refused")
 
-	_, ok = s.Authorize("", "artifact_get")
+	_, ok = s.Authorize("", "artifact_get", nil)
 	assert.False(t, ok)
 }
 
 func TestEmptyGrantsNothing(t *testing.T) {
-	assert.Empty(t, Empty().Resolve("anyone").Tools)
+	assert.Empty(t, Empty().Resolve("anyone", nil).Tools)
 	assert.Empty(t, Empty().Subjects())
 }
 

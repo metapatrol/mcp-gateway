@@ -493,6 +493,78 @@ func TestStatelessMode(t *testing.T) {
 	assert.Error(t, err)
 }
 
+// A tool set with patterns exposes what the catalog matches, minus what it
+// excludes — and the exclusion holds per call, not just in the list.
+func TestPatterns_ExposeWhatTheCatalogMatches(t *testing.T) {
+	e := newEnv(t, Options{})
+	ts := toolSet("source-patterns", "source-intelligence", "source_*", "*_search")
+	ts.Spec.Exclude = []string{"repository_*"}
+	e.toolSets = append(e.toolSets, ts)
+	e.capabilities = append(e.capabilities, capability("patterns", "source-patterns"))
+	e.grants = append(e.grants, grant("nobody", "nobody", "patterns"))
+	e.apply()
+
+	session := e.connect("token-nobody")
+	assert.Equal(t, []string{"source_get", "source_search", "symbol_search"}, toolNames(t, session))
+
+	res, err := call(session, "symbol_search")
+	require.NoError(t, err)
+	assert.Equal(t, `source-intelligence/symbol_search {"q":"x"}`, text(res))
+	_, err = call(session, "repository_search")
+	assert.Error(t, err, "matched by a pattern, removed by exclude, refused")
+}
+
+// A pattern grants what the backend offers now: a tool the backend adds later
+// reaches an open session, with a list_changed notification, without any
+// manifest changing.
+func TestPatterns_AToolTheBackendAddsReachesOpenSessions(t *testing.T) {
+	e := newEnv(t, Options{})
+	e.toolSets = []gatev1alpha1.MCPToolSet{toolSet("artifact-all", "artifact", "artifact_*")}
+	e.capabilities = []gatev1alpha1.MCPCapability{capability("artifact-all", "artifact-all")}
+	e.grants = []gatev1alpha1.MCPGrant{grant("reviewer", "reviewer", "artifact-all")}
+	e.apply()
+
+	changed := make(chan struct{}, 8)
+	session, err := e.connectWith("token-reviewer", &mcp.ClientOptions{
+		ToolListChangedHandler: func(context.Context, *mcp.ToolListChangedRequest) { changed <- struct{}{} },
+	})
+	require.NoError(t, err)
+	require.Equal(t, []string{"artifact_get", "artifact_publish", "artifact_search"}, toolNames(t, session))
+
+	e.artifact.AddTool("artifact_delete")
+	_, updated, err := e.registry.Discover(context.Background(), "artifact")
+	require.NoError(t, err)
+	require.True(t, updated)
+	e.gateway.Invalidate()
+
+	select {
+	case <-changed:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the session was not told that its tools changed")
+	}
+	assert.Contains(t, toolNames(t, session), "artifact_delete")
+	res, err := call(session, "artifact_delete")
+	require.NoError(t, err)
+	assert.Equal(t, `artifact/artifact_delete {"q":"x"}`, text(res))
+}
+
+// Two backends whose patterns match the same name: neither is exposed under it.
+func TestPatterns_AConflictTheyCauseExposesNeither(t *testing.T) {
+	e := newEnv(t, Options{})
+	engram := mcptest.NewBackend(t, "engram", "remember", "artifact_get")
+	e.register("engram", engram.URL)
+	e.toolSets = []gatev1alpha1.MCPToolSet{
+		toolSet("artifact-all", "artifact", "*"),
+		toolSet("engram-all", "engram", "*"),
+	}
+	e.capabilities = []gatev1alpha1.MCPCapability{capability("everything", "artifact-all", "engram-all")}
+	e.grants = []gatev1alpha1.MCPGrant{grant("reviewer", "reviewer", "everything")}
+	e.apply()
+
+	names := toolNames(t, e.connect("token-reviewer"))
+	assert.Equal(t, []string{"artifact_publish", "artifact_search", "remember"}, names)
+}
+
 // Agents get the backends' instructions, and only those of the backends their
 // grants reach: a subject holding nothing of source-intelligence learns nothing
 // about it.

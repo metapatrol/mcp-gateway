@@ -1,4 +1,7 @@
-# Tool sets select from exactly one server. The names are the backend's own.
+# Tool sets select from exactly one server, by name or by glob pattern: "*"
+# matches any run of characters, dots included, "?" exactly one.
+#
+#   kubectl get mcptoolsets -o wide     # the Resolved column shows what each selects
 apiVersion: mcp.gate.metapatrol.com/v1alpha1
 kind: MCPToolSet
 metadata:
@@ -6,9 +9,11 @@ metadata:
 spec:
   serverRef: source-intelligence
   tools:
-    - source_search
-    - source_get
-    - symbol_search
+    - code.*
+    - repositories.*
+    - refs.list
+  exclude:
+    - repositories.read_file
 ---
 apiVersion: mcp.gate.metapatrol.com/v1alpha1
 kind: MCPToolSet
@@ -20,6 +25,8 @@ spec:
     - artifact_search
     - artifact_get
 ---
+# A pattern also selects tools the backend adds later. For a set that may
+# write, exclude what should never be granted by accident.
 apiVersion: mcp.gate.metapatrol.com/v1alpha1
 kind: MCPToolSet
 metadata:
@@ -27,6 +34,6 @@ metadata:
 spec:
   serverRef: artifact
   tools:
-    - artifact_search
-    - artifact_get
-    - artifact_publish
+    - artifact_*
+  exclude:
+    - artifact_delete

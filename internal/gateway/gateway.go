@@ -332,7 +332,7 @@ func (g *Gateway) registered(subject, name string) bool {
 
 // desired computes what a subject should currently see.
 func (g *Gateway) desired(subject string) map[string]exposed {
-	res := g.policy.Load().Resolve(subject)
+	res := g.policy.Load().Resolve(subject, g.catalogs)
 	out := make(map[string]exposed, len(res.Tools))
 	for name, ref := range res.Tools {
 		catalog, ok := g.usableCatalog(ref.Server)
@@ -346,6 +346,16 @@ func (g *Gateway) desired(subject string) map[string]exposed {
 		out[name] = exposed{ref: ref, tool: tool}
 	}
 	return out
+}
+
+// catalogs gives policy resolution the tool names of every usable catalog, so
+// that tool set patterns expand against what the gateway would actually serve.
+func (g *Gateway) catalogs(server string) ([]string, bool) {
+	catalog, ok := g.usableCatalog(server)
+	if !ok {
+		return nil, false
+	}
+	return catalog.Names(), true
 }
 
 // usableCatalog returns a backend's catalog while it may still be served.
@@ -446,7 +456,7 @@ func (g *Gateway) callTool(ctx context.Context, serverSubject string, req *mcp.C
 		audit = audit.WithValues("clientID", clientID)
 	}
 
-	ref, ok := g.policy.Load().Authorize(subject, name)
+	ref, ok := g.policy.Load().Authorize(subject, name, g.catalogs)
 	if !ok {
 		audit.Info("tool call denied", "reason", "no grant")
 		metrics.RecordDenied(subject)

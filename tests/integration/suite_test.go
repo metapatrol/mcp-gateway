@@ -90,8 +90,8 @@ func startController(t *testing.T) {
 	for _, r := range []interface{ SetupWithManager(ctrl.Manager) error }{
 		servers,
 		&controller.MCPToolSetReconciler{Client: mgr.GetClient(), Scheme: scheme, Registry: registry},
-		&controller.MCPCapabilityReconciler{Client: mgr.GetClient(), Scheme: scheme},
-		&controller.MCPGrantReconciler{Client: mgr.GetClient(), Scheme: scheme},
+		&controller.MCPCapabilityReconciler{Client: mgr.GetClient(), Scheme: scheme, Registry: registry},
+		&controller.MCPGrantReconciler{Client: mgr.GetClient(), Scheme: scheme, Registry: registry},
 	} {
 		require.NoError(t, r.SetupWithManager(mgr))
 	}

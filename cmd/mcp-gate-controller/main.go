@@ -100,8 +100,8 @@ func main() {
 	}{
 		servers,
 		&controller.MCPToolSetReconciler{Client: mgr.GetClient(), Scheme: mgr.GetScheme(), Registry: registry},
-		&controller.MCPCapabilityReconciler{Client: mgr.GetClient(), Scheme: mgr.GetScheme()},
-		&controller.MCPGrantReconciler{Client: mgr.GetClient(), Scheme: mgr.GetScheme()},
+		&controller.MCPCapabilityReconciler{Client: mgr.GetClient(), Scheme: mgr.GetScheme(), Registry: registry},
+		&controller.MCPGrantReconciler{Client: mgr.GetClient(), Scheme: mgr.GetScheme(), Registry: registry},
 	}
 	for _, c := range controllers {
 		if err := c.SetupWithManager(mgr); err != nil {

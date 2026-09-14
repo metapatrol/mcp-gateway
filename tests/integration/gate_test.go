@@ -193,6 +193,49 @@ func TestGate(t *testing.T) {
 		assert.Len(t, names(t, session), 5, "a broken grant must not take away what the working one gives")
 	})
 
+	// A pattern resolves against the live catalog: the status shows what it
+	// selects, and a tool the backend adds later is selected without anyone
+	// touching a manifest.
+	t.Run("a pattern follows the catalog", func(t *testing.T) {
+		patterns := &gatev1alpha1.MCPToolSet{
+			ObjectMeta: metav1.ObjectMeta{Name: "source-patterns"},
+			Spec: gatev1alpha1.MCPToolSetSpec{
+				ServerRef: "source-intelligence",
+				Tools:     []string{"source_*"},
+				Exclude:   []string{"source_get"},
+			},
+		}
+		create(t, patterns)
+		create(t, &gatev1alpha1.MCPCapability{
+			ObjectMeta: metav1.ObjectMeta{Name: "patterns"},
+			Spec:       gatev1alpha1.MCPCapabilitySpec{ToolSets: []string{"source-patterns"}},
+		})
+		create(t, &gatev1alpha1.MCPGrant{
+			ObjectMeta: metav1.ObjectMeta{Name: "pattern-agent"},
+			Spec:       gatev1alpha1.MCPGrantSpec{Subject: "pattern-agent", Capabilities: []string{"patterns"}},
+		})
+
+		requireReady(t, patterns, metav1.ConditionTrue, gatev1alpha1.ReasonAvailable)
+		require.NoError(t, k8sClient.Get(context.Background(), types.NamespacedName{Name: patterns.Name}, patterns))
+		assert.Equal(t, []string{"source_search"}, patterns.Status.ResolvedTools)
+		assert.Equal(t, 1, patterns.Status.ResolvedToolCount)
+
+		agent := connect(t, url, "pattern-agent", nil)
+		require.Eventually(t, func() bool { return slices.Equal(names(t, agent), []string{"source_search"}) }, eventually, tick)
+
+		sourceIntelligence.AddTool("source_blame")
+		require.Eventually(t, func() bool {
+			if err := k8sClient.Get(context.Background(), types.NamespacedName{Name: patterns.Name}, patterns); err != nil {
+				return false
+			}
+			return slices.Equal(patterns.Status.ResolvedTools, []string{"source_blame", "source_search"})
+		}, eventually, tick, "the tool set status must pick up the new tool")
+		require.Eventually(t, func() bool {
+			return slices.Equal(names(t, agent), []string{"source_blame", "source_search"})
+		}, eventually, tick, "the open session must pick up the new tool")
+		sourceIntelligence.RemoveTool("source_blame")
+	})
+
 	t.Run("revoking the grant", func(t *testing.T) {
 		for len(changed) > 0 {
 			<-changed
