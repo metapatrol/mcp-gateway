@@ -1,0 +1,231 @@
+// Package policy resolves what a subject may use: MCPGrant to MCPCapability to
+// MCPToolSet to a tool on an MCPServer.
+//
+// It is pure. A Snapshot is built from the four kinds as listed at one moment
+// and answers from that alone, with no client, no clock and no catalog. The
+// gateway resolves every call through it, and the controller reports through it
+// what the gateway will do — one implementation, so the status a resource shows
+// cannot disagree with the enforcement it describes.
+//
+// Whether a backend currently exposes a resolved tool is a separate question,
+// answered by the catalog. Keeping it out of here is what makes a name conflict
+// a property of the manifests: it does not appear and disappear as backends go
+// up and down.
+package policy
+
+import (
+	"slices"
+	"sort"
+	"sync"
+
+	gatev1alpha1 "forgejo.metapatrol.local/platform/mcp-gate/api/v1alpha1"
+)
+
+// ToolRef is the backend-qualified identity of a tool: the server it lives on
+// and the name that server gives it. The gateway keeps this internally and
+// exposes the bare name.
+type ToolRef struct {
+	Server string
+	Tool   string
+}
+
+// String renders the ref as server/tool, the form used in logs and messages.
+func (r ToolRef) String() string { return r.Server + "/" + r.Tool }
+
+// Snapshot is the declared policy at one moment.
+type Snapshot struct {
+	servers      map[string]bool
+	toolSets     map[string]gatev1alpha1.MCPToolSetSpec
+	capabilities map[string][]string
+	// grants maps a subject to the capability names its grants name, in grant
+	// name order so that resolution does not depend on list order.
+	grants map[string][]grant
+
+	// resolved memoises Resolve per subject. A snapshot never changes once
+	// built, and the gateway asks the same question on every call.
+	resolved sync.Map // subject -> Resolution
+}
+
+type grant struct {
+	name         string
+	capabilities []string
+}
+
+// NewSnapshot indexes the four kinds. Objects being deleted are left out: a
+// grant whose deletion has been requested no longer grants anything, even while
+// a finalizer holds it.
+func NewSnapshot(
+	servers []gatev1alpha1.MCPServer,
+	toolSets []gatev1alpha1.MCPToolSet,
+	capabilities []gatev1alpha1.MCPCapability,
+	grants []gatev1alpha1.MCPGrant,
+) *Snapshot {
+	s := &Snapshot{
+		servers:      make(map[string]bool, len(servers)),
+		toolSets:     make(map[string]gatev1alpha1.MCPToolSetSpec, len(toolSets)),
+		capabilities: make(map[string][]string, len(capabilities)),
+		grants:       map[string][]grant{},
+	}
+	for i := range servers {
+		if servers[i].DeletionTimestamp.IsZero() {
+			s.servers[servers[i].Name] = true
+		}
+	}
+	for i := range toolSets {
+		if toolSets[i].DeletionTimestamp.IsZero() {
+			s.toolSets[toolSets[i].Name] = toolSets[i].Spec
+		}
+	}
+	for i := range capabilities {
+		if capabilities[i].DeletionTimestamp.IsZero() {
+			s.capabilities[capabilities[i].Name] = capabilities[i].Spec.ToolSets
+		}
+	}
+	for i := range grants {
+		g := &grants[i]
+		if !g.DeletionTimestamp.IsZero() {
+			continue
+		}
+		s.grants[g.Spec.Subject] = append(s.grants[g.Spec.Subject], grant{name: g.Name, capabilities: g.Spec.Capabilities})
+	}
+	for subject := range s.grants {
+		sort.Slice(s.grants[subject], func(i, j int) bool { return s.grants[subject][i].name < s.grants[subject][j].name })
+	}
+	return s
+}
+
+// Empty is the snapshot that grants nothing — what the gateway enforces before
+// it has read any policy at all.
+func Empty() *Snapshot {
+	return NewSnapshot(nil, nil, nil, nil)
+}
+
+// Resolution is what a set of capabilities comes to.
+type Resolution struct {
+	// Tools maps each exposed name to the backend tool it stands for. A name
+	// that two different backend tools claim is absent: see Conflicts.
+	Tools map[string]ToolRef
+
+	// Conflicts maps each name claimed by more than one backend tool to all of
+	// its claimants, sorted. None of them is exposed. Picking one would make
+	// what an agent calls depend on the order of a list, and failing closed is
+	// the rule the whole model is built on.
+	Conflicts map[string][]ToolRef
+
+	// MissingCapabilities, MissingToolSets and MissingServers are the
+	// references that did not resolve, sorted and without duplicates. They
+	// contribute nothing to Tools.
+	MissingCapabilities []string
+	MissingToolSets     []string
+	MissingServers      []string
+}
+
+// Subjects returns every subject some grant names, sorted.
+func (s *Snapshot) Subjects() []string {
+	subjects := make([]string, 0, len(s.grants))
+	for subject := range s.grants {
+		subjects = append(subjects, subject)
+	}
+	sort.Strings(subjects)
+	return subjects
+}
+
+// Resolve returns everything subject is granted, across all of its grants.
+//
+// The result is shared between callers and must not be modified.
+func (s *Snapshot) Resolve(subject string) Resolution {
+	if res, ok := s.resolved.Load(subject); ok {
+		return res.(Resolution)
+	}
+	var capabilities []string
+	for _, g := range s.grants[subject] {
+		capabilities = append(capabilities, g.capabilities...)
+	}
+	res := s.ResolveCapabilities(capabilities)
+	s.resolved.Store(subject, res)
+	return res
+}
+
+// Authorize reports which backend tool subject reaches under name, if any.
+// It is the check the gateway makes on every tools/call.
+func (s *Snapshot) Authorize(subject, name string) (ToolRef, bool) {
+	ref, ok := s.Resolve(subject).Tools[name]
+	return ref, ok
+}
+
+// ResolveCapabilities returns what the named capabilities come to together.
+func (s *Snapshot) ResolveCapabilities(names []string) Resolution {
+	var toolSets []string
+	var missingCapabilities []string
+	for _, name := range names {
+		sets, ok := s.capabilities[name]
+		if !ok {
+			missingCapabilities = append(missingCapabilities, name)
+			continue
+		}
+		toolSets = append(toolSets, sets...)
+	}
+	res := s.ResolveToolSets(toolSets)
+	res.MissingCapabilities = sortedUnique(missingCapabilities)
+	return res
+}
+
+// ResolveToolSets returns what the named tool sets come to together.
+func (s *Snapshot) ResolveToolSets(names []string) Resolution {
+	claims := map[string][]ToolRef{}
+	var missingToolSets, missingServers []string
+	for _, name := range names {
+		spec, ok := s.toolSets[name]
+		if !ok {
+			missingToolSets = append(missingToolSets, name)
+			continue
+		}
+		if !s.servers[spec.ServerRef] {
+			missingServers = append(missingServers, spec.ServerRef)
+			continue
+		}
+		for _, tool := range spec.Tools {
+			ref := ToolRef{Server: spec.ServerRef, Tool: tool}
+			// The same backend tool reached through two tool sets is one tool,
+			// not a conflict.
+			if !slices.Contains(claims[tool], ref) {
+				claims[tool] = append(claims[tool], ref)
+			}
+		}
+	}
+
+	res := Resolution{
+		Tools:           make(map[string]ToolRef, len(claims)),
+		Conflicts:       map[string][]ToolRef{},
+		MissingToolSets: sortedUnique(missingToolSets),
+		MissingServers:  sortedUnique(missingServers),
+	}
+	for name, refs := range claims {
+		if len(refs) == 1 {
+			res.Tools[name] = refs[0]
+			continue
+		}
+		sort.Slice(refs, func(i, j int) bool { return refs[i].String() < refs[j].String() })
+		res.Conflicts[name] = refs
+	}
+	return res
+}
+
+// ConflictNames returns the conflicting names of a resolution, sorted.
+func (r Resolution) ConflictNames() []string {
+	names := make([]string, 0, len(r.Conflicts))
+	for name := range r.Conflicts {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+func sortedUnique(in []string) []string {
+	if len(in) == 0 {
+		return nil
+	}
+	out := slices.Clone(in)
+	sort.Strings(out)
+	return slices.Compact(out)
+}

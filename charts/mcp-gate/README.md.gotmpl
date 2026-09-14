@@ -1,0 +1,15 @@
+# {{ .Name }}
+
+{{ .Description }}
+
+## Chart Info
+
+| Field | Value |
+|---|---|
+| Version | `{{ .Version }}` |
+| App Version | `{{ .AppVersion }}` |
+| Type | `{{ .Type }}` |
+
+## Values
+
+{{ template "chart.valuesSection" . }}

@@ -1,0 +1,160 @@
+# Default values for mcp-gate.
+#
+# Two workloads: the controller, which verifies resources and reports status,
+# and the gateway, which serves agents. The proxy is not deployed here — it runs
+# beside the agents that need it, as a sidecar or on a workstation.
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# RBAC: a ClusterRole per component. The controller reads the four kinds and
+# writes their status; the gateway only reads them.
+rbac:
+  create: true
+
+# Logging configuration
+logging:
+  # Log format: text (human-readable) or json (structured, recommended for production)
+  format: json
+
+controller:
+  # A single replica does the work; more replicas only make sense with
+  # leaderElect, and then only one of them is active.
+  replicaCount: 1
+  image:
+    repository: zot.metapatrol.local/images/platform/mcp-gate-controller
+    pullPolicy: IfNotPresent
+    tag: ""  # Defaults to the chart version, see _helpers.tpl
+  serviceAccount:
+    create: true
+    annotations: {}
+    name: ""
+  metricsBindAddress: ":8080"
+  healthProbeBindAddress: ":8081"
+  leaderElect: false
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  # podAnnotations are added to the controller Pod. The chart always adds
+  # gate.metapatrol.com/chart-version itself.
+  podAnnotations: {}
+  env: []
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+gateway:
+  # Every replica serves traffic; there is no leader. With more than one, keep
+  # gateway.stateless off only if the ingress pins a client to a replica —
+  # a session lives in the replica that opened it.
+  replicaCount: 2
+  image:
+    repository: zot.metapatrol.local/images/platform/mcp-gate-gateway
+    pullPolicy: IfNotPresent
+    tag: ""
+  serviceAccount:
+    create: true
+    annotations: {}
+    name: ""
+  metricsBindAddress: ":8080"
+  healthProbeBindAddress: ":8081"
+  mcpBindAddress: ":8090"
+  mcpPath: /mcp
+
+  service:
+    type: ClusterIP
+    port: 80
+
+  # How agents' access tokens are verified. At least one of jwksURL or
+  # introspection.url is required.
+  oauth:
+    # Expected iss claim. Empty skips the check.
+    issuer: ""
+    # Expected aud claim — the gateway's own resource identifier. Empty skips
+    # the check.
+    audience: ""
+    # JWKS URL for JWT access tokens.
+    jwksURL: ""
+    # RFC 7662 introspection for opaque access tokens (Ory Hydra's default).
+    introspection:
+      url: ""
+      clientID: ""
+      # Secret holding the introspection client secret, when the endpoint
+      # wants client authentication.
+      clientSecretRef: {}
+      #  name: mcp-gate-introspection
+      #  key: client-secret
+      cacheTTL: 30s
+    # Claim the subject is read from; MCPGrant.spec.subject is matched
+    # against it. A dotted path reads a nested claim.
+    subjectClaim: sub
+
+  # RFC 9728 protected resource metadata. With both set, a 401 tells an agent
+  # where to obtain a token.
+  resourceURL: ""
+  authorizationServers: []
+  scopesSupported: []
+
+  # Serve without sessions: any replica answers any request, and agents are not
+  # notified when their tool list changes.
+  stateless: false
+  sessionTimeout: 30m
+  # How long the tools of a backend whose discovery keeps failing are still
+  # offered before they disappear from tool lists.
+  catalogMaxAge: 5m
+  # Upper bound on a forwarded tool call.
+  callTimeout: 5m
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+  podAnnotations: {}
+  env: []
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  podDisruptionBudget:
+    # Rendered only when replicaCount is above 1.
+    enabled: true
+    maxUnavailable: 1
+
+# A NetworkPolicy admitting agents to the gateway and nothing else. It covers the
+# gateway's side only: that agents cannot reach the backends directly has to be
+# said by a policy in each backend's namespace — see docs/architecture.md.
+networkPolicy:
+  enabled: false
+  # Namespaces whose pods may call the gateway. Empty admits every namespace.
+  agentNamespaceSelector: {}
+  # Pods that may call the gateway, within those namespaces. Empty admits all.
+  agentPodSelector: {}
+  # Namespaces allowed to scrape metrics and probe health.
+  monitoringNamespaceSelector: {}
+
+# Prometheus scraping of both components. The Services are always created; only
+# the ServiceMonitor is optional, because it needs a CRD the cluster may not have.
+serviceMonitor:
+  # Render a ServiceMonitor. Requires the Prometheus operator's CRDs — on a
+  # cluster without them the manifest cannot be applied at all, which is why
+  # this is off by default.
+  enabled: false
+  # Namespace for the ServiceMonitor. Defaults to the release namespace.
+  namespace: ""
+  # Labels the Prometheus instance selects ServiceMonitors by. Most
+  # installations set one (kube-prometheus-stack uses `release: <name>`), and a
+  # ServiceMonitor without it is simply never picked up.
+  additionalLabels: {}
+  interval: 30s
+  scrapeTimeout: ""
+  honorLabels: false
+  relabelings: []
+  metricRelabelings: []

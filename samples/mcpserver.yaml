@@ -1,0 +1,18 @@
+# Two backends, as CONCEPT.md registers them. The catalog is discovered from
+# each; nothing here lists a tool.
+apiVersion: mcp.gate.metapatrol.com/v1alpha1
+kind: MCPServer
+metadata:
+  name: source-intelligence
+spec:
+  endpoint: http://source-intelligence.mcp-system.svc/mcp
+---
+apiVersion: mcp.gate.metapatrol.com/v1alpha1
+kind: MCPServer
+metadata:
+  name: artifact
+spec:
+  endpoint: http://artifact.mcp-system.svc/mcp
+  # Re-read the catalog every five minutes. A backend that sends
+  # notifications/tools/list_changed is re-read as soon as it does.
+  discoveryInterval: 5m

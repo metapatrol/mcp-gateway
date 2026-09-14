@@ -1,0 +1,6 @@
+domain: gate.metapatrol.com
+layout:
+- go.kubebuilder.io/v4
+projectName: mcp-gate
+repo: forgejo.metapatrol.local/platform/mcp-gate
+version: "3"

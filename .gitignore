@@ -1,0 +1,6 @@
+# Build output
+bin/
+
+# semantic-release installs into the workspace during a release run.
+node_modules/
+package-lock.json

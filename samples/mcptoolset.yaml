@@ -1,0 +1,32 @@
+# Tool sets select from exactly one server. The names are the backend's own.
+apiVersion: mcp.gate.metapatrol.com/v1alpha1
+kind: MCPToolSet
+metadata:
+  name: source-intelligence-analysis
+spec:
+  serverRef: source-intelligence
+  tools:
+    - source_search
+    - source_get
+    - symbol_search
+---
+apiVersion: mcp.gate.metapatrol.com/v1alpha1
+kind: MCPToolSet
+metadata:
+  name: artifact-read
+spec:
+  serverRef: artifact
+  tools:
+    - artifact_search
+    - artifact_get
+---
+apiVersion: mcp.gate.metapatrol.com/v1alpha1
+kind: MCPToolSet
+metadata:
+  name: artifact-readwrite
+spec:
+  serverRef: artifact
+  tools:
+    - artifact_search
+    - artifact_get
+    - artifact_publish

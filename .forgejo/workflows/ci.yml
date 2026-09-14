@@ -1,0 +1,204 @@
+# Checks that run on every pull request, and on pushes to develop.
+#
+# Jobs run on the runner's default image rather than overriding `container:`,
+# and install what they need. Pinning a tool image like golang:1.26 is faster
+# but breaks every JavaScript action: those images ship no node, and
+# `actions/checkout` needs one.
+#
+# The cheap checks gate the expensive ones:
+#
+#   secret-scan ─┐
+#   lint ────────┴─> test, integration, generated, helm
+#
+# secret-scan downloads a binary and greps the tree; lint is a static pass. The
+# jobs behind them compile a toolchain or fetch an API server first, which is
+# not worth spending on a branch that does not lint or that leaks a credential.
+# The cost is a round trip: a lint error and a test failure surface one after
+# the other.
+#
+# `runs-on: docker` names a runner *label*, not an image. Adjust it if this
+# instance's runners are labelled differently.
+name: ci
+
+# A ref is built once. Branch work is built through its pull request; develop
+# keeps a push trigger because it also receives direct pushes — the post-release
+# sync in main.yml is one — and those reach no pull request.
+on:
+  push:
+    branches: [develop]
+  pull_request:
+
+env:
+  # The instance uses a private CA the runner may not carry.
+  GIT_SSL_NO_VERIFY: "true"
+  GO_VERSION: "1.26"
+  # setup-go's own cache stays off, here and in the other two workflows. The
+  # runner points GOPROXY at the in-cluster ci-cache, so the archive the action
+  # saves and restores per job only duplicates it.
+
+jobs:
+  secret-scan:
+    runs-on: docker
+    steps:
+      - uses: https://data.forgejo.org/actions/checkout@v6
+      # The Makefile owns the version and the invocation, so `make secret-scan`
+      # runs exactly this. It scans the working tree, not the history:
+      # `make secret-scan-history` is the audit.
+      - name: Scan for committed credentials
+        run: |
+          M=""
+          for t in curl tar; do command -v $t >/dev/null || M="$M $t"; done
+          [ -z "$M" ] || (apt-get update -qq && apt-get install -y -qq $M)
+          make secret-scan
+
+  lint:
+    runs-on: docker
+    steps:
+      - uses: https://data.forgejo.org/actions/checkout@v6
+      - uses: https://data.forgejo.org/actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+      # The version comes from the Makefile so that `make lint` and this job
+      # cannot drift apart.
+      - name: Install golangci-lint at the pinned version
+        run: |
+          VERSION=$(grep '^GOLANGCI_LINT_VERSION' Makefile | cut -d= -f2 | tr -d ' ')
+          echo "Installing golangci-lint $VERSION"
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh \
+            | sh -s -- -b "$(go env GOPATH)/bin" "$VERSION"
+      - run: $(go env GOPATH)/bin/golangci-lint run ./...
+        env:
+          GOFLAGS: "-mod=mod"
+
+  test:
+    needs: [secret-scan, lint]
+    runs-on: docker
+    env:
+      CGO_ENABLED: "1"
+      GOFLAGS: "-mod=mod"
+    steps:
+      - uses: https://data.forgejo.org/actions/checkout@v6
+      - uses: https://data.forgejo.org/actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+      # The race detector needs cgo, and cgo needs a C compiler the default
+      # image may not carry.
+      - name: Install a C compiler for the race detector
+        run: command -v gcc >/dev/null || (apt-get update -qq && apt-get install -y -qq gcc libc6-dev)
+      # With the race detector: the gateway shares one backend session between
+      # every caller and re-syncs tool lists while calls are in flight, and a
+      # race there is a wrong answer about who may call what.
+      - run: go test -race -count=1 ./...
+
+  # The controller and the gateway against a real API server with the generated
+  # CRDs installed. `make integration-test` fetches the API server and etcd
+  # through setup-envtest, at the versions the Makefile pins.
+  integration:
+    needs: [secret-scan, lint]
+    runs-on: docker
+    env:
+      GOFLAGS: "-mod=mod"
+    steps:
+      - uses: https://data.forgejo.org/actions/checkout@v6
+      - uses: https://data.forgejo.org/actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+      - run: make integration-test
+
+  # The CRDs the chart installs are generated from the Go types. If they are
+  # stale, the API the chart ships is not the one the code implements.
+  generated:
+    needs: [secret-scan, lint]
+    runs-on: docker
+    steps:
+      - uses: https://data.forgejo.org/actions/checkout@v6
+      - uses: https://data.forgejo.org/actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+      - name: Install controller-gen at the pinned version
+        run: |
+          CONTROLLER_GEN_VERSION=$(grep '^CONTROLLER_GEN_VERSION' Makefile | cut -d= -f2 | tr -d ' ')
+          echo "Installing controller-gen $CONTROLLER_GEN_VERSION"
+          go install sigs.k8s.io/controller-tools/cmd/controller-gen@$CONTROLLER_GEN_VERSION
+      - name: The CRDs must match the Go types
+        run: |
+          export PATH="$PATH:$(go env GOPATH)/bin"
+          controller-gen crd:generateEmbeddedObjectMeta=true \
+            paths="./api/v1alpha1/..." output:crd:artifacts:config=/tmp/crd-check
+          FAIL=0
+          for f in /tmp/crd-check/*.yaml; do
+            name=$(basename "$f")
+            target="charts/mcp-gate/crds/$name"
+            if [ ! -f "$target" ]; then
+              echo "ERROR: $name missing from charts/mcp-gate/crds/"
+              FAIL=1
+            elif ! diff -q "$f" "$target" > /dev/null 2>&1; then
+              echo "ERROR: $name is out of date. Run: make generate-crds"
+              diff "$f" "$target" || true
+              FAIL=1
+            else
+              echo "OK: $name"
+            fi
+          done
+          [ $FAIL -eq 0 ] || exit 1
+      - name: The deepcopy methods must match too
+        run: |
+          export PATH="$PATH:$(go env GOPATH)/bin"
+          controller-gen object paths="./..."
+          if ! git diff --exit-code -- api/; then
+            echo "ERROR: zz_generated.deepcopy.go is out of date. Run: make generate"
+            exit 1
+          fi
+          echo "deepcopy is up to date."
+
+  helm:
+    needs: [secret-scan, lint]
+    runs-on: docker
+    steps:
+      - uses: https://data.forgejo.org/actions/checkout@v6
+      - uses: https://data.forgejo.org/actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+      # get.helm.sh resets the connection from this runner, so both tools come
+      # through the module proxy, which answers. Note also that `a | b && c`
+      # puts the pipeline in a condition context where set -e does not apply.
+      - name: Install helm and helm-docs
+        run: |
+          set -eu
+          go install helm.sh/helm/v3/cmd/helm@v3.16.3
+          go install github.com/norwoodj/helm-docs/cmd/helm-docs@v1.14.2
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      # The chart refuses to render without a way to verify tokens, so it is
+      # linted with the values in ci/ — and once without, to prove it refuses.
+      - name: Lint and render the chart
+        run: |
+          set -eu
+          chart=charts/mcp-gate
+          helm lint "$chart" -f "$chart/ci/default-values.yaml"
+          helm template "$chart" -f "$chart/ci/default-values.yaml" > /dev/null
+          helm template "$chart" \
+            -f "$chart/ci/default-values.yaml" \
+            --set networkPolicy.enabled=true \
+            --set serviceMonitor.enabled=true \
+            --set gateway.oauth.introspection.url=http://hydra-admin:4445/admin/oauth2/introspect > /dev/null
+          if helm template "$chart" > /dev/null 2>&1; then
+            echo "ERROR: the chart rendered without token verification settings"
+            exit 1
+          fi
+      - name: The chart README must be current
+        run: |
+          set -eu
+          chart=charts/mcp-gate
+          cp "$chart/README.md" /tmp/readme-original.md
+          helm-docs --chart-search-root "$chart" --output-file README.md --log-level warning
+          if ! diff -q /tmp/readme-original.md "$chart/README.md" > /dev/null 2>&1; then
+            echo "ERROR: $chart/README.md is out of date. Run: make helm-docs"
+            diff /tmp/readme-original.md "$chart/README.md" || true
+            exit 1
+          fi
+          echo "OK: $chart/README.md"

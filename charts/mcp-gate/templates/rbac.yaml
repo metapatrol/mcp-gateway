@@ -1,0 +1,71 @@
+{{- if .Values.rbac.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "mcp-gate.controller.fullname" . }}
+  labels:
+    {{- include "mcp-gate.labels" . | nindent 4 }}
+    app.kubernetes.io/component: controller
+rules:
+  # The controller verifies and reports. It never creates or deletes one of
+  # these; the manifests belong to whoever applies them.
+  - apiGroups: ["mcp.gate.metapatrol.com"]
+    resources: ["mcpservers", "mcptoolsets", "mcpcapabilities", "mcpgrants"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["mcp.gate.metapatrol.com"]
+    resources: ["mcpservers/status", "mcptoolsets/status", "mcpcapabilities/status", "mcpgrants/status"]
+    verbs: ["get", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+  # Leader election
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "mcp-gate.controller.fullname" . }}
+  labels:
+    {{- include "mcp-gate.labels" . | nindent 4 }}
+    app.kubernetes.io/component: controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "mcp-gate.controller.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "mcp-gate.controller.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "mcp-gate.gateway.fullname" . }}
+  labels:
+    {{- include "mcp-gate.labels" . | nindent 4 }}
+    app.kubernetes.io/component: gateway
+rules:
+  # Read-only, and nothing else: the enforcement point is the one component
+  # that must not be able to change what it enforces.
+  - apiGroups: ["mcp.gate.metapatrol.com"]
+    resources: ["mcpservers", "mcptoolsets", "mcpcapabilities", "mcpgrants"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "mcp-gate.gateway.fullname" . }}
+  labels:
+    {{- include "mcp-gate.labels" . | nindent 4 }}
+    app.kubernetes.io/component: gateway
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "mcp-gate.gateway.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "mcp-gate.gateway.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}

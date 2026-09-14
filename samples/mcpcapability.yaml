@@ -1,0 +1,19 @@
+# Capabilities name an ability, and may span backends.
+apiVersion: mcp.gate.metapatrol.com/v1alpha1
+kind: MCPCapability
+metadata:
+  name: code-research
+spec:
+  description: Read and search source code, and read published artifacts.
+  toolSets:
+    - source-intelligence-analysis
+    - artifact-read
+---
+apiVersion: mcp.gate.metapatrol.com/v1alpha1
+kind: MCPCapability
+metadata:
+  name: artifact-authoring
+spec:
+  description: Search, read and publish artifacts.
+  toolSets:
+    - artifact-readwrite

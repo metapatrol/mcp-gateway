@@ -1,0 +1,57 @@
+# An agent that speaks MCP without OAuth, with mcp-gate-proxy beside it. The
+# agent is configured with http://127.0.0.1:8765/mcp and nothing else.
+#
+# The Secret is the OAuth client's credentials. With hydra-maester it is the
+# one an OAuth2Client writes, whose keys are CLIENT_ID and CLIENT_SECRET.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coding-agent
+  namespace: agents
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: coding-agent
+  template:
+    metadata:
+      labels:
+        app: coding-agent
+    spec:
+      containers:
+        - name: agent
+          image: registry.example.com/coding-agent:latest
+          env:
+            - name: MCP_SERVER_URL
+              value: http://127.0.0.1:8765/mcp
+        - name: mcp-gate-proxy
+          image: zot.metapatrol.local/images/platform/mcp-gate-proxy:0.1.0
+          env:
+            - name: MCP_GATE_GATEWAY_URL
+              value: http://mcp-gate-gateway.mcp-system.svc/mcp
+            - name: MCP_GATE_TOKEN_URL
+              value: http://hydra-public.hydra.svc:4444/oauth2/token
+            - name: MCP_GATE_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: coding-agent-oauth
+                  key: CLIENT_ID
+            - name: MCP_GATE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: coding-agent-oauth
+                  key: CLIENT_SECRET
+            - name: MCP_GATE_PROXY_LOG_FORMAT
+              value: json
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              memory: 64Mi

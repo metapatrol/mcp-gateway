@@ -1,0 +1,272 @@
+# What happens when something lands on main.
+#
+# The same checks as a pull request, then images from the commit, then
+# semantic-release deciding whether the commits since the last tag warrant a
+# version.
+#
+# Publishing that version is release.yml's job, and semantic-release asks for it
+# directly rather than leaving the tag to trigger it: Forgejo raises no push
+# event for a tag created with the automation token. See
+# .forgejo/trigger-release.sh.
+name: main
+
+on:
+  push:
+    branches: [main]
+
+env:
+  GIT_SSL_NO_VERIFY: "true"
+  GO_VERSION: "1.26"
+  # From the runner, not hardcoded: the workflows are meant to be copied between
+  # repositories in this org without an edit.
+  FORGEJO_BASE_URL: ${{ github.server_url }}
+  FORGEJO_REPO: ${{ github.repository }}
+
+jobs:
+  # Whether this installation is configured to publish anything.
+  #
+  # Without registry credentials the repository is not broken, it is merely not
+  # set up to push images — so the publishing jobs are skipped rather than
+  # failed. A push that goes red every time because of configuration nobody has
+  # got round to only teaches people to ignore red.
+  config:
+    # Nothing to do for semantic-release's own commit: it changes a changelog
+    # and a chart version, and the tag it carries is release.yml's business.
+    if: "${{ !startsWith(github.event.head_commit.message, 'chore: release v') }}"
+    runs-on: docker
+    outputs:
+      publish: ${{ steps.check.outputs.publish }}
+      release: ${{ steps.check.outputs.release }}
+    steps:
+      - id: check
+        env:
+          ZOT_URL: ${{ vars.ZOT_URL }}
+          ZOT_USERNAME: ${{ vars.ZOT_USERNAME }}
+          ZOT_TOKEN: ${{ secrets.ZOT_TOKEN }}
+          AUTOMATION_TOKEN: ${{ secrets.AUTOMATION_TOKEN }}
+        run: |
+          publish=false
+          release=false
+          if [ -n "$ZOT_URL" ] && [ -n "$ZOT_USERNAME" ] && [ -n "$ZOT_TOKEN" ]; then
+            publish=true
+          else
+            echo "registry secrets are not set - skipping the image build"
+          fi
+          if [ -n "$AUTOMATION_TOKEN" ]; then
+            release=true
+          else
+            echo "AUTOMATION_TOKEN is not set - skipping semantic-release"
+          fi
+          for out in "$GITHUB_OUTPUT" "$FORGEJO_OUTPUT"; do
+            [ -n "$out" ] || continue
+            echo "publish=$publish" >> "$out"
+            echo "release=$release" >> "$out"
+          done
+          echo "publish=$publish release=$release"
+
+  secret-scan:
+    if: "${{ !startsWith(github.event.head_commit.message, 'chore: release v') }}"
+    runs-on: docker
+    steps:
+      - uses: https://data.forgejo.org/actions/checkout@v6
+      - name: Scan for committed credentials
+        run: |
+          M=""
+          for t in curl tar; do command -v $t >/dev/null || M="$M $t"; done
+          [ -z "$M" ] || (apt-get update -qq && apt-get install -y -qq $M)
+          make secret-scan
+
+  lint:
+    if: "${{ !startsWith(github.event.head_commit.message, 'chore: release v') }}"
+    runs-on: docker
+    steps:
+      - uses: https://data.forgejo.org/actions/checkout@v6
+      - uses: https://data.forgejo.org/actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+      - name: Install golangci-lint at the pinned version
+        run: |
+          VERSION=$(grep '^GOLANGCI_LINT_VERSION' Makefile | cut -d= -f2 | tr -d ' ')
+          echo "Installing golangci-lint $VERSION"
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh \
+            | sh -s -- -b "$(go env GOPATH)/bin" "$VERSION"
+      - run: $(go env GOPATH)/bin/golangci-lint run ./...
+        env:
+          GOFLAGS: "-mod=mod"
+
+  # Re-run the checks rather than trusting the pull request's. A merge produces
+  # a commit nothing has tested.
+  verify:
+    needs: [secret-scan, lint]
+    if: "${{ !startsWith(github.event.head_commit.message, 'chore: release v') }}"
+    runs-on: docker
+    env:
+      GOFLAGS: "-mod=mod"
+    steps:
+      - uses: https://data.forgejo.org/actions/checkout@v6
+      - uses: https://data.forgejo.org/actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+      # The race detector needs cgo, and cgo needs a C compiler the default
+      # image may not carry.
+      - name: Install a C compiler for the race detector
+        run: command -v gcc >/dev/null || (apt-get update -qq && apt-get install -y -qq gcc libc6-dev)
+      - run: go test -race -count=1 ./...
+      - run: make integration-test
+
+  # One image per binary, from the same Dockerfile.
+  image:
+    needs: [verify, config]
+    if: needs.config.outputs.publish == 'true'
+    runs-on: docker
+    strategy:
+      matrix:
+        binary: [mcp-gate-controller, mcp-gate-gateway, mcp-gate-proxy]
+    env:
+      ZOT_URL: ${{ vars.ZOT_URL }}
+      ZOT_USERNAME: ${{ vars.ZOT_USERNAME }}
+      ZOT_TOKEN: ${{ secrets.ZOT_TOKEN }}
+    steps:
+      - uses: https://data.forgejo.org/actions/checkout@v6
+      # A secret that was never set expands to an empty string rather than
+      # failing, so without this the job dies later with something unrelated —
+      # a registry login against "" or a 401 nobody realises was unauthenticated.
+      - name: Check the secrets this job needs
+        run: |
+          missing=""
+          for name in ZOT_URL ZOT_USERNAME ZOT_TOKEN; do
+            eval "value=\$$name"
+            [ -n "$value" ] || missing="$missing $name"
+          done
+          if [ -n "$missing" ]; then
+            echo "ERROR: unset secret or variable:$missing"
+            echo "See .forgejo/README.md for what each one is."
+            exit 1
+          fi
+          echo "secrets present"
+      # podman rather than buildah: this runner's package sources have no
+      # buildah, and no docker daemon or socket to fall back on.
+      - name: Install podman
+        run: command -v podman >/dev/null || (apt-get update -qq && apt-get install -y -qq podman)
+      - name: Build and push
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+          BINARY: ${{ matrix.binary }}
+        run: |
+          set -eu
+          REGISTRY=$(echo "$ZOT_URL" | sed 's|https://||')
+          IMAGE="$REGISTRY/images/platform/$BINARY"
+          COMMIT=$(echo "$COMMIT_SHA" | cut -c1-7)
+          # Twelve characters, because that is what Flux writes into a chart
+          # version's build metadata when a HelmRelease reads the chart from a
+          # GitRepository (0.3.0+ab12cd34ef56). The chart derives the image tag
+          # from it, so a cluster tracking a branch runs the commit it tracks.
+          SHORT_SHA=$(echo "$COMMIT_SHA" | cut -c1-12)
+          BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          podman --storage-driver=vfs build --tls-verify=false \
+            --build-arg BINARY="$BINARY" \
+            --build-arg VERSION="$COMMIT" \
+            --build-arg COMMIT="$COMMIT" \
+            --build-arg BUILT_AT="$BUILD_TIME" \
+            -t "$IMAGE:latest" \
+            -t "$IMAGE:$COMMIT_SHA" \
+            -t "$IMAGE:$SHORT_SHA" \
+            -f Dockerfile .
+          podman login --username "$ZOT_USERNAME" --password "$ZOT_TOKEN" --tls-verify=false "$REGISTRY"
+          for tag in latest "$COMMIT_SHA" "$SHORT_SHA"; do
+            podman --storage-driver=vfs push --tls-verify=false "$IMAGE:$tag"
+          done
+
+  semantic-release:
+    needs: [verify, config]
+    if: needs.config.outputs.release == 'true'
+    runs-on: docker
+    env:
+      AUTOMATION_TOKEN: ${{ secrets.AUTOMATION_TOKEN }}
+    steps:
+      - uses: https://data.forgejo.org/actions/checkout@v6
+        with:
+          # semantic-release reads the whole history to work out what the
+          # commits since the last tag amount to.
+          fetch-depth: 0
+      - uses: https://data.forgejo.org/actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Decide and publish a version
+        env:
+          GIT_AUTHOR_NAME: automation
+          GIT_AUTHOR_EMAIL: automation@forge.metapatrol.com
+          GIT_COMMITTER_NAME: automation
+          GIT_COMMITTER_EMAIL: automation@forge.metapatrol.com
+          NODE_TLS_REJECT_UNAUTHORIZED: "0"
+        run: |
+          npm install --no-save \
+            semantic-release \
+            @semantic-release/changelog \
+            @semantic-release/exec \
+            @semantic-release/git
+          cat > /tmp/git-askpass.sh << 'ASKPASS'
+          #!/bin/sh
+          case "$1" in
+            Username*) echo automation ;;
+            Password*) echo "$AUTOMATION_TOKEN" ;;
+          esac
+          ASKPASS
+          chmod +x /tmp/git-askpass.sh
+          export GIT_ASKPASS=/tmp/git-askpass.sh
+          npx semantic-release
+
+      # semantic-release commits the changelog and the chart version onto main
+      # and nowhere else. Work is bundled on develop, so without this every
+      # release leaves develop behind and the next release pull request opens
+      # with a conflict in exactly the lines a human has no business resolving.
+      #
+      # A fast-forward when possible, a merge when develop has moved on — the
+      # only move that keeps both sides and rewrites neither. Housekeeping either
+      # way, so a failure to sync does not fail the release.
+      - name: Carry the release commit back to develop
+        continue-on-error: true
+        env:
+          GIT_AUTHOR_NAME: automation
+          GIT_AUTHOR_EMAIL: automation@forge.metapatrol.com
+          GIT_COMMITTER_NAME: automation
+          GIT_COMMITTER_EMAIL: automation@forge.metapatrol.com
+        run: |
+          export GIT_ASKPASS=/tmp/git-askpass.sh
+
+          if [ -z "$(git ls-remote --heads origin develop)" ]; then
+            echo "no develop branch on the remote; nothing to carry"
+            exit 0
+          fi
+
+          # Explicit refspecs: actions/checkout leaves remote.origin.fetch
+          # single-branch, so `git fetch origin develop` creates no
+          # refs/remotes/origin/develop.
+          git fetch origin \
+            "+refs/heads/main:refs/remotes/origin/main" \
+            "+refs/heads/develop:refs/remotes/origin/develop"
+
+          if git merge-base --is-ancestor origin/main origin/develop; then
+            echo "develop already contains main; nothing to carry"
+            exit 0
+          fi
+
+          if git merge-base --is-ancestor origin/develop origin/main; then
+            git push origin origin/main:refs/heads/develop
+            echo "develop fast-forwarded to $(git rev-parse --short origin/main)"
+            exit 0
+          fi
+
+          echo "develop has commits main does not; merging instead."
+          git checkout -q -B carry-to-develop origin/develop
+          if git merge --no-ff -m "chore: carry main into develop after the release" origin/main; then
+            git push origin HEAD:refs/heads/develop
+            echo "develop merged with main at $(git rev-parse --short origin/main)"
+          else
+            git merge --abort
+            echo "the merge conflicts, so nothing was pushed."
+            echo "Open a pull request from main into develop and resolve it there."
+            exit 1
+          fi
