@@ -125,7 +125,7 @@ func (r *Registry) Discover(ctx context.Context, name string) (catalog *Catalog,
 	}
 	backend := e.backend
 
-	tools, err := backend.ListTools(ctx)
+	fresh, err := backend.ReadCatalog(ctx)
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -136,14 +136,14 @@ func (r *Registry) Discover(ctx context.Context, name string) (catalog *Catalog,
 		return nil, false, ErrClosed
 	}
 	e = cur
-	metrics.RecordDiscovery(name, len(tools), err)
 	if err != nil {
+		metrics.RecordDiscovery(name, 0, err)
 		e.failures++
 		e.lastErr = err
 		return e.catalog, false, err
 	}
 
-	fresh := NewCatalog(tools)
+	metrics.RecordDiscovery(name, fresh.Len(), nil)
 	e.failures = 0
 	e.lastErr = nil
 	e.lastSuccess = time.Now()

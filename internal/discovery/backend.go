@@ -219,9 +219,10 @@ func withSession[T any](ctx context.Context, b *Backend, fn func(*mcp.ClientSess
 	}
 }
 
-// ListTools reads the backend's complete tool list, following pagination.
-func (b *Backend) ListTools(ctx context.Context) ([]*mcp.Tool, error) {
-	return withSession(ctx, b, func(session *mcp.ClientSession) ([]*mcp.Tool, error) {
+// ReadCatalog reads the backend's complete tool list, following pagination, and
+// the instructions it gave when the session was opened.
+func (b *Backend) ReadCatalog(ctx context.Context) (*Catalog, error) {
+	return withSession(ctx, b, func(session *mcp.ClientSession) (*Catalog, error) {
 		var tools []*mcp.Tool
 		for tool, err := range session.Tools(ctx, nil) {
 			if err != nil {
@@ -229,7 +230,11 @@ func (b *Backend) ListTools(ctx context.Context) ([]*mcp.Tool, error) {
 			}
 			tools = append(tools, tool)
 		}
-		return tools, nil
+		var instructions string
+		if res := session.InitializeResult(); res != nil {
+			instructions = res.Instructions
+		}
+		return NewCatalog(tools, instructions), nil
 	})
 }
 

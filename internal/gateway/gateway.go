@@ -25,6 +25,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -47,7 +49,8 @@ type Options struct {
 	// Implementation is how the gateway introduces itself to agents.
 	Implementation *mcp.Implementation
 
-	// Instructions, if set, are sent to agents in the initialize result.
+	// Instructions, if set, are sent to agents when they start, ahead of the
+	// instructions of the backends they reach.
 	Instructions string
 
 	// CatalogMaxAge is how long the tools of a backend whose discovery keeps
@@ -205,7 +208,10 @@ func (g *Gateway) serverFor(subject string) *mcp.Server {
 	if !ok {
 		ss = &subjectServer{
 			server: mcp.NewServer(g.opts.Implementation, &mcp.ServerOptions{
-				Instructions: g.opts.Instructions,
+				// No Instructions here: they depend on what the subject may use
+				// at the moment a session starts, and forwardInstructions writes
+				// them into each answer instead.
+				//
 				// Tools, with change notifications — and nothing else. The
 				// SDK advertises logging by default, which the gateway does
 				// not relay.
@@ -219,7 +225,7 @@ func (g *Gateway) serverFor(subject string) *mcp.Server {
 			}),
 			tools: map[string]exposed{},
 		}
-		ss.server.AddReceivingMiddleware(g.auditRefusals(subject))
+		ss.server.AddReceivingMiddleware(g.auditRefusals(subject), g.forwardInstructions(subject))
 		g.subjects[subject] = ss
 		g.syncLocked(subject, ss)
 	}
@@ -241,6 +247,76 @@ func (g *Gateway) auditRefusals(subject string) mcp.Middleware {
 			return next(ctx, method, req)
 		}
 	}
+}
+
+// forwardInstructions puts the backends' instructions into the answer a client
+// gets when it starts: initialize, or server/discover under the stateless
+// protocol.
+//
+// A backend's instructions tell a model how to use its tools — which one to
+// reach for first, what an argument means, what a partial answer looks like.
+// An agent behind the gateway would otherwise see the tools without any of
+// that. They are assembled per request, because they follow the grants: a
+// subject sees the instructions of the backends it holds at least one tool
+// from, and nothing of the others.
+func (g *Gateway) forwardInstructions(subject string) mcp.Middleware {
+	return func(next mcp.MethodHandler) mcp.MethodHandler {
+		return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
+			res, err := next(ctx, method, req)
+			if err != nil {
+				return res, err
+			}
+			switch r := res.(type) {
+			case *mcp.InitializeResult:
+				r.Instructions = g.instructionsFor(subject)
+			case *mcp.DiscoverResult:
+				r.Instructions = g.instructionsFor(subject)
+			}
+			return res, nil
+		}
+	}
+}
+
+// instructionsFor assembles what a subject is told: the gateway's own
+// instructions, if any, then one section per backend it reaches, in server name
+// order.
+//
+// Each section names the backend and the tools the subject has from it. Tools
+// are exposed under their bare names, so without that line a model reading
+// "use search before get" cannot tell which of its tools the sentence is about.
+// A backend's text is passed on as it is, including what it says about tools
+// the subject was not granted; it is prose, and there is nothing to filter it
+// by.
+func (g *Gateway) instructionsFor(subject string) string {
+	byServer := map[string][]string{}
+	for name, w := range g.desired(subject) {
+		byServer[w.ref.Server] = append(byServer[w.ref.Server], name)
+	}
+	servers := make([]string, 0, len(byServer))
+	for server := range byServer {
+		servers = append(servers, server)
+	}
+	sort.Strings(servers)
+
+	var b strings.Builder
+	b.WriteString(strings.TrimSpace(g.opts.Instructions))
+	for _, server := range servers {
+		catalog, ok := g.usableCatalog(server)
+		if !ok {
+			continue
+		}
+		text := strings.TrimSpace(catalog.Instructions)
+		if text == "" {
+			continue
+		}
+		tools := byServer[server]
+		sort.Strings(tools)
+		if b.Len() > 0 {
+			b.WriteString("\n\n")
+		}
+		fmt.Fprintf(&b, "## %s\n\nTools from this server: %s\n\n%s", server, strings.Join(tools, ", "), text)
+	}
+	return b.String()
 }
 
 func (g *Gateway) registered(subject, name string) bool {

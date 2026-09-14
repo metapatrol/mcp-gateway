@@ -25,20 +25,39 @@ func TestCatalog_RevisionIsOrderIndependent(t *testing.T) {
 	a := &mcp.Tool{Name: "a", InputSchema: json.RawMessage(`{"type":"object"}`)}
 	b := &mcp.Tool{Name: "b", InputSchema: json.RawMessage(`{"type":"object"}`)}
 
-	assert.Equal(t, NewCatalog([]*mcp.Tool{a, b}).Revision, NewCatalog([]*mcp.Tool{b, a}).Revision)
-	assert.Equal(t, []string{"a", "b"}, NewCatalog([]*mcp.Tool{b, a}).Names())
+	assert.Equal(t, NewCatalog([]*mcp.Tool{a, b}, "").Revision, NewCatalog([]*mcp.Tool{b, a}, "").Revision)
+	assert.Equal(t, []string{"a", "b"}, NewCatalog([]*mcp.Tool{b, a}, "").Names())
 }
 
 // A changed description is a changed catalog. Agents choose tools by their
 // descriptions, so the gateway has to pass the new one on.
 func TestCatalog_RevisionSeesDescriptionChanges(t *testing.T) {
-	before := NewCatalog([]*mcp.Tool{{Name: "a", Description: "old"}})
-	after := NewCatalog([]*mcp.Tool{{Name: "a", Description: "new"}})
+	before := NewCatalog([]*mcp.Tool{{Name: "a", Description: "old"}}, "")
+	after := NewCatalog([]*mcp.Tool{{Name: "a", Description: "new"}}, "")
 	assert.NotEqual(t, before.Revision, after.Revision)
 }
 
+// Instructions are part of what a backend offers. A redeploy that only changes
+// them still has to reach agents.
+func TestCatalog_RevisionSeesInstructionChanges(t *testing.T) {
+	tools := []*mcp.Tool{{Name: "a"}}
+	assert.NotEqual(t, NewCatalog(tools, "old").Revision, NewCatalog(tools, "new").Revision)
+	assert.Equal(t, NewCatalog(tools, "same").Revision, NewCatalog(tools, "same").Revision)
+}
+
+func TestRegistry_DiscoverReadsTheInstructions(t *testing.T) {
+	backend := mcptest.NewBackendWithInstructions(t, "source-intelligence", "Search before you read.", "code.search")
+	r := newTestRegistry(t, Options{})
+	r.Ensure("source-intelligence", backend.URL)
+
+	catalog, _, err := r.Discover(context.Background(), "source-intelligence")
+	require.NoError(t, err)
+	assert.Equal(t, "Search before you read.", catalog.Instructions)
+	assert.Equal(t, []string{"code.search"}, catalog.Names())
+}
+
 func TestCatalog_DuplicateNamesKeepTheFirst(t *testing.T) {
-	c := NewCatalog([]*mcp.Tool{{Name: "a", Description: "first"}, {Name: "a", Description: "second"}})
+	c := NewCatalog([]*mcp.Tool{{Name: "a", Description: "first"}, {Name: "a", Description: "second"}}, "")
 	tool, ok := c.Tool("a")
 	require.True(t, ok)
 	assert.Equal(t, "first", tool.Description)

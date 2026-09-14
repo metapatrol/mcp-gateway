@@ -62,8 +62,10 @@ type env struct {
 func newEnv(t *testing.T, opts Options) *env {
 	t.Helper()
 	e := &env{t: t}
-	e.sourceIntelligence = mcptest.NewBackend(t, "source-intelligence", "source_search", "source_get", "symbol_search", "repository_search")
-	e.artifact = mcptest.NewBackend(t, "artifact", "artifact_search", "artifact_get", "artifact_publish")
+	e.sourceIntelligence = mcptest.NewBackendWithInstructions(t, "source-intelligence", "Search before you read.",
+		"source_search", "source_get", "symbol_search", "repository_search")
+	e.artifact = mcptest.NewBackendWithInstructions(t, "artifact", "Publish with a title.",
+		"artifact_search", "artifact_get", "artifact_publish")
 
 	e.registry = discovery.NewRegistry(discovery.Options{ConnectTimeout: 2 * time.Second})
 	t.Cleanup(e.registry.Close)
@@ -479,11 +481,69 @@ func TestStatelessMode(t *testing.T) {
 
 	session := e.connect("token-reviewer")
 	assert.Equal(t, []string{"artifact_get", "artifact_publish", "artifact_search"}, toolNames(t, session))
+	// Without sessions the client speaks the stateless protocol, where the
+	// instructions arrive in server/discover rather than initialize — so this
+	// is the test of that path.
+	assert.Equal(t, "2026-07-28", session.InitializeResult().ProtocolVersion)
+	assert.Contains(t, session.InitializeResult().Instructions, "Publish with a title.")
 	res, err := call(session, "artifact_publish")
 	require.NoError(t, err)
 	assert.Equal(t, `artifact/artifact_publish {"q":"x"}`, text(res))
 	_, err = call(session, "source_search")
 	assert.Error(t, err)
+}
+
+// Agents get the backends' instructions, and only those of the backends their
+// grants reach: a subject holding nothing of source-intelligence learns nothing
+// about it.
+func TestInstructions_FollowTheGrants(t *testing.T) {
+	e := newEnv(t, Options{})
+
+	assert.Equal(t,
+		"## artifact\n\nTools from this server: artifact_get, artifact_search\n\nPublish with a title.\n\n"+
+			"## source-intelligence\n\nTools from this server: source_get, source_search, symbol_search\n\nSearch before you read.",
+		e.connect("token-coding-agent").InitializeResult().Instructions)
+
+	reviewer := e.connect("token-reviewer").InitializeResult().Instructions
+	assert.Equal(t, "## artifact\n\nTools from this server: artifact_get, artifact_publish, artifact_search\n\nPublish with a title.", reviewer)
+	assert.NotContains(t, reviewer, "source-intelligence")
+
+	assert.Empty(t, e.connect("token-nobody").InitializeResult().Instructions)
+}
+
+func TestInstructions_GatewayPrefaceComesFirst(t *testing.T) {
+	e := newEnv(t, Options{Instructions: "Tools reach several backends through mcp-gate."})
+	instructions := e.connect("token-reviewer").InitializeResult().Instructions
+	assert.True(t, strings.HasPrefix(instructions, "Tools reach several backends through mcp-gate.\n\n## artifact\n\n"), instructions)
+}
+
+// A backend redeployed with new instructions and the same tools has changed:
+// the revision moves, and sessions started afterwards get the new text.
+func TestInstructions_ChangedInstructionsReachNewSessions(t *testing.T) {
+	e := newEnv(t, Options{})
+	before, _, _ := e.registry.Catalog("artifact")
+
+	e.artifact.SetInstructions("Publish with a title and tags.")
+	e.artifact.Restart("artifact_search", "artifact_get", "artifact_publish")
+	after, changed, err := e.registry.Discover(context.Background(), "artifact")
+	require.NoError(t, err)
+	assert.True(t, changed, "changed instructions are a changed catalog")
+	assert.NotEqual(t, before.Revision, after.Revision)
+
+	assert.Contains(t, e.connect("token-reviewer").InitializeResult().Instructions, "Publish with a title and tags.")
+}
+
+// A backend that is down past the catalog's max age drops out of the
+// instructions along with its tools.
+func TestInstructions_UnusableBackendIsLeftOut(t *testing.T) {
+	e := newEnv(t, Options{CatalogMaxAge: time.Nanosecond})
+	e.sourceIntelligence.Close()
+	_, _, err := e.registry.Discover(context.Background(), "source-intelligence")
+	require.Error(t, err)
+
+	instructions := e.connect("token-coding-agent").InitializeResult().Instructions
+	assert.NotContains(t, instructions, "source-intelligence")
+	assert.Contains(t, instructions, "## artifact")
 }
 
 // A tool list is one subject's. Marked public, an intermediary could serve it to

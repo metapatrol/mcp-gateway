@@ -17,15 +17,20 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// Catalog is the tool list one backend exposed at one moment.
+// Catalog is what one backend offered at one moment: its tools, and the
+// instructions it gives clients on how to use them.
 //
 // A Catalog is never modified once built. A rediscovery that finds the same
 // revision keeps the old one, which is what lets the gateway compare catalogs by
 // pointer and notify connected agents only when something actually changed.
 type Catalog struct {
 	// Revision is a sha256 over the canonical JSON of the tools, sorted by
-	// name.
+	// name, followed by the instructions.
 	Revision string
+
+	// Instructions is what the backend returned as instructions when the
+	// session was opened. Empty when it gave none.
+	Instructions string
 
 	tools map[string]*mcp.Tool
 	names []string
@@ -34,8 +39,8 @@ type Catalog struct {
 // NewCatalog builds a catalog. When a backend lists a name twice, the first
 // definition wins: the backend is misbehaving, and a stable choice is better
 // than one that flips between discoveries.
-func NewCatalog(tools []*mcp.Tool) *Catalog {
-	c := &Catalog{tools: make(map[string]*mcp.Tool, len(tools))}
+func NewCatalog(tools []*mcp.Tool, instructions string) *Catalog {
+	c := &Catalog{Instructions: instructions, tools: make(map[string]*mcp.Tool, len(tools))}
 	for _, t := range tools {
 		if t == nil {
 			continue
@@ -47,7 +52,7 @@ func NewCatalog(tools []*mcp.Tool) *Catalog {
 		c.names = append(c.names, t.Name)
 	}
 	sort.Strings(c.names)
-	c.Revision = revision(c.names, c.tools)
+	c.Revision = revision(c.names, c.tools, instructions)
 	return c
 }
 
@@ -63,9 +68,14 @@ func (c *Catalog) Names() []string { return c.names }
 // Len is the number of tools.
 func (c *Catalog) Len() int { return len(c.names) }
 
-// revision hashes the tools in name order. encoding/json sorts map keys, so a
-// schema that arrives with its properties in another order hashes the same.
-func revision(names []string, tools map[string]*mcp.Tool) string {
+// revision hashes the tools in name order, then the instructions. encoding/json
+// sorts map keys, so a schema that arrives with its properties in another order
+// hashes the same.
+//
+// The instructions are part of it because they are part of what the backend
+// offers: a backend redeployed with a new usage note and the same tools has
+// still changed, and the gateway has to pass the new note on.
+func revision(names []string, tools map[string]*mcp.Tool, instructions string) string {
 	h := sha256.New()
 	for _, name := range names {
 		b, err := json.Marshal(tools[name])
@@ -78,5 +88,7 @@ func revision(names []string, tools map[string]*mcp.Tool) string {
 		h.Write(b)
 		h.Write([]byte{'\n'})
 	}
+	h.Write([]byte{0})
+	h.Write([]byte(instructions))
 	return "sha256:" + hex.EncodeToString(h.Sum(nil))
 }

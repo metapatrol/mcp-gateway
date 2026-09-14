@@ -121,6 +121,38 @@ When the policy or a catalog changes, every subject's list is recomputed and onl
 the differences are applied. The SDK then sends
 `notifications/tools/list_changed` to that subject's open sessions.
 
+### Instructions
+
+Backends tell clients how to use their tools in the `instructions` of their
+initialize result. The gateway reads them at discovery and passes them on in its
+own `initialize` (and `server/discover`, under the stateless protocol) — assembled
+per request, from the backends the subject holds at least one tool from:
+
+```text
+## artifact
+
+Tools from this server: artifact_get, artifact_search
+
+<the artifact backend's instructions>
+
+## source-intelligence
+
+Tools from this server: code.search, code.symbol
+
+<the source-intelligence backend's instructions>
+```
+
+A backend the subject has no tool from contributes nothing, so its instructions
+reveal nothing about it. The tool line is there because tools are exposed under
+their bare names: without it a model cannot tell which of its tools a sentence
+refers to. A backend's text is passed on as written, including anything it says
+about tools the subject was not granted.
+
+Instructions are part of the catalog revision. A backend redeployed with a new
+note and the same tools is a changed catalog, and sessions started afterwards get
+the new text. A session keeps what it was given at initialize — the protocol has
+no notification for changed instructions.
+
 ### tools/call
 
 ```mermaid

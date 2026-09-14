@@ -52,9 +52,10 @@ type MCPServerStatus struct {
 	DiscoveredTools int `json:"discoveredTools,omitempty"`
 
 	// CatalogRevision identifies the catalog the last successful discovery
-	// found: a sha256 over the tool definitions, so any change to a name, a
-	// description or a schema produces a new one. The gateway re-reads a
-	// backend whose revision here differs from the one it holds.
+	// found: a sha256 over the tool definitions and the server's instructions,
+	// so any change to a name, a description, a schema or the instructions
+	// produces a new one. The gateway re-reads a backend whose revision here
+	// differs from the one it holds.
 	// +optional
 	CatalogRevision string `json:"catalogRevision,omitempty"`
 

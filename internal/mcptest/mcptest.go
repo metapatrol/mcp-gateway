@@ -26,6 +26,11 @@ type Backend struct {
 	// Calls counts tool calls that reached this backend.
 	Calls atomic.Int64
 
+	// instructions are what the server returns on initialize. They are fixed
+	// when a server is installed, so a change takes a Restart — as it does for
+	// a real backend.
+	instructions string
+
 	server  atomic.Pointer[mcp.Server]
 	handler atomic.Pointer[mcp.StreamableHTTPHandler]
 	http    *httptest.Server
@@ -39,7 +44,14 @@ type Backend struct {
 // what arrived there.
 func NewBackend(t testing.TB, name string, tools ...string) *Backend {
 	t.Helper()
-	b := &Backend{Name: name}
+	return NewBackendWithInstructions(t, name, "", tools...)
+}
+
+// NewBackendWithInstructions starts a backend that gives clients the given
+// instructions on initialize.
+func NewBackendWithInstructions(t testing.TB, name, instructions string, tools ...string) *Backend {
+	t.Helper()
+	b := &Backend{Name: name, instructions: instructions}
 	b.install(tools)
 	b.http = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		b.handler.Load().ServeHTTP(w, r)
@@ -49,8 +61,11 @@ func NewBackend(t testing.TB, name string, tools ...string) *Backend {
 	return b
 }
 
+// SetInstructions changes the instructions the next Restart installs.
+func (b *Backend) SetInstructions(instructions string) { b.instructions = instructions }
+
 func (b *Backend) install(tools []string) {
-	server := mcp.NewServer(&mcp.Implementation{Name: b.Name, Version: "test"}, nil)
+	server := mcp.NewServer(&mcp.Implementation{Name: b.Name, Version: "test"}, &mcp.ServerOptions{Instructions: b.instructions})
 	b.server.Store(server)
 	for _, tool := range tools {
 		b.AddTool(tool)

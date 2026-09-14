@@ -78,7 +78,8 @@ func names(t *testing.T, session *mcp.ClientSession) []string {
 // The whole model end to end: manifests in the API server, statuses from the
 // controller, and a gateway serving what the manifests say.
 func TestGate(t *testing.T) {
-	sourceIntelligence := mcptest.NewBackend(t, "source-intelligence", "source_search", "source_get", "symbol_search", "repository_search")
+	sourceIntelligence := mcptest.NewBackendWithInstructions(t, "source-intelligence", "Search before you read.",
+		"source_search", "source_get", "symbol_search", "repository_search")
 	artifact := mcptest.NewBackend(t, "artifact", "artifact_search", "artifact_get", "artifact_publish")
 
 	startController(t)
@@ -139,6 +140,12 @@ func TestGate(t *testing.T) {
 			return slices.Equal(names(t, session),
 				[]string{"artifact_get", "artifact_search", "source_get", "source_search", "symbol_search"})
 		}, eventually, tick)
+
+		// The session was opened before the catalogs were read, so its
+		// initialize may predate them; a new session carries the backend's
+		// instructions.
+		assert.Contains(t, connect(t, url, "coding-agent", nil).InitializeResult().Instructions,
+			"## source-intelligence\n\nTools from this server: source_get, source_search, symbol_search\n\nSearch before you read.")
 
 		res, err := session.CallTool(context.Background(), &mcp.CallToolParams{Name: "symbol_search", Arguments: map[string]any{}})
 		require.NoError(t, err)

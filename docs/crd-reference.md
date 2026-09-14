@@ -43,7 +43,7 @@ There is no list of tools. The catalog is discovered.
 |---|---|
 | `available` | Whether the most recent discovery succeeded. |
 | `discoveredTools` | Number of tools in the last successful discovery. |
-| `catalogRevision` | `sha256:…` over the tool definitions of the last successful discovery. |
+| `catalogRevision` | `sha256:…` over the tool definitions and the server's instructions of the last successful discovery. |
 | `lastDiscoveryTime` | When discovery last succeeded. |
 
 While the backend is down, `discoveredTools`, `catalogRevision` and
