@@ -43,6 +43,12 @@ mcp-gate-gateway \
   token fails to verify — which is what a rotated key looks like — at most every
   30 seconds, so forged tokens cannot turn the gateway into a load generator
   against the provider.
+- A token that verified is remembered, by a hash of the token, until its `exp`:
+  an agent sends the same token on every request, and the signature check is the
+  largest part of what the gateway does per call. The memory holds only for the
+  key set the token was verified against — when a refresh brings a different set,
+  a withdrawn key above all, every remembered token is verified again. Refused
+  tokens are never remembered, and at most 10,000 tokens are.
 
 With Ory Hydra this needs `strategies.access_token: jwt`.
 

@@ -103,6 +103,7 @@ func (c Config) withDefaults() Config {
 type Verifier struct {
 	cfg          Config
 	keys         *keySet
+	verified     *verdicts
 	introspector *introspector
 }
 
@@ -117,6 +118,7 @@ func NewVerifier(cfg Config) (*Verifier, error) {
 	v := &Verifier{cfg: cfg}
 	if cfg.JWKSURL != "" {
 		v.keys = newKeySet(cfg.JWKSURL, cfg.HTTPClient)
+		v.verified = newVerdicts()
 	}
 	if cfg.IntrospectionURL != "" {
 		v.introspector = newIntrospector(cfg)

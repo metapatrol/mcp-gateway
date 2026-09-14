@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,7 +9,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
 	"time"
 
 	sdkauth "github.com/modelcontextprotocol/go-sdk/auth"
@@ -24,37 +22,20 @@ import (
 // Refusals are cached too: a client retrying with a dead token should not cost a
 // round trip to the provider each time.
 type introspector struct {
-	cfg Config
-
-	mu    sync.Mutex
-	cache map[[sha256.Size]byte]cached
+	cfg     Config
+	answers *verdicts
 }
-
-type cached struct {
-	info    *sdkauth.TokenInfo
-	err     error
-	expires time.Time
-}
-
-// maxCachedTokens bounds the cache. Past it, expired entries are swept, and if
-// that does not help the cache starts over — crude, and enough: the bound
-// exists to stop a flood of junk tokens from growing memory, not to be an LRU.
-const maxCachedTokens = 10_000
 
 func newIntrospector(cfg Config) *introspector {
-	return &introspector{cfg: cfg, cache: map[[sha256.Size]byte]cached{}}
+	return &introspector{cfg: cfg, answers: newVerdicts()}
 }
 
 func (i *introspector) introspect(ctx context.Context, token string) (*sdkauth.TokenInfo, error) {
-	key := sha256.Sum256([]byte(token))
+	key := tokenKey(token)
 	now := time.Now()
-
-	i.mu.Lock()
-	if c, ok := i.cache[key]; ok && now.Before(c.expires) {
-		i.mu.Unlock()
-		return c.info, c.err
+	if answer, ok := i.answers.get(key, 0, now); ok {
+		return answer.info, answer.err
 	}
-	i.mu.Unlock()
 
 	info, expires, err := i.ask(ctx, token)
 	var down *unavailable
@@ -67,19 +48,7 @@ func (i *introspector) introspect(ctx context.Context, token string) (*sdkauth.T
 	if !expires.IsZero() && expires.Before(ttl) {
 		ttl = expires
 	}
-	i.mu.Lock()
-	if len(i.cache) >= maxCachedTokens {
-		for k, c := range i.cache {
-			if !now.Before(c.expires) {
-				delete(i.cache, k)
-			}
-		}
-		if len(i.cache) >= maxCachedTokens {
-			i.cache = map[[sha256.Size]byte]cached{}
-		}
-	}
-	i.cache[key] = cached{info: info, err: err, expires: ttl}
-	i.mu.Unlock()
+	i.answers.put(key, verdict{info: info, err: err, expires: ttl}, now)
 	return info, err
 }
 
