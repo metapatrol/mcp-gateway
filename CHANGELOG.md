@@ -1,3 +1,10 @@
+## [1.3.2](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gate/compare/v1.3.1...v1.3.2) (2026-09-14)
+
+
+### Bug Fixes
+
+* **deps:** update go dependencies ([a5a656f](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gate/commit/a5a656f0e410b9a297241fbf9fb278f223d477d8))
+
 ## [1.3.1](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gate/compare/v1.3.0...v1.3.1) (2026-09-14)
 
 
