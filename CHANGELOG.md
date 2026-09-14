@@ -1,3 +1,10 @@
+## [1.2.1](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gate/compare/v1.2.0...v1.2.1) (2026-09-14)
+
+
+### Bug Fixes
+
+* **auth:** count a JWT under an unknown key ID as a failed signature ([2d9571b](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gate/commit/2d9571be92b695a2ddfa7f377b49a942613a1c51))
+
 # [1.2.0](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gate/compare/v1.1.1...v1.2.0) (2026-09-14)
 
 
