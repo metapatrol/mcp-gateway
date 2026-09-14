@@ -98,7 +98,12 @@ func (v *Verifier) verifyJWT(ctx context.Context, raw string) (*sdkauth.TokenInf
 		}
 	}
 	if err != nil {
-		if errors.Is(err, jwt.ParseError()) && !errors.Is(err, jws.VerificationError()) {
+		// Malformed only if the token does not even decode. jwx reports a key
+		// ID the set does not contain as a parse error, and a token that
+		// decodes but names a key nobody published is a failed signature,
+		// not a broken token — the difference between a client bug and a
+		// forgery in mcp_gate_auth_failures_total.
+		if _, decodeErr := jwt.ParseInsecure([]byte(raw)); decodeErr != nil {
 			return nil, reject(ReasonMalformed)
 		}
 		return nil, reject(ReasonSignature)

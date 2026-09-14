@@ -121,6 +121,8 @@ func TestJWT_Rejections(t *testing.T) {
 	iss := newIssuer(t)
 	v := iss.verifier(t, nil)
 	other := newIssuer(t)
+	stranger := newIssuer(t)
+	stranger.rotate("a-key-id-nobody-published")
 
 	cases := []struct {
 		name   string
@@ -134,6 +136,10 @@ func TestJWT_Rejections(t *testing.T) {
 		{"no subject", iss.token(func(tok jwt.Token) { _ = tok.Remove(jwt.SubjectKey) }), ReasonNoSubject},
 		{"no expiration", iss.token(func(tok jwt.Token) { _ = tok.Remove(jwt.ExpirationKey) }), ReasonNoExpiration},
 		{"signed by a key the provider never published", other.token(nil), ReasonSignature},
+		// jwx reports an unknown key ID as a parse error; it is still a
+		// signature that does not verify, not a broken token.
+		{"signed under a key ID the provider never published", stranger.token(nil), ReasonSignature},
+		{"three segments that do not decode", "not.a.jwt", ReasonMalformed},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
