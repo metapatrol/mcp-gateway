@@ -1,8 +1,16 @@
 package discovery
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"net/http/httputil"
+	"net/url"
+	"slices"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -160,6 +168,102 @@ func TestBackend_ReconnectsAfterTheBackendRestarts(t *testing.T) {
 	res, err := b.CallTool(context.Background(), &mcp.CallToolParams{Name: "artifact_get"})
 	require.NoError(t, err)
 	assert.False(t, res.IsError)
+}
+
+// stallingBackend wraps a real backend and holds every request for one of the
+// given methods open without answering, the way the artifacts backend held
+// subscriptions/listen. The held requests are released when the test ends.
+func stallingBackend(t *testing.T, backend *mcptest.Backend, methods ...string) *httptest.Server {
+	t.Helper()
+	release := make(chan struct{})
+	target, err := url.Parse(backend.URL)
+	require.NoError(t, err)
+	forward := httputil.NewSingleHostReverseProxy(target)
+	forward.FlushInterval = -1
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			body, _ := io.ReadAll(r.Body)
+			var msg struct {
+				Method string `json:"method"`
+			}
+			_ = json.Unmarshal(body, &msg)
+			if slices.Contains(methods, msg.Method) {
+				<-release
+				return
+			}
+			r.Body = io.NopCloser(bytes.NewReader(body))
+			r.ContentLength = int64(len(body))
+		}
+		forward.ServeHTTP(w, r)
+	}))
+	t.Cleanup(func() {
+		close(release)
+		srv.CloseClientConnections()
+		srv.Close()
+	})
+	return srv
+}
+
+// The regression this guards: under protocol 2026-07-28 the SDK sends
+// server/discover, and with a list_changed handler it then opens
+// subscriptions/listen inside Connect with no deadline. A backend that accepts
+// either and never answers held discovery forever. Backends are spoken to in
+// the session-based protocol, which uses neither.
+func TestBackend_DoesNotUseTheStatelessProtocolHandshake(t *testing.T) {
+	backend := mcptest.NewBackend(t, "artifacts", "artifact_get")
+	stalling := stallingBackend(t, backend, "server/discover", "subscriptions/listen")
+	r := newTestRegistry(t, Options{
+		ConnectTimeout: 2 * time.Second,
+		OnToolsChanged: func(string) {},
+	})
+	r.Ensure("artifacts", stalling.URL)
+
+	start := time.Now()
+	catalog, _, err := r.Discover(context.Background(), "artifacts")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"artifact_get"}, catalog.Names())
+	assert.Less(t, time.Since(start), time.Second)
+}
+
+// A backend that never answers the handshake costs a caller the connect
+// timeout — not the goroutine it runs on — and a later attempt, once the backend
+// answers again, gets through.
+func TestBackend_AStalledHandshakeIsAbandonedAtTheTimeout(t *testing.T) {
+	backend := mcptest.NewBackend(t, "artifacts", "artifact_get")
+	var stall atomic.Bool
+	stall.Store(true)
+	release := make(chan struct{})
+	target, err := url.Parse(backend.URL)
+	require.NoError(t, err)
+	forward := httputil.NewSingleHostReverseProxy(target)
+	forward.FlushInterval = -1
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if stall.Load() {
+			<-release
+			return
+		}
+		forward.ServeHTTP(w, r)
+	}))
+	t.Cleanup(func() {
+		close(release)
+		srv.CloseClientConnections()
+		srv.Close()
+	})
+
+	r := newTestRegistry(t, Options{ConnectTimeout: 300 * time.Millisecond})
+	r.Ensure("artifacts", srv.URL)
+
+	start := time.Now()
+	_, _, err = r.Discover(context.Background(), "artifacts")
+	require.Error(t, err)
+	assert.Less(t, time.Since(start), 2*time.Second, "the caller must get its answer at the timeout")
+
+	stall.Store(false)
+	require.Eventually(t, func() bool {
+		_, _, err := r.Discover(context.Background(), "artifacts")
+		return err == nil
+	}, 5*time.Second, 50*time.Millisecond, "a recovered backend must be reachable again")
 }
 
 func TestRegistry_BackendAnnouncementsReachOnToolsChanged(t *testing.T) {

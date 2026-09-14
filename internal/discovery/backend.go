@@ -32,7 +32,30 @@ type Backend struct {
 	mu      sync.Mutex
 	session *mcp.ClientSession
 	closed  bool
+	// handshake is the attempt to open a session currently under way, if any.
+	handshake *handshake
 }
+
+// handshake is one attempt to open a session. done is closed when it finishes,
+// and session and err hold its outcome from then on.
+type handshake struct {
+	started time.Time
+	done    chan struct{}
+	session *mcp.ClientSession
+	err     error
+}
+
+// backendProtocolVersion is the protocol the gateway and the controller speak to
+// backends: the newest version of the session-based protocol.
+//
+// Not 2026-07-28, which the SDK would otherwise try first. Under it, a client
+// with a list_changed handler opens the subscriptions/listen stream inside
+// Connect — synchronously, and on a context with no deadline — so a backend that
+// accepts that request and never answers it holds the handshake forever. The
+// artifacts backend does exactly that, and it wedged a reconcile worker per
+// discovery in both components. The session-based protocol delivers the same
+// notifications over a GET stream the SDK runs in the background.
+const backendProtocolVersion = "2025-11-25"
 
 func newBackend(name, endpoint string, client *mcp.Client, httpClient *http.Client, connectTimeout time.Duration) *Backend {
 	return &Backend{
@@ -55,28 +78,77 @@ var ErrClosed = errors.New("backend was unregistered")
 
 // connect returns the live session, opening one if there is none.
 //
-// The handshake runs on a context detached from the caller's, bounded by the
-// connect timeout. Callers queue behind the lock while it runs; if the first of
-// them gave up, the handshake would fail for all of them.
+// The handshake runs in its own goroutine and callers wait for it — each no
+// longer than its own context and the connect timeout allow. Waiting on the
+// handshake rather than running it is the point: the SDK does not bound every
+// step of Connect by the context it is given, and a backend that holds a request
+// open must cost the caller the timeout, not the goroutine it runs on. A
+// reconcile worker blocked there is one fewer for every other backend.
+//
+// Concurrent callers share one attempt. An attempt still running past the
+// timeout is abandoned and the next caller starts afresh. Should the abandoned
+// one finish after all, its session is used if no other attempt got there
+// first, and closed otherwise.
 func (b *Backend) connect(ctx context.Context) (*mcp.ClientSession, error) {
 	b.mu.Lock()
-	defer b.mu.Unlock()
 	if b.closed {
+		b.mu.Unlock()
 		return nil, ErrClosed
 	}
 	if b.session != nil {
-		return b.session, nil
+		session := b.session
+		b.mu.Unlock()
+		return session, nil
 	}
+	if b.handshake == nil || time.Since(b.handshake.started) > b.timeout {
+		b.handshake = &handshake{started: time.Now(), done: make(chan struct{})}
+		go b.shake(b.handshake)
+	}
+	h := b.handshake
+	b.mu.Unlock()
 
-	connectCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), b.timeout)
+	wait := time.NewTimer(time.Until(h.started.Add(b.timeout)))
+	defer wait.Stop()
+	select {
+	case <-h.done:
+		if h.err != nil {
+			return nil, h.err
+		}
+		return h.session, nil
+	case <-ctx.Done():
+		return nil, fmt.Errorf("connecting to %s: %w", b.endpoint, ctx.Err())
+	case <-wait.C:
+		return nil, fmt.Errorf("connecting to %s: no session within %s", b.endpoint, b.timeout)
+	}
+}
+
+// shake performs one handshake and records its outcome.
+func (b *Backend) shake(h *handshake) {
+	ctx, cancel := context.WithTimeout(context.Background(), b.timeout)
 	defer cancel()
-	session, err := b.client.Connect(connectCtx, &mcp.StreamableClientTransport{
+	session, err := b.client.Connect(ctx, &mcp.StreamableClientTransport{
 		Endpoint:   b.endpoint,
 		HTTPClient: b.httpClient,
-	}, nil)
-	if err != nil {
-		return nil, fmt.Errorf("connecting to %s: %w", b.endpoint, err)
+	}, &mcp.ClientSessionOptions{ProtocolVersion: backendProtocolVersion})
+
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	defer close(h.done)
+	if b.handshake == h {
+		b.handshake = nil
 	}
+	if err != nil {
+		h.err = fmt.Errorf("connecting to %s: %w", b.endpoint, err)
+		return
+	}
+	// The backend was unregistered meanwhile, or another attempt already
+	// opened a session: this one is surplus.
+	if b.closed || b.session != nil {
+		h.err = fmt.Errorf("connecting to %s: the attempt was abandoned", b.endpoint)
+		go func() { _ = session.Close() }()
+		return
+	}
+	h.session = session
 	b.session = session
 
 	// Forget the session once it ends, whichever side ended it, so the next
@@ -89,7 +161,6 @@ func (b *Backend) connect(ctx context.Context) (*mcp.ClientSession, error) {
 			b.session = nil
 		}
 	}()
-	return session, nil
 }
 
 // drop discards session if it is still the current one.
