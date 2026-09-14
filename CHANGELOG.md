@@ -1,3 +1,10 @@
+# [1.2.0](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gate/compare/v1.1.1...v1.2.0) (2026-09-14)
+
+
+### Features
+
+* **gateway:** pass the backends' instructions on to agents ([3bf613b](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gate/commit/3bf613b9428ffd1e8c3197b1eff6ecfb4b27e066))
+
 ## [1.1.1](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gate/compare/v1.1.0...v1.1.1) (2026-09-14)
 
 
