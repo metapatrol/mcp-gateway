@@ -1,3 +1,10 @@
+## [1.1.1](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gate/compare/v1.1.0...v1.1.1) (2026-09-14)
+
+
+### Bug Fixes
+
+* **discovery:** stop a backend handshake from hanging forever ([51f484a](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gate/commit/51f484ad862e1ca9efce75a68526d3ad54091106))
+
 # [1.1.0](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gate/compare/v1.0.0...v1.1.0) (2026-09-14)
 
 
