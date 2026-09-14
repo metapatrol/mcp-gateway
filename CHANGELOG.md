@@ -1,3 +1,11 @@
+# [1.3.0](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gate/compare/v1.2.1...v1.3.0) (2026-09-14)
+
+
+### Features
+
+* **auth:** authenticate to backends that want credentials ([260a225](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gate/commit/260a2255780df968c850693df7d908884a2d749d))
+* **toolset:** select tools by glob pattern, with exclusions ([b5aefaa](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gate/commit/b5aefaa1e96ad6c9d852cbc69882768834e601f4))
+
 ## [1.2.1](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gate/compare/v1.2.0...v1.2.1) (2026-09-14)
 
 
