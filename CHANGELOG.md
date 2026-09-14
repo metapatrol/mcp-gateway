@@ -1,3 +1,10 @@
+# [1.1.0](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gate/compare/v1.0.0...v1.1.0) (2026-09-14)
+
+
+### Features
+
+* ship a Grafana dashboard for mcp-gate ([9af9e7c](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gate/commit/9af9e7c3963f11e1b75139227b4b8b5530311b00))
+
 # 1.0.0 (2026-09-14)
 
 
