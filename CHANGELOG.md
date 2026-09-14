@@ -1,3 +1,10 @@
+## [1.3.1](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gate/compare/v1.3.0...v1.3.1) (2026-09-14)
+
+
+### Performance Improvements
+
+* **auth:** remember verified JWTs until they expire ([fce1b96](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gate/commit/fce1b962c45f0933e7d82ce3604850bc6e865567)), closes [#5](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gate/issues/5)
+
 # [1.3.0](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gate/compare/v1.2.1...v1.3.0) (2026-09-14)
 
 
