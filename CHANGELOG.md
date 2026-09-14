@@ -1,3 +1,10 @@
+# 1.0.0 (2026-09-14)
+
+
+### Features
+
+* initial MCP Gate implementation ([6ef7847](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gate/commit/6ef78479eca833c6dfc9a328e0cad4a6e84f3815))
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
