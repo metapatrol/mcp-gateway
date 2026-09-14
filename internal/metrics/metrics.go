@@ -173,6 +173,10 @@ const (
 	// CallBackendError: the call did not complete — the backend was
 	// unreachable, or answered with a protocol error.
 	CallBackendError = "backend_error"
+	// CallUnauthorized: the backend refused the call's credentials — the
+	// caller's own token under Passthrough, the gateway's otherwise — or
+	// they could not be obtained.
+	CallUnauthorized = "unauthorized"
 )
 
 // RecordToolCall records one forwarded tool call.

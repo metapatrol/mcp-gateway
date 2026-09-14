@@ -29,9 +29,14 @@ import (
 
 	gatev1alpha1 "forgejo.metapatrol.local/platform/mcp-gate/api/v1alpha1"
 	"forgejo.metapatrol.local/platform/mcp-gate/internal/controller"
+	"forgejo.metapatrol.local/platform/mcp-gate/internal/credentials"
 	"forgejo.metapatrol.local/platform/mcp-gate/internal/discovery"
 	"forgejo.metapatrol.local/platform/mcp-gate/internal/gateway"
 )
+
+// secretNamespace is where the components read backend credentials from, as
+// the namespace they are deployed in would be.
+const secretNamespace = "default"
 
 var (
 	cfg       *rest.Config
@@ -83,6 +88,7 @@ func startController(t *testing.T) {
 	registry := discovery.NewRegistry(discovery.Options{
 		ConnectTimeout: 2 * time.Second,
 		OnToolsChanged: func(server string) { servers.Announce(server) },
+		Secrets:        credentials.NewSecretReader(mgr.GetAPIReader(), secretNamespace),
 	})
 	t.Cleanup(registry.Close)
 	servers = controller.NewMCPServerReconciler(mgr.GetClient(), scheme, registry)
@@ -113,6 +119,7 @@ func startGateway(t *testing.T) (string, *gateway.Gateway) {
 	registry := discovery.NewRegistry(discovery.Options{
 		ConnectTimeout: 2 * time.Second,
 		OnToolsChanged: func(server string) { catalogs.Announce(server) },
+		Secrets:        credentials.NewSecretReader(mgr.GetAPIReader(), secretNamespace),
 	})
 	t.Cleanup(registry.Close)
 	gw := gateway.New(gateway.Options{Registry: registry, Logger: logr.Discard()})

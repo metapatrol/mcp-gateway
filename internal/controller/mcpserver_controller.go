@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -82,7 +83,7 @@ func (r *MCPServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, nil
 	}
 
-	r.Registry.Ensure(server.Name, server.Spec.Endpoint)
+	r.Registry.Ensure(server.Name, server.Spec.Endpoint, server.Spec.Auth)
 	discoverCtx, cancel := context.WithTimeout(ctx, discoveryTimeout)
 	defer cancel()
 	catalog, changed, err := r.Registry.Discover(discoverCtx, server.Name)
@@ -99,7 +100,7 @@ func (r *MCPServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		// they were: they describe the last discovery that worked.
 		server.Status.Available = false
 		setCondition(&server.Status.Conditions, server.Generation, gatev1alpha1.ConditionReady, metav1.ConditionFalse,
-			gatev1alpha1.ReasonDiscoveryFailed, err.Error())
+			discoveryFailureReason(err), err.Error())
 		result.RequeueAfter = min(discovery.RetryDelay(health.Failures), interval)
 	} else {
 		if changed {
@@ -135,4 +136,20 @@ func (r *MCPServerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		}).
 		Named("mcpserver").
 		Complete(r)
+}
+
+// discoveryFailureReason tells credentials that could not be obtained, and
+// credentials the backend refused, from a backend that is not there. The first
+// two need someone to fix a Secret or a spec; the last may pass on its own.
+func discoveryFailureReason(err error) string {
+	var refused *discovery.RefusedError
+	var credential *discovery.CredentialError
+	switch {
+	case errors.As(err, &credential):
+		return gatev1alpha1.ReasonCredentialsUnavailable
+	case errors.As(err, &refused):
+		return gatev1alpha1.ReasonUnauthorized
+	default:
+		return gatev1alpha1.ReasonDiscoveryFailed
+	}
 }

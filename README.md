@@ -69,7 +69,7 @@ MCPServer ──> MCPToolSet ──> MCPCapability ──> MCPGrant ──> subj
 
 | CRD | Says |
 |---|---|
-| **MCPServer** | Where a backend is. The tool catalog is discovered from it, not declared. |
+| **MCPServer** | Where a backend is, and how to authenticate to it: not at all, with the agent's own token, as an OAuth client, or with an API key. The tool catalog is discovered from it, not declared. |
 | **MCPToolSet** | A subset of one server's tools, by name or glob pattern (`code.*`), with optional exclusions. Its status lists what it resolves to. |
 | **MCPCapability** | A useful ability, combining tool sets — possibly from several servers. |
 | **MCPGrant** | Which capabilities a subject holds. |
@@ -170,7 +170,7 @@ metrics Service for each; `serviceMonitor.enabled` renders a ServiceMonitor.
 | `mcp_gate_discoveries_total{server,outcome}` | both | Catalog reads against each backend |
 | `mcp_gate_backend_available{server}` | both | Whether the last discovery of a backend succeeded |
 | `mcp_gate_discovered_tools{server}` | both | Catalog size per backend |
-| `mcp_gate_tool_calls_total{server,tool,outcome}` | gateway | Forwarded calls: `ok`, `tool_error`, `backend_error` |
+| `mcp_gate_tool_calls_total{server,tool,outcome}` | gateway | Forwarded calls: `ok`, `tool_error`, `backend_error`, `unauthorized` |
 | `mcp_gate_tool_call_duration_seconds{server,tool}` | gateway | How long backends take |
 | `mcp_gate_tool_calls_denied_total{subject}` | gateway | Calls refused for want of a grant |
 | `mcp_gate_auth_failures_total{reason}` | gateway | Refused tokens, by reason: `missing_token`, `expired`, `audience`, `signature`, `unavailable`, … |

@@ -36,6 +36,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"forgejo.metapatrol.local/platform/mcp-gate/internal/credentials"
 	"forgejo.metapatrol.local/platform/mcp-gate/internal/discovery"
 	"forgejo.metapatrol.local/platform/mcp-gate/internal/metrics"
 	"forgejo.metapatrol.local/platform/mcp-gate/internal/policy"
@@ -478,6 +479,11 @@ func (g *Gateway) callTool(ctx context.Context, serverSubject string, req *mcp.C
 
 	callCtx, cancel := context.WithTimeout(ctx, g.opts.CallTimeout)
 	defer cancel()
+	if backend.Passthrough() {
+		// Only for a backend configured to receive it: the caller's token
+		// goes nowhere it was not explicitly meant to go.
+		callCtx = credentials.WithCaller(callCtx, req.Extra.Header.Get("Authorization"))
+	}
 	start := time.Now()
 	res, err := backend.CallTool(callCtx, &mcp.CallToolParams{
 		Name:      ref.Tool,
@@ -485,7 +491,23 @@ func (g *Gateway) callTool(ctx context.Context, serverSubject string, req *mcp.C
 	})
 	elapsed := time.Since(start)
 
+	var refused *discovery.RefusedError
+	var credential *discovery.CredentialError
 	switch {
+	case errors.As(err, &refused):
+		metrics.RecordToolCall(ref.Server, ref.Tool, metrics.CallUnauthorized, elapsed.Seconds())
+		if backend.Passthrough() {
+			// The caller's own token: a matter between the caller and the
+			// backend, and one the caller can act on.
+			audit.Info("tool call refused by backend", "status", refused.StatusCode, "duration", elapsed)
+			return refusedResult(refused.StatusCode), nil
+		}
+		audit.Error(err, "tool call refused by backend", "status", refused.StatusCode, "duration", elapsed)
+		return unavailableResult(), nil
+	case errors.As(err, &credential):
+		metrics.RecordToolCall(ref.Server, ref.Tool, metrics.CallUnauthorized, elapsed.Seconds())
+		audit.Error(err, "tool call failed", "reason", "credentials unavailable", "duration", elapsed)
+		return unavailableResult(), nil
 	case err != nil:
 		metrics.RecordToolCall(ref.Server, ref.Tool, metrics.CallBackendError, elapsed.Seconds())
 		// A JSON-RPC error from the backend — invalid arguments, typically —
@@ -504,6 +526,17 @@ func (g *Gateway) callTool(ctx context.Context, serverSubject string, req *mcp.C
 		audit.Info("tool call", "duration", elapsed)
 	}
 	return res, nil
+}
+
+// refusedResult reports that a Passthrough backend refused the caller's token.
+// The status is the one detail passed on: 401 says the token was not accepted,
+// 403 that it was and does not reach far enough.
+func refusedResult(status int) *mcp.CallToolResult {
+	return &mcp.CallToolResult{
+		IsError: true,
+		Content: []mcp.Content{&mcp.TextContent{Text: fmt.Sprintf(
+			"mcp-gate: the backend serving this tool refused the caller's credentials (HTTP %d %s)", status, http.StatusText(status))}},
+	}
 }
 
 // unavailableResult reports a backend failure as a tool error, which the model

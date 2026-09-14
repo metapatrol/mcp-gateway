@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	gatev1alpha1 "forgejo.metapatrol.local/platform/mcp-gate/api/v1alpha1"
+	"forgejo.metapatrol.local/platform/mcp-gate/internal/credentials"
 	"forgejo.metapatrol.local/platform/mcp-gate/internal/discovery"
 )
 
@@ -34,7 +35,12 @@ func newFakeClient(objs ...client.Object) client.Client {
 
 func newTestRegistry(t *testing.T) *discovery.Registry {
 	t.Helper()
-	r := discovery.NewRegistry(discovery.Options{ConnectTimeout: 2 * time.Second})
+	return newTestRegistryWithSecrets(t, nil)
+}
+
+func newTestRegistryWithSecrets(t *testing.T, secrets credentials.Secrets) *discovery.Registry {
+	t.Helper()
+	r := discovery.NewRegistry(discovery.Options{ConnectTimeout: 2 * time.Second, Secrets: secrets})
 	t.Cleanup(r.Close)
 	return r
 }

@@ -19,6 +19,7 @@ import (
 
 	gatev1alpha1 "forgejo.metapatrol.local/platform/mcp-gate/api/v1alpha1"
 	"forgejo.metapatrol.local/platform/mcp-gate/internal/controller"
+	"forgejo.metapatrol.local/platform/mcp-gate/internal/credentials"
 	"forgejo.metapatrol.local/platform/mcp-gate/internal/discovery"
 	"forgejo.metapatrol.local/platform/mcp-gate/internal/metrics"
 )
@@ -43,12 +44,14 @@ func main() {
 	var enableLeaderElection bool
 	var logFormat string
 	var connectTimeout time.Duration
+	var secretNamespace string
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metrics endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the health probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false, "Enable leader election for the controller.")
 	flag.StringVar(&logFormat, "log-format", "json", "Log format: text or json")
 	flag.DurationVar(&connectTimeout, "backend-connect-timeout", 10*time.Second, "How long the MCP handshake with a backend may take.")
+	flag.StringVar(&secretNamespace, "secret-namespace", "", "Namespace the Secrets named in MCPServer spec.auth are read from. Defaults to the namespace this pod runs in.")
 	flag.Parse()
 
 	if logFormat != "text" && logFormat != "json" {
@@ -81,6 +84,7 @@ func main() {
 		os.Exit(1)
 	}
 
+	secrets := backendSecrets(mgr, secretNamespace)
 	// The registry is wired to the server reconciler in both directions: the
 	// reconciler fills it, and a backend announcing a changed tool list asks
 	// the reconciler, through it, to look again.
@@ -90,6 +94,7 @@ func main() {
 		HTTPClient:     &http.Client{Transport: http.DefaultTransport.(*http.Transport).Clone()},
 		ConnectTimeout: connectTimeout,
 		OnToolsChanged: func(server string) { servers.Announce(server) },
+		Secrets:        secrets,
 		Logger:         sdkLogger(ctrl.Log.WithName("mcp-client")),
 	})
 	defer registry.Close()
@@ -131,4 +136,19 @@ func main() {
 // same stream as everything else.
 func sdkLogger(log logr.Logger) *slog.Logger {
 	return slog.New(logr.ToSlogHandler(log))
+}
+
+// backendSecrets reads the Secrets MCPServers name for their credentials. It
+// uses the API reader, not the manager's cache: a cached client would watch
+// every Secret in the namespace to serve the few that are named.
+func backendSecrets(mgr ctrl.Manager, namespace string) credentials.Secrets {
+	if namespace == "" {
+		namespace = credentials.PodNamespace()
+	}
+	if namespace == "" {
+		setupLog.Info("no namespace to read backend credentials from: MCPServers whose spec.auth names a Secret will fail discovery; set --secret-namespace")
+		return nil
+	}
+	setupLog.Info("reading backend credentials", "namespace", namespace)
+	return credentials.NewSecretReader(mgr.GetAPIReader(), namespace)
 }

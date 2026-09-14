@@ -70,6 +70,276 @@ spec:
               truth for what it offers; the controller and the gateway both read the
               catalog from it, and a copy here would be a second source that drifts.
             properties:
+              auth:
+                description: |-
+                  Auth says how the gateway and the controller authenticate to the
+                  backend. Left out, they do not: type None.
+                properties:
+                  apiKey:
+                    description: APIKey configures type APIKey.
+                    properties:
+                      header:
+                        default: Authorization
+                        description: Header is the request header the key is sent
+                          in.
+                        minLength: 1
+                        type: string
+                      prefix:
+                        description: |-
+                          Prefix goes in front of the key. Left out, it is "Bearer " when the
+                          header is Authorization and nothing otherwise; set it to "" to send a key
+                          in Authorization bare.
+                        type: string
+                      secretRef:
+                        description: SecretRef is where the key is.
+                        properties:
+                          key:
+                            description: |-
+                              Key is the data key holding the value. Named explicitly, so a Secret
+                              written by some other tool — CLIENT_SECRET, client-secret, token — is
+                              used as it is.
+                            minLength: 1
+                            type: string
+                          name:
+                            description: Name of the Secret.
+                            minLength: 1
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                    required:
+                    - secretRef
+                    type: object
+                  clientCredentials:
+                    description: ClientCredentials configures type ClientCredentials.
+                    properties:
+                      audience:
+                        description: |-
+                          Audience is requested with each token, as the audience parameter
+                          providers such as Ory Hydra accept. Several are sent space-separated.
+                        items:
+                          type: string
+                        type: array
+                        x-kubernetes-list-type: set
+                      clientID:
+                        description: ClientID is the OAuth client ID, written out.
+                        minLength: 1
+                        type: string
+                      clientIDRef:
+                        description: |-
+                          ClientIDRef reads the client ID from a Secret instead — for providers,
+                          or operators like hydra-maester, that generate the ID and store it beside
+                          the secret.
+                        properties:
+                          key:
+                            description: |-
+                              Key is the data key holding the value. Named explicitly, so a Secret
+                              written by some other tool — CLIENT_SECRET, client-secret, token — is
+                              used as it is.
+                            minLength: 1
+                            type: string
+                          name:
+                            description: Name of the Secret.
+                            minLength: 1
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                      clientSecretRef:
+                        description: ClientSecretRef is where the client secret is.
+                        properties:
+                          key:
+                            description: |-
+                              Key is the data key holding the value. Named explicitly, so a Secret
+                              written by some other tool — CLIENT_SECRET, client-secret, token — is
+                              used as it is.
+                            minLength: 1
+                            type: string
+                          name:
+                            description: Name of the Secret.
+                            minLength: 1
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                      scopes:
+                        description: Scopes are requested with each token.
+                        items:
+                          type: string
+                        type: array
+                        x-kubernetes-list-type: set
+                      tokenURL:
+                        description: TokenURL is the provider's token endpoint.
+                        pattern: ^https?://[^\s]+$
+                        type: string
+                    required:
+                    - clientSecretRef
+                    - tokenURL
+                    type: object
+                    x-kubernetes-validations:
+                    - message: set exactly one of clientID or clientIDRef
+                      rule: has(self.clientID) != has(self.clientIDRef)
+                  passthrough:
+                    description: Passthrough configures type Passthrough.
+                    properties:
+                      discovery:
+                        description: |-
+                          Discovery authenticates the requests that read the catalog. Those are
+                          made in the background, by the controller and the gateway, with no agent
+                          and therefore no token to pass through. Left out, they carry no
+                          credentials, which suits a backend that lists its tools openly and
+                          guards only the calls.
+
+                          A backend whose tool list depends on the caller is seen through this
+                          credential alone: agents are offered what it can see.
+                        properties:
+                          apiKey:
+                            description: APIKey authenticates catalog reads with a
+                              static key.
+                            properties:
+                              header:
+                                default: Authorization
+                                description: Header is the request header the key
+                                  is sent in.
+                                minLength: 1
+                                type: string
+                              prefix:
+                                description: |-
+                                  Prefix goes in front of the key. Left out, it is "Bearer " when the
+                                  header is Authorization and nothing otherwise; set it to "" to send a key
+                                  in Authorization bare.
+                                type: string
+                              secretRef:
+                                description: SecretRef is where the key is.
+                                properties:
+                                  key:
+                                    description: |-
+                                      Key is the data key holding the value. Named explicitly, so a Secret
+                                      written by some other tool — CLIENT_SECRET, client-secret, token — is
+                                      used as it is.
+                                    minLength: 1
+                                    type: string
+                                  name:
+                                    description: Name of the Secret.
+                                    minLength: 1
+                                    type: string
+                                required:
+                                - key
+                                - name
+                                type: object
+                            required:
+                            - secretRef
+                            type: object
+                          clientCredentials:
+                            description: ClientCredentials authenticates catalog reads
+                              as an OAuth client.
+                            properties:
+                              audience:
+                                description: |-
+                                  Audience is requested with each token, as the audience parameter
+                                  providers such as Ory Hydra accept. Several are sent space-separated.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: set
+                              clientID:
+                                description: ClientID is the OAuth client ID, written
+                                  out.
+                                minLength: 1
+                                type: string
+                              clientIDRef:
+                                description: |-
+                                  ClientIDRef reads the client ID from a Secret instead — for providers,
+                                  or operators like hydra-maester, that generate the ID and store it beside
+                                  the secret.
+                                properties:
+                                  key:
+                                    description: |-
+                                      Key is the data key holding the value. Named explicitly, so a Secret
+                                      written by some other tool — CLIENT_SECRET, client-secret, token — is
+                                      used as it is.
+                                    minLength: 1
+                                    type: string
+                                  name:
+                                    description: Name of the Secret.
+                                    minLength: 1
+                                    type: string
+                                required:
+                                - key
+                                - name
+                                type: object
+                              clientSecretRef:
+                                description: ClientSecretRef is where the client secret
+                                  is.
+                                properties:
+                                  key:
+                                    description: |-
+                                      Key is the data key holding the value. Named explicitly, so a Secret
+                                      written by some other tool — CLIENT_SECRET, client-secret, token — is
+                                      used as it is.
+                                    minLength: 1
+                                    type: string
+                                  name:
+                                    description: Name of the Secret.
+                                    minLength: 1
+                                    type: string
+                                required:
+                                - key
+                                - name
+                                type: object
+                              scopes:
+                                description: Scopes are requested with each token.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: set
+                              tokenURL:
+                                description: TokenURL is the provider's token endpoint.
+                                pattern: ^https?://[^\s]+$
+                                type: string
+                            required:
+                            - clientSecretRef
+                            - tokenURL
+                            type: object
+                            x-kubernetes-validations:
+                            - message: set exactly one of clientID or clientIDRef
+                              rule: has(self.clientID) != has(self.clientIDRef)
+                        type: object
+                        x-kubernetes-validations:
+                        - message: set exactly one of clientCredentials or apiKey
+                          rule: has(self.clientCredentials) != has(self.apiKey)
+                    type: object
+                  type:
+                    default: None
+                    description: |-
+                      Type is how requests to the backend are authenticated:
+
+                        None               no credentials
+                        Passthrough        the calling agent's own bearer token, on tool calls
+                        ClientCredentials  a token the gateway obtains as an OAuth client of its own
+                        APIKey             a static key from a Secret
+                    enum:
+                    - None
+                    - Passthrough
+                    - ClientCredentials
+                    - APIKey
+                    type: string
+                required:
+                - type
+                type: object
+                x-kubernetes-validations:
+                - message: passthrough may only be set with type Passthrough
+                  rule: self.type == 'Passthrough' || !has(self.passthrough)
+                - message: clientCredentials is required with type ClientCredentials,
+                    and may only be set with it
+                  rule: 'self.type == ''ClientCredentials'' ? has(self.clientCredentials)
+                    : !has(self.clientCredentials)'
+                - message: apiKey is required with type APIKey, and may only be set
+                    with it
+                  rule: 'self.type == ''APIKey'' ? has(self.apiKey) : !has(self.apiKey)'
               discoveryInterval:
                 default: 1m
                 description: |-

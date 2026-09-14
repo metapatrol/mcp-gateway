@@ -108,8 +108,16 @@ func newEnv(t *testing.T, opts Options) *env {
 
 func (e *env) register(name, url string) {
 	e.t.Helper()
-	e.servers = append(e.servers, gatev1alpha1.MCPServer{ObjectMeta: metav1.ObjectMeta{Name: name}})
-	e.registry.Ensure(name, url)
+	e.registerWithAuth(name, url, nil)
+}
+
+func (e *env) registerWithAuth(name, url string, auth *gatev1alpha1.BackendAuth) {
+	e.t.Helper()
+	e.servers = append(e.servers, gatev1alpha1.MCPServer{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		Spec:       gatev1alpha1.MCPServerSpec{Endpoint: url, Auth: auth},
+	})
+	e.registry.Ensure(name, url, auth)
 	_, _, err := e.registry.Discover(context.Background(), name)
 	require.NoError(e.t, err)
 }
@@ -347,7 +355,7 @@ func TestBackendDown_ToolsDisappearAfterMaxAgeAndReturn(t *testing.T) {
 	}, 5*time.Second, 20*time.Millisecond)
 
 	revived := mcptest.NewBackend(t, "artifact", "artifact_search", "artifact_get", "artifact_publish")
-	e.registry.Ensure("artifact", revived.URL)
+	e.registry.Ensure("artifact", revived.URL, nil)
 	_, _, err = e.registry.Discover(context.Background(), "artifact")
 	require.NoError(t, err)
 	e.gateway.Invalidate()

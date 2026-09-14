@@ -84,9 +84,13 @@ register another team's backend under a name of their own and grant themselves
 access to it. Preventing that needs cross-namespace references and an
 `allowedFrom` on the referenced side, which the first version does without.
 
-The cost shows up when backend credentials arrive (CONCEPT §16): a cluster-scoped
-`MCPServer` referring to a Secret has to name its namespace. That is the point at
-which the scope is worth revisiting.
+The same reasoning settles where backend credentials come from (CONCEPT §16). A
+cluster-scoped `MCPServer` that could name a Secret in any namespace would let
+whoever may create one have the gateway read any Secret in the cluster. So a
+Secret reference has no namespace: Secrets are read from the namespace the
+gateway and the controller run in, and the chart grants them `get` on Secrets
+there and nowhere else. Registering a backend with credentials takes access to
+that namespace, which is the access the gateway's own configuration takes.
 
 ## Request flow
 
@@ -182,7 +186,11 @@ sequenceDiagram
         G->>G: subject from THIS request's token
         G->>G: policy.Authorize(subject, name) against the current snapshot
         G->>R: backend for the resolved server
-        R->>B: tools/call (shared session)
+        alt spec.auth.type Passthrough
+            R->>B: tools/call (the caller's session, the caller's token)
+        else
+            R->>B: tools/call (shared session, the gateway's credentials if any)
+        end
         B-->>Agent: result, passed through
     end
 ```
@@ -210,6 +218,19 @@ Towards backends, the gateway holds **one session per backend** shared by every
 caller. When a backend restarts and no longer knows the session, the request is
 retried once on a new one — only for failures where the backend provably did not
 receive the request; a tool call is never repeated on a guess.
+
+A `Passthrough` backend is the exception. A session is bound to the identity that
+opened it, so each caller token gets a session of its own for its tool calls,
+without the notification stream; the shared session reads the catalog and hears
+about changes. Caller sessions are keyed by a hash of the token rather than by
+the gateway's subject — the backend decides who a token is, and two tokens the
+gateway maps to one subject can be two identities to it. They close after five
+minutes without calls.
+
+Credentials are added by a per-session HTTP transport, which also turns a 401 or
+403 into a transport error. The SDK ends a session on an HTTP error it cannot
+decode; a refused request must not end one that other callers share.
+See [Authentication](./authentication.md#towards-backends).
 
 ## Change detection
 
@@ -247,7 +268,7 @@ same catalog changes nothing and notifies no one.
 
 | Kind | `Valid` | `Ready` |
 |---|---|---|
-| MCPServer | — | discovery succeeded (`Discovered` / `DiscoveryFailed`) |
+| MCPServer | — | discovery succeeded (`Discovered` / `DiscoveryFailed`, `CredentialsUnavailable`, `Unauthorized`) |
 | MCPToolSet | server exists (`ServerNotFound`) | server Ready, every name exposed, every pattern selects something (`ServerUnavailable`, `MissingTools`, `UnmatchedPatterns`, `CatalogPending`) |
 | MCPCapability | tool sets exist, no name conflict (`ToolSetNotFound`, `ToolNameConflict`) | every tool set Ready (`ToolSetNotReady`) |
 | MCPGrant | capabilities exist, no name conflict (`CapabilityNotFound`, `ToolNameConflict`) | every capability Ready, no conflict with the subject's other grants (`CapabilityNotReady`, `ToolNameConflict`) |
@@ -263,6 +284,9 @@ generation.
 | A tool disappears from a backend | It is no longer exposed; the rest of its tool set is. The tool set reports `MissingTools`. |
 | A grant names a capability that does not exist | That name grants nothing; the rest of the grant still applies. `Valid=False, CapabilityNotFound`. An unresolved reference can narrow access, never widen it. |
 | Two backends expose the same name to one subject | Neither is exposed. The capability or grant reports `ToolNameConflict`, naming both. With patterns this can happen when a backend adds a tool. |
+| A Secret named in `spec.auth` is missing | The backend is registered and its discovery fails: `Ready=False, CredentialsUnavailable`, naming the Secret and its keys. It recovers within seconds of the Secret appearing. |
+| A backend refuses the gateway's credentials | The token is replaced, or the Secret re-read, and the request sent once more. If it is still refused: `Ready=False, Unauthorized`; tool calls return the "unavailable" tool error. The shared session survives. |
+| A `Passthrough` backend refuses an agent's token | That call returns a tool error saying the backend refused the caller's credentials. Other callers, and discovery, are unaffected. |
 | A pattern matches nothing | It selects nothing; the rest of the tool set still applies. The tool set reports `UnmatchedPatterns`. |
 | The OAuth provider is down | JWTs keep verifying against the last fetched key set. Introspection fails with 500, not 401, so clients do not start refetching tokens from the provider that is down. |
 | The controller is down | Nothing changes for agents. Status goes stale. |
@@ -303,10 +327,10 @@ backend report `ServerUnavailable`.
 
 ## Not in this version
 
-- **Backend credentials** (CONCEPT §16). Backends are called without
-  authentication. The seam is `discovery.Options.HTTPClient`: a per-backend
-  transport that injects credentials is where static tokens, client credentials
-  or token exchange go.
+- **Token exchange, mTLS, workload identity** towards backends (CONCEPT §16).
+  `spec.auth` covers no credentials, passthrough, client credentials and API
+  keys; another type is another variant of the union and another
+  `credentials.Credential`.
 - **Aliases** (CONCEPT §14). Tools are exposed under their backend names; a
   collision exposes neither.
 - **Prompts, resources, sampling, elicitation.** The gateway aggregates tools

@@ -34,8 +34,113 @@ spec:
 |---|---|---|---|
 | `endpoint` | string | yes | URL of the backend's Streamable HTTP MCP endpoint. Must start with `http://` or `https://`. |
 | `discoveryInterval` | duration | no | How often the catalog is re-read when the backend does not announce changes. Default `1m`; values below `10s` are raised to `10s`. |
+| `auth` | object | no | How the gateway and the controller authenticate to the backend. Left out: no credentials. |
 
 There is no list of tools. The catalog is discovered.
+
+### spec.auth
+
+A discriminated union: `type` says which of the other fields applies, and only
+that one may be set. The API server refuses anything else.
+
+| `type` | Catalog reads (controller, gateway) | Tool calls (gateway) |
+|---|---|---|
+| `None` (default) | no credentials | no credentials |
+| `Passthrough` | `passthrough.discovery`, or no credentials | the calling agent's own token |
+| `ClientCredentials` | a token for the gateway's own OAuth client | the same |
+| `APIKey` | a static key from a Secret | the same |
+
+```yaml
+# An API key in a header of the backend's choosing.
+auth:
+  type: APIKey
+  apiKey:
+    secretRef: {name: memory-credentials, key: API_KEY}
+    header: X-API-Key
+```
+
+```yaml
+# The gateway's own OAuth client. hydra-maester writes CLIENT_ID and
+# CLIENT_SECRET into one Secret; both are referenced by key.
+auth:
+  type: ClientCredentials
+  clientCredentials:
+    tokenURL: https://id.example.com/oauth2/token
+    clientIDRef:     {name: memory-oauth, key: CLIENT_ID}
+    clientSecretRef: {name: memory-oauth, key: CLIENT_SECRET}
+    scopes: [memory.read]
+    audience: [memory]
+```
+
+```yaml
+# Each agent calls with its own token; the catalog is read with a key.
+auth:
+  type: Passthrough
+  passthrough:
+    discovery:
+      apiKey:
+        secretRef: {name: memory-discovery, key: token}
+```
+
+#### Secret references
+
+Every secret value is a `{name, key}` pair. `key` names the data key explicitly,
+so a Secret written by some other tool — `CLIENT_SECRET`, `client-secret`,
+`token` — is used as it is.
+
+There is no `namespace`. Secrets are read from the namespace the controller and
+the gateway run in (`--secret-namespace`, set by the chart to the release
+namespace). An `MCPServer` is cluster-scoped; a reference that could name any
+namespace would let whoever may create one have the gateway read any Secret in
+the cluster.
+
+Values are trimmed of surrounding whitespace, since a key written from a file
+usually ends in a newline. A Secret is read when a request needs it and kept for a
+minute; a key the backend refuses is read again at once, so a rotation on both
+ends is picked up on the first refusal.
+
+#### passthrough
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `discovery.apiKey` | [apiKey](#apikey) | no | Authenticates catalog reads with a key. |
+| `discovery.clientCredentials` | [clientCredentials](#clientcredentials) | no | Authenticates catalog reads as an OAuth client. |
+
+`discovery`, when present, sets exactly one of the two. Left out, catalog reads
+carry no credentials — right for a backend that lists its tools openly and guards
+only the calls.
+
+The agent's `Authorization` header goes to the backend exactly as the agent sent
+it, and only on requests for that agent's tool calls. The gateway does not inspect
+the token on the backend's behalf — no audience or scope check: which tokens the
+backend accepts is the backend's to decide. Nothing is forwarded to a backend
+whose `type` is not `Passthrough`.
+
+A backend whose tool list depends on the caller is seen through the discovery
+credential alone: every agent is offered what that credential can see, and the
+backend decides on each call.
+
+#### clientCredentials
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `tokenURL` | string | yes | The provider's token endpoint. |
+| `clientID` | string | one of | The client ID, written out. |
+| `clientIDRef` | [SecretKeyRef](#secret-references) | one of | The client ID from a Secret — for providers that generate it. |
+| `clientSecretRef` | [SecretKeyRef](#secret-references) | yes | The client secret. |
+| `scopes` | []string | no | Requested with each token. |
+| `audience` | []string | no | Sent as the `audience` parameter (Ory Hydra), space-separated. |
+
+The token is kept until 30 seconds before it expires, and replaced at once when
+the backend answers 401 — the request is then sent once more with the new token.
+
+#### apiKey
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `secretRef` | [SecretKeyRef](#secret-references) | yes | Where the key is. |
+| `header` | string | no | The header it is sent in. Default `Authorization`. |
+| `prefix` | string | no | Goes in front of the key. Left out: `Bearer ` with `Authorization`, nothing with any other header. `""` sends the key bare. |
 
 ### status
 
@@ -53,6 +158,8 @@ While the backend is down, `discoveredTools`, `catalogRevision` and
 |---|---|---|
 | `Ready=True` | `Discovered` | `tools/list` answered. |
 | `Ready=False` | `DiscoveryFailed` | Unreachable, or not an MCP server. The message has the error. |
+| `Ready=False` | `CredentialsUnavailable` | The credentials `spec.auth` names could not be obtained: a Secret or key is missing — the message names it, and lists the keys the Secret does have — or the token endpoint refused the client. |
+| `Ready=False` | `Unauthorized` | The backend answered 401 or 403: it refused the credentials `spec.auth` sends, or wants credentials and `spec.auth` sends none. |
 
 Printer columns: `Endpoint`, `Available`, `Tools`, `Ready`.
 

@@ -45,6 +45,7 @@ spec:
             - --mcp-bind-address={{ .Values.gateway.mcpBindAddress }}
             - --mcp-path={{ .Values.gateway.mcpPath }}
             - --log-format={{ .Values.logging.format }}
+            - --secret-namespace={{ .Release.Namespace }}
             {{- with $oauth.issuer }}
             - --oauth-issuer={{ . }}
             {{- end }}

@@ -142,6 +142,97 @@ session ID with a different subject's token is refused with 403. On top of that,
 every `tools/call` is authorised against the subject of the token on that very
 request.
 
+## Towards backends
+
+Everything above is how an agent gets into the gateway. How the gateway gets into
+a backend is a separate matter, configured per backend in `MCPServer.spec.auth`
+(fields: [CRD Reference](./crd-reference.md#specauth)).
+
+| `type` | The backend sees | Suits |
+|---|---|---|
+| `None` | no credentials | a backend protected by the network alone |
+| `ClientCredentials` | the gateway's own OAuth token | a backend that trusts the gateway to have authorised the call |
+| `APIKey` | a static key from a Secret | the same, for a backend with keys instead of OAuth |
+| `Passthrough` | the calling agent's own token | a backend that decides per caller itself |
+
+With `ClientCredentials` and `APIKey`, the backend learns that the gateway called,
+not which agent: the grant was the gateway's to check. With `Passthrough` it gets
+the agent's token and makes its own decision; the gateway's grant still has to
+allow the call first.
+
+### Passthrough
+
+The agent's `Authorization` header is sent to the backend unchanged, on that
+agent's tool calls. The gateway checks nothing further about it — not the
+audience, not the scopes. A token issued for the gateway reaches the backend with
+the gateway as audience; whether the backend accepts that is its call, and a
+backend that should only accept tokens meant for it has to say so itself.
+
+- **Explicit, per backend.** A token is never forwarded to a backend whose type
+  is not `Passthrough`.
+- **One backend session per token.** A backend binds a session to the identity
+  that opened it, so each distinct token gets a session of its own for its calls.
+  A replaced token starts a new one; sessions without calls for five minutes are
+  closed.
+- **Catalog reads have no agent.** The controller and the gateway read the
+  catalog in the background, with `passthrough.discovery` — an API key or a
+  client of their own — or with no credentials at all. A backend like engram,
+  which lists its tools to anyone and guards the calls, needs no discovery
+  credential.
+- **A refused token is the agent's to know about.** The tool call returns
+  `isError: true` with *the backend serving this tool refused the caller's
+  credentials (HTTP 401 Unauthorized)* — or 403 — and nothing about the backend's
+  address.
+
+### Credentials the gateway holds
+
+- **Secrets by name and key.** `{name, key}` points at one data key of one Secret,
+  whatever the Secret's layout. They are read from the gateway's and the
+  controller's own namespace only: the chart grants both `get` on Secrets there,
+  and nothing elsewhere.
+- **Read when needed.** A missing Secret does not stop the backend from being
+  registered; its discovery fails with `CredentialsUnavailable`, naming the
+  Secret and listing the keys it has, and recovers once the Secret exists.
+- **Refreshed on refusal.** A 401 drops the token, or re-reads the Secret of an
+  API key, and sends the request once more. A backend that still refuses makes
+  the server `Unauthorized`; tool calls to it return the usual "currently
+  unavailable" tool error, and the cause is in the gateway's log.
+- **Only to the backend.** Credentials go to the scheme and host of
+  `spec.endpoint`; a redirect elsewhere does not take them along.
+
+A refusal never costs the session other callers share: the SDK would end a
+session on an HTTP error, so the gateway turns 401 and 403 into an error of its
+own before the SDK sees them. Refused calls count as
+`mcp_gate_tool_calls_total{outcome="unauthorized"}`.
+
+### With Ory Hydra and hydra-maester
+
+```yaml
+apiVersion: hydra.ory.sh/v1alpha1
+kind: OAuth2Client
+metadata:
+  name: mcp-gate-memory
+  namespace: mcp-system              # where mcp-gate runs
+spec:
+  grantTypes: [client_credentials]
+  scope: memory.read
+  secretName: mcp-gate-memory        # hydra-maester writes CLIENT_ID and CLIENT_SECRET
+---
+apiVersion: mcp.gate.metapatrol.com/v1alpha1
+kind: MCPServer
+metadata:
+  name: memory
+spec:
+  endpoint: http://memory.memory.svc/mcp
+  auth:
+    type: ClientCredentials
+    clientCredentials:
+      tokenURL: https://hydra.example.com/oauth2/token
+      clientIDRef:     {name: mcp-gate-memory, key: CLIENT_ID}
+      clientSecretRef: {name: mcp-gate-memory, key: CLIENT_SECRET}
+      scopes: [memory.read]
+```
+
 ## mcp-gate-proxy
 
 For agents without OAuth. The agent talks to the proxy on loopback, without

@@ -12,8 +12,10 @@ package v1alpha1
 // edits a manifest; one whose server is down is Valid=True, Ready=False and
 // recovers on its own.
 //
-// MCPServer carries Ready only. Its spec is an endpoint, which the schema
-// already checks, so there is nothing left for Valid to say.
+// MCPServer carries Ready only. Its spec is an endpoint and how to authenticate
+// to it, which the schema already checks; whether the Secrets it names exist and
+// the credentials in them are accepted is only found out by using them, and that
+// is what Ready reports.
 const (
 	ConditionValid = "Valid"
 	ConditionReady = "Ready"
@@ -27,6 +29,13 @@ const (
 	// ReasonDiscoveryFailed: the server could not be reached, or did not
 	// answer as an MCP server.
 	ReasonDiscoveryFailed = "DiscoveryFailed"
+	// ReasonUnauthorized: the server refused the credentials spec.auth
+	// sends, or requires credentials and spec.auth sends none.
+	ReasonUnauthorized = "Unauthorized"
+	// ReasonCredentialsUnavailable: the credentials spec.auth names could not
+	// be obtained — a Secret or one of its keys is missing, or the token
+	// endpoint refused the client.
+	ReasonCredentialsUnavailable = "CredentialsUnavailable"
 
 	// ReasonResolved: every reference names an existing resource.
 	ReasonResolved = "Resolved"

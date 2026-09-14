@@ -1,0 +1,67 @@
+# Backends that want credentials. Secrets are referenced by name and key and
+# read from the namespace mcp-gate runs in; the Secrets below are placeholders
+# for whatever writes them in your cluster.
+#
+# engram-style: tools are listed to anyone, tool calls need the caller's own
+# token. Each agent's token goes to the backend unchanged; the backend decides.
+apiVersion: mcp.gate.metapatrol.com/v1alpha1
+kind: MCPServer
+metadata:
+  name: memory
+spec:
+  endpoint: http://memory.memory.svc/mcp
+  auth:
+    type: Passthrough
+---
+# Passthrough for a backend that guards its tool list too: the controller and
+# the gateway read the catalog with a key of their own.
+apiVersion: mcp.gate.metapatrol.com/v1alpha1
+kind: MCPServer
+metadata:
+  name: tickets
+spec:
+  endpoint: http://tickets.tickets.svc/mcp
+  auth:
+    type: Passthrough
+    passthrough:
+      discovery:
+        apiKey:
+          secretRef:
+            name: tickets-discovery
+            key: token
+---
+# The gateway as an OAuth client of its own. hydra-maester writes CLIENT_ID and
+# CLIENT_SECRET into the Secret an OAuth2Client names.
+apiVersion: mcp.gate.metapatrol.com/v1alpha1
+kind: MCPServer
+metadata:
+  name: search
+spec:
+  endpoint: http://search.search.svc/mcp
+  auth:
+    type: ClientCredentials
+    clientCredentials:
+      tokenURL: https://hydra.example.com/oauth2/token
+      clientIDRef:
+        name: mcp-gate-search
+        key: CLIENT_ID
+      clientSecretRef:
+        name: mcp-gate-search
+        key: CLIENT_SECRET
+      scopes: [search.read]
+      audience: [search]
+---
+# A static key in a header of the backend's choosing, sent without a prefix.
+apiVersion: mcp.gate.metapatrol.com/v1alpha1
+kind: MCPServer
+metadata:
+  name: weather
+spec:
+  endpoint: http://weather.weather.svc/mcp
+  auth:
+    type: APIKey
+    apiKey:
+      secretRef:
+        name: weather-api
+        key: api-key
+      header: X-API-Key

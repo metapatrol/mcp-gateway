@@ -68,4 +68,40 @@ subjects:
   - kind: ServiceAccount
     name: {{ include "mcp-gate.gateway.serviceAccountName" . }}
     namespace: {{ .Release.Namespace }}
+---
+# Credentials for backends. An MCPServer is cluster-scoped, and the Secrets its
+# spec.auth names are read from this namespace alone: whoever may create an
+# MCPServer can have these components read a Secret here, and nowhere else.
+# Only get — the components ask for the Secrets they are told about, and never
+# list or watch the others.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "mcp-gate.fullname" . }}-backend-credentials
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "mcp-gate.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "mcp-gate.fullname" . }}-backend-credentials
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "mcp-gate.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "mcp-gate.fullname" . }}-backend-credentials
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "mcp-gate.controller.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+  - kind: ServiceAccount
+    name: {{ include "mcp-gate.gateway.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
 {{- end }}

@@ -30,11 +30,11 @@ import (
 	"net/url"
 	"slices"
 	"strings"
-	"sync"
-	"time"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
+
+	"forgejo.metapatrol.local/platform/mcp-gate/internal/oauth"
 )
 
 // Config configures a Proxy.
@@ -75,7 +75,7 @@ type Config struct {
 type Proxy struct {
 	cfg     Config
 	gateway *url.URL
-	tokens  *tokenCache
+	tokens  *oauth.Cache
 	handler http.Handler
 }
 
@@ -101,16 +101,13 @@ func New(cfg Config) (*Proxy, error) {
 	p := &Proxy{
 		cfg:     cfg,
 		gateway: gateway,
-		tokens: &tokenCache{
-			config: &clientcredentials.Config{
-				ClientID:       cfg.ClientID,
-				ClientSecret:   cfg.ClientSecret,
-				TokenURL:       cfg.TokenURL,
-				Scopes:         cfg.Scopes,
-				EndpointParams: cfg.EndpointParams,
-			},
-			client: cfg.HTTPClient,
-		},
+		tokens: oauth.NewCache(oauth.ClientCredentials(&clientcredentials.Config{
+			ClientID:       cfg.ClientID,
+			ClientSecret:   cfg.ClientSecret,
+			TokenURL:       cfg.TokenURL,
+			Scopes:         cfg.Scopes,
+			EndpointParams: cfg.EndpointParams,
+		}, cfg.HTTPClient)),
 	}
 
 	forward := &httputil.ReverseProxy{
@@ -226,56 +223,21 @@ type tokenError struct{ err error }
 func (e *tokenError) Error() string { return "obtaining an access token: " + e.err.Error() }
 func (e *tokenError) Unwrap() error { return e.err }
 
-// tokenCache holds the current access token.
-//
-// It is refreshed shortly before it expires, and dropped when the gateway
-// refuses it — a token can be revoked, or the gateway's clock can disagree,
-// long before its exp says so.
-type tokenCache struct {
-	config *clientcredentials.Config
-	client *http.Client
-
-	mu    sync.Mutex
-	token *oauth2.Token
-}
-
-// refreshMargin is how long before expiry a token is replaced. It covers the
-// time a request spends on the way to the gateway plus modest clock skew.
-const refreshMargin = 30 * time.Second
-
-func (c *tokenCache) get(ctx context.Context) (*oauth2.Token, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.token != nil && (c.token.Expiry.IsZero() || time.Until(c.token.Expiry) > refreshMargin) {
-		return c.token, nil
-	}
-	// Detached from the request: if this agent gives up, the next request is
-	// waiting on the same lock for the same token.
-	fetchCtx, cancel := context.WithTimeout(context.WithValue(context.WithoutCancel(ctx), oauth2.HTTPClient, c.client), 30*time.Second)
-	defer cancel()
-	token, err := c.config.Token(fetchCtx)
-	if err != nil {
-		return nil, &tokenError{err: err}
-	}
-	c.token = token
-	return token, nil
-}
-
-// invalidate drops stale if it is still the current token. A token another
-// request already replaced stays replaced.
-func (c *tokenCache) invalidate(stale *oauth2.Token) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.token == stale {
-		c.token = nil
-	}
-}
-
 // bearerTransport adds the token, and on a 401 retries once with a new one.
 type bearerTransport struct {
 	base   http.RoundTripper
-	tokens *tokenCache
+	tokens *oauth.Cache
 	log    *slog.Logger
+}
+
+// token wraps a failure to obtain one, so the error handler can tell it from a
+// failure to reach the gateway.
+func (t *bearerTransport) token(ctx context.Context) (*oauth2.Token, error) {
+	token, err := t.tokens.Token(ctx)
+	if err != nil {
+		return nil, &tokenError{err: err}
+	}
+	return token, nil
 }
 
 func (t *bearerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -296,7 +258,7 @@ func (t *bearerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		}
 	}
 
-	token, err := t.tokens.get(req.Context())
+	token, err := t.token(req.Context())
 	if err != nil {
 		return nil, err
 	}
@@ -308,8 +270,8 @@ func (t *bearerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	t.log.Info("the gateway refused the token, fetching a new one")
 	_, _ = io.Copy(io.Discard, resp.Body)
 	_ = resp.Body.Close()
-	t.tokens.invalidate(token)
-	token, err = t.tokens.get(req.Context())
+	t.tokens.Invalidate(token.AccessToken)
+	token, err = t.token(req.Context())
 	if err != nil {
 		return nil, err
 	}

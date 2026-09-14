@@ -17,7 +17,7 @@ import (
 // reconciler has something to verify against.
 func discovered(t *testing.T, r *MCPToolSetReconciler, backend *mcptest.Backend) {
 	t.Helper()
-	r.Registry.Ensure(backend.Name, backend.URL)
+	r.Registry.Ensure(backend.Name, backend.URL, nil)
 	_, _, err := r.Registry.Discover(context.Background(), backend.Name)
 	require.NoError(t, err)
 }

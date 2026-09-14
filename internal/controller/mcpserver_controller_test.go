@@ -5,9 +5,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	gatev1alpha1 "forgejo.metapatrol.local/platform/mcp-gate/api/v1alpha1"
+	"forgejo.metapatrol.local/platform/mcp-gate/internal/credentials"
 	"forgejo.metapatrol.local/platform/mcp-gate/internal/mcptest"
 )
 
@@ -85,4 +87,58 @@ func TestMCPServer_IntervalIsClamped(t *testing.T) {
 	assert.Equal(t, gatev1alpha1.DefaultDiscoveryInterval, s.Interval())
 	s.Spec.DiscoveryInterval = &metav1.Duration{Duration: 1}
 	assert.Equal(t, gatev1alpha1.MinDiscoveryInterval, s.Interval())
+}
+
+func withAPIKey(s *gatev1alpha1.MCPServer, secret, key string) *gatev1alpha1.MCPServer {
+	s.Spec.Auth = &gatev1alpha1.BackendAuth{
+		Type:   gatev1alpha1.BackendAuthAPIKey,
+		APIKey: &gatev1alpha1.APIKeyAuth{SecretRef: gatev1alpha1.SecretKeyRef{Name: secret, Key: key}},
+	}
+	return s
+}
+
+func TestMCPServerReconciler_AuthenticatesWithASecret(t *testing.T) {
+	backend := mcptest.NewBackend(t, "memory", "memory_search")
+	backend.RequireBearer(map[string]string{"k-123": "controller"})
+	c := newFakeClient(
+		withAPIKey(mcpServer("memory", backend.URL), "memory-credentials", "token"),
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "memory-credentials", Namespace: "mcp-gate"},
+			Data:       map[string][]byte{"token": []byte("k-123")},
+		},
+	)
+	r := NewMCPServerReconciler(c, c.Scheme(), newTestRegistryWithSecrets(t, credentials.NewSecretReader(c, "mcp-gate")))
+	reconcileNamed(t, r, "memory")
+
+	server := get(t, c, "memory", &gatev1alpha1.MCPServer{})
+	assert.True(t, server.Status.Available)
+	assert.Equal(t, gatev1alpha1.ReasonDiscovered, condition(t, server.Status.Conditions, gatev1alpha1.ConditionReady).Reason)
+}
+
+// A Secret that is not there is something to fix, not an outage to wait out,
+// and the condition says which Secret.
+func TestMCPServerReconciler_MissingCredentials(t *testing.T) {
+	backend := mcptest.NewBackend(t, "memory", "memory_search")
+	c := newFakeClient(withAPIKey(mcpServer("memory", backend.URL), "memory-credentials", "token"))
+	r := NewMCPServerReconciler(c, c.Scheme(), newTestRegistryWithSecrets(t, credentials.NewSecretReader(c, "mcp-gate")))
+	reconcileNamed(t, r, "memory")
+
+	server := get(t, c, "memory", &gatev1alpha1.MCPServer{})
+	assert.False(t, server.Status.Available)
+	ready := condition(t, server.Status.Conditions, gatev1alpha1.ConditionReady)
+	assert.Equal(t, gatev1alpha1.ReasonCredentialsUnavailable, ready.Reason)
+	assert.Contains(t, ready.Message, `secret "memory-credentials" not found in namespace "mcp-gate"`)
+}
+
+func TestMCPServerReconciler_RefusedCredentials(t *testing.T) {
+	backend := mcptest.NewBackend(t, "memory", "memory_search")
+	backend.RequireBearer(map[string]string{"k-123": "controller"})
+	c := newFakeClient(mcpServer("memory", backend.URL))
+	r := NewMCPServerReconciler(c, c.Scheme(), newTestRegistry(t))
+	reconcileNamed(t, r, "memory")
+
+	server := get(t, c, "memory", &gatev1alpha1.MCPServer{})
+	ready := condition(t, server.Status.Conditions, gatev1alpha1.ConditionReady)
+	assert.Equal(t, gatev1alpha1.ReasonUnauthorized, ready.Reason)
+	assert.Contains(t, ready.Message, "set spec.auth")
 }

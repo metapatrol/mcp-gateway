@@ -48,7 +48,7 @@ func TestCatalog_RevisionSeesInstructionChanges(t *testing.T) {
 func TestRegistry_DiscoverReadsTheInstructions(t *testing.T) {
 	backend := mcptest.NewBackendWithInstructions(t, "source-intelligence", "Search before you read.", "code.search")
 	r := newTestRegistry(t, Options{})
-	r.Ensure("source-intelligence", backend.URL)
+	r.Ensure("source-intelligence", backend.URL, nil)
 
 	catalog, _, err := r.Discover(context.Background(), "source-intelligence")
 	require.NoError(t, err)
@@ -74,7 +74,7 @@ func newTestRegistry(t *testing.T, opts Options) *Registry {
 func TestRegistry_DiscoverReadsTheCatalog(t *testing.T) {
 	backend := mcptest.NewBackend(t, "artifact", "artifact_get", "artifact_search")
 	r := newTestRegistry(t, Options{})
-	r.Ensure("artifact", backend.URL)
+	r.Ensure("artifact", backend.URL, nil)
 
 	catalog, changed, err := r.Discover(context.Background(), "artifact")
 	require.NoError(t, err)
@@ -90,7 +90,7 @@ func TestRegistry_DiscoverReadsTheCatalog(t *testing.T) {
 func TestRegistry_DiscoverNoticesChanges(t *testing.T) {
 	backend := mcptest.NewBackend(t, "artifact", "artifact_get")
 	r := newTestRegistry(t, Options{})
-	r.Ensure("artifact", backend.URL)
+	r.Ensure("artifact", backend.URL, nil)
 
 	first, _, err := r.Discover(context.Background(), "artifact")
 	require.NoError(t, err)
@@ -107,7 +107,7 @@ func TestRegistry_DiscoverNoticesChanges(t *testing.T) {
 func TestRegistry_FailureKeepsTheLastCatalog(t *testing.T) {
 	backend := mcptest.NewBackend(t, "artifact", "artifact_get")
 	r := newTestRegistry(t, Options{ConnectTimeout: time.Second})
-	r.Ensure("artifact", backend.URL)
+	r.Ensure("artifact", backend.URL, nil)
 	_, _, err := r.Discover(context.Background(), "artifact")
 	require.NoError(t, err)
 
@@ -129,11 +129,11 @@ func TestRegistry_EndpointChangeDiscardsTheCatalog(t *testing.T) {
 	old := mcptest.NewBackend(t, "artifact", "artifact_get")
 	replacement := mcptest.NewBackend(t, "artifact", "other_tool")
 	r := newTestRegistry(t, Options{})
-	r.Ensure("artifact", old.URL)
+	r.Ensure("artifact", old.URL, nil)
 	_, _, err := r.Discover(context.Background(), "artifact")
 	require.NoError(t, err)
 
-	r.Ensure("artifact", replacement.URL)
+	r.Ensure("artifact", replacement.URL, nil)
 	_, _, ok := r.Catalog("artifact")
 	assert.False(t, ok, "the old catalog must be gone the moment the endpoint changes")
 
@@ -145,7 +145,7 @@ func TestRegistry_EndpointChangeDiscardsTheCatalog(t *testing.T) {
 func TestRegistry_ForgetClosesTheBackend(t *testing.T) {
 	backend := mcptest.NewBackend(t, "artifact", "artifact_get")
 	r := newTestRegistry(t, Options{})
-	b := r.Ensure("artifact", backend.URL)
+	b := r.Ensure("artifact", backend.URL, nil)
 	_, _, err := r.Discover(context.Background(), "artifact")
 	require.NoError(t, err)
 
@@ -161,7 +161,7 @@ func TestRegistry_ForgetClosesTheBackend(t *testing.T) {
 func TestBackend_CallTool(t *testing.T) {
 	backend := mcptest.NewBackend(t, "artifact", "artifact_get")
 	r := newTestRegistry(t, Options{})
-	b := r.Ensure("artifact", backend.URL)
+	b := r.Ensure("artifact", backend.URL, nil)
 
 	res, err := b.CallTool(context.Background(), &mcp.CallToolParams{
 		Name:      "artifact_get",
@@ -177,7 +177,7 @@ func TestBackend_CallTool(t *testing.T) {
 func TestBackend_ReconnectsAfterTheBackendRestarts(t *testing.T) {
 	backend := mcptest.NewBackend(t, "artifact", "artifact_get")
 	r := newTestRegistry(t, Options{})
-	b := r.Ensure("artifact", backend.URL)
+	b := r.Ensure("artifact", backend.URL, nil)
 
 	_, err := b.CallTool(context.Background(), &mcp.CallToolParams{Name: "artifact_get"})
 	require.NoError(t, err)
@@ -236,7 +236,7 @@ func TestBackend_DoesNotUseTheStatelessProtocolHandshake(t *testing.T) {
 		ConnectTimeout: 2 * time.Second,
 		OnToolsChanged: func(string) {},
 	})
-	r.Ensure("artifacts", stalling.URL)
+	r.Ensure("artifacts", stalling.URL, nil)
 
 	start := time.Now()
 	catalog, _, err := r.Discover(context.Background(), "artifacts")
@@ -271,7 +271,7 @@ func TestBackend_AStalledHandshakeIsAbandonedAtTheTimeout(t *testing.T) {
 	})
 
 	r := newTestRegistry(t, Options{ConnectTimeout: 300 * time.Millisecond})
-	r.Ensure("artifacts", srv.URL)
+	r.Ensure("artifacts", srv.URL, nil)
 
 	start := time.Now()
 	_, _, err = r.Discover(context.Background(), "artifacts")
@@ -289,7 +289,7 @@ func TestRegistry_BackendAnnouncementsReachOnToolsChanged(t *testing.T) {
 	backend := mcptest.NewBackend(t, "artifact", "artifact_get")
 	announced := make(chan string, 4)
 	r := newTestRegistry(t, Options{OnToolsChanged: func(server string) { announced <- server }})
-	r.Ensure("artifact", backend.URL)
+	r.Ensure("artifact", backend.URL, nil)
 	_, _, err := r.Discover(context.Background(), "artifact")
 	require.NoError(t, err)
 

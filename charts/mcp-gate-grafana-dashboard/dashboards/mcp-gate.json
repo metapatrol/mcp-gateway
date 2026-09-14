@@ -642,7 +642,7 @@
       ],
       "title": "Tool Call Outcomes",
       "type": "timeseries",
-      "description": "ok: the tool ran and succeeded. tool_error: the tool ran and reported an error \u2014 the backend's business. backend_error: the call never completed, or the backend refused it as a protocol error."
+      "description": "ok: the tool ran and succeeded. tool_error: the tool ran and reported an error \u2014 the backend's business. backend_error: the call never completed, or the backend refused it as a protocol error. unauthorized: the backend refused the credentials of the call, or the gateway could not obtain them."
     },
     {
       "datasource": {
@@ -918,6 +918,15 @@
           "expr": "sum by (server, tool) (rate(mcp_gate_tool_calls_total{job=~\"$gateway\", namespace=~\"$namespace\", outcome=\"tool_error\"}[$__rate_interval])) > 0",
           "legendFormat": "tool_error {{server}}/{{tool}}",
           "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (server, tool) (rate(mcp_gate_tool_calls_total{job=~\"$gateway\", namespace=~\"$namespace\", outcome=\"unauthorized\"}[$__rate_interval])) > 0",
+          "legendFormat": "unauthorized {{server}}/{{tool}}",
+          "refId": "C"
         }
       ],
       "title": "Failing Tools",

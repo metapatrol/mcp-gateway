@@ -10,6 +10,8 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	gatev1alpha1 "forgejo.metapatrol.local/platform/mcp-gate/api/v1alpha1"
+	"forgejo.metapatrol.local/platform/mcp-gate/internal/credentials"
 	"forgejo.metapatrol.local/platform/mcp-gate/internal/metrics"
 )
 
@@ -29,6 +31,10 @@ type Options struct {
 	// OnToolsChanged is called when a backend announces that its tool list
 	// changed. It runs on the SDK's notification goroutine and must not block.
 	OnToolsChanged func(server string)
+
+	// Secrets resolves the Secret references of spec.auth. Nil fails every
+	// backend that has any.
+	Secrets credentials.Secrets
 
 	// Logger receives the SDK's own client logging. Nil discards it.
 	Logger *slog.Logger
@@ -71,17 +77,32 @@ func NewRegistry(opts Options) *Registry {
 // what the old address offered says nothing about the new one, and serving it
 // until the next discovery would route calls by a catalog the new backend never
 // published.
-func (r *Registry) Ensure(name, endpoint string) *Backend {
+//
+// Changed auth replaces the backend too, since every session was opened with the
+// old credentials, but keeps the catalog. The backend is the same one, and the
+// discovery that follows replaces the catalog if the new credentials see
+// another; dropping it in between would make every agent's tools vanish and
+// reappear.
+func (r *Registry) Ensure(name, endpoint string, auth *gatev1alpha1.BackendAuth) *Backend {
+	built := credentials.Build(auth, r.opts.Secrets, r.opts.HTTPClient)
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if e, ok := r.entries[name]; ok {
-		if e.backend.Endpoint() == endpoint {
-			return e.backend
-		}
-		_ = e.backend.Close()
+	e, ok := r.entries[name]
+	if ok && e.backend.Endpoint() == endpoint && e.backend.auth.Fingerprint == built.Fingerprint {
+		return e.backend
 	}
-	b := newBackend(name, endpoint, r.newClient(name), r.opts.HTTPClient, r.opts.ConnectTimeout)
-	r.entries[name] = &entry{backend: b}
+	b := newBackend(name, endpoint, built, r.newClient(name), r.opts.HTTPClient, r.opts.ConnectTimeout)
+	switch {
+	case !ok:
+		r.entries[name] = &entry{backend: b}
+	case e.backend.Endpoint() != endpoint:
+		_ = e.backend.Close()
+		r.entries[name] = &entry{backend: b}
+	default:
+		_ = e.backend.Close()
+		e.backend = b
+	}
 	return b
 }
 

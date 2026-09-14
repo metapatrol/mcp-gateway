@@ -26,6 +26,11 @@ type MCPServerSpec struct {
 	// +optional
 	// +kubebuilder:default="1m"
 	DiscoveryInterval *metav1.Duration `json:"discoveryInterval,omitempty"`
+
+	// Auth says how the gateway and the controller authenticate to the
+	// backend. Left out, they do not: type None.
+	// +optional
+	Auth *BackendAuth `json:"auth,omitempty"`
 }
 
 // MCPServerStatus is what the controller last learned from the backend.

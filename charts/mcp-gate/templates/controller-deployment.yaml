@@ -47,6 +47,7 @@ spec:
             - --leader-elect
             {{- end }}
             - --log-format={{ .Values.logging.format }}
+            - --secret-namespace={{ .Release.Namespace }}
           ports:
             - name: metrics
               containerPort: {{ include "mcp-gate.port" .Values.controller.metricsBindAddress }}
