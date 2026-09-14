@@ -173,11 +173,14 @@ jobs:
           go install helm.sh/helm/v3/cmd/helm@v3.16.3
           go install github.com/norwoodj/helm-docs/cmd/helm-docs@v1.14.2
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
-      # The chart refuses to render without a way to verify tokens, so it is
-      # linted with the values in ci/ — and once without, to prove it refuses.
-      - name: Lint and render the chart
+      # The mcp-gate chart refuses to render without a way to verify tokens, so
+      # it is linted with the values in ci/ — and once without, to prove it
+      # refuses. The dashboard chart has no required values.
+      - name: Lint and render both charts
         run: |
           set -eu
+          helm lint charts/mcp-gate-grafana-dashboard
+          helm template charts/mcp-gate-grafana-dashboard > /dev/null
           chart=charts/mcp-gate
           helm lint "$chart" -f "$chart/ci/default-values.yaml"
           helm template "$chart" -f "$chart/ci/default-values.yaml" > /dev/null
@@ -190,15 +193,20 @@ jobs:
             echo "ERROR: the chart rendered without token verification settings"
             exit 1
           fi
-      - name: The chart README must be current
+      - name: The chart READMEs must be current
         run: |
           set -eu
-          chart=charts/mcp-gate
-          cp "$chart/README.md" /tmp/readme-original.md
-          helm-docs --chart-search-root "$chart" --output-file README.md --log-level warning
-          if ! diff -q /tmp/readme-original.md "$chart/README.md" > /dev/null 2>&1; then
-            echo "ERROR: $chart/README.md is out of date. Run: make helm-docs"
-            diff /tmp/readme-original.md "$chart/README.md" || true
-            exit 1
-          fi
-          echo "OK: $chart/README.md"
+          FAIL=0
+          for chart in charts/mcp-gate charts/mcp-gate-grafana-dashboard; do
+            name=$(basename "$chart")
+            cp "$chart/README.md" "/tmp/readme-$name-original.md"
+            helm-docs --chart-search-root "$chart" --output-file README.md --log-level warning
+            if ! diff -q "/tmp/readme-$name-original.md" "$chart/README.md" > /dev/null 2>&1; then
+              echo "ERROR: $chart/README.md is out of date. Run: make helm-docs"
+              diff "/tmp/readme-$name-original.md" "$chart/README.md" || true
+              FAIL=1
+            else
+              echo "OK: $chart/README.md"
+            fi
+          done
+          [ $FAIL -eq 0 ] || exit 1

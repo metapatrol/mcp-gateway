@@ -176,6 +176,11 @@ metrics Service for each; `serviceMonitor.enabled` renders a ServiceMonitor.
 | `mcp_gate_auth_failures_total{reason}` | gateway | Refused tokens, by reason: `missing_token`, `expired`, `audience`, `signature`, `unavailable`, … |
 | `mcp_gate_build_info{component,…}` | all | Version, commit, build time, Go version |
 
+controller-runtime's own `controller_runtime_*` and `workqueue_*` families come
+with them. A Grafana dashboard built on all of them ships as a second chart,
+[`charts/mcp-gate-grafana-dashboard`](./charts/mcp-gate-grafana-dashboard): tool
+calls, access, backend availability, resource state, reconcilers and runtime.
+
 Every tool call is logged by the gateway as an audit record — subject, client
 ID, tool, backend, outcome and duration — and so is every refusal.
 
@@ -189,7 +194,8 @@ make build-binaries         # bin/mcp-gate-{controller,gateway,proxy}
 make test                   # unit tests, with real in-process MCP backends
 make integration-test       # controller + gateway against a real API server (envtest)
 make lint                   # golangci-lint
-make helm-docs              # regenerate the chart README
+make helm-lint              # lint both charts
+make helm-docs              # regenerate the chart READMEs
 ```
 
 The tests talk real MCP: backends in [`internal/mcptest`](./internal/mcptest)

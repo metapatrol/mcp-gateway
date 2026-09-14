@@ -8,7 +8,7 @@ other.
 |---|---|---|
 | `ci.yml` | pull requests, and pushes to develop | secret scan, lint, unit tests with the race detector, integration tests against a real API server, generated-file drift, chart lint, render and docs |
 | `main.yml` | pushes to main | the checks again, then three images from the commit, then semantic-release |
-| `release.yml` | a `v*` tag, and `workflow_dispatch` | validate the tag, test, three tagged images, the Forgejo release, binaries, the chart, docs rebuild |
+| `release.yml` | a `v*` tag, and `workflow_dispatch` | validate the tag, test, three tagged images, the Forgejo release, binaries, both charts, docs rebuild |
 
 ## Ordering
 
@@ -26,6 +26,9 @@ A cheap check gates an expensive one:
 In `release.yml` nothing is published until all three images are pushed: `notes`
 creates the Forgejo release, and a release whose images do not exist is worse
 than none. `binaries` and `chart` follow `notes` because both attach assets.
+
+`chart` publishes both charts at the release version: `mcp-gate` and
+`mcp-gate-grafana-dashboard`.
 
 ## Images
 

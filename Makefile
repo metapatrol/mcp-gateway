@@ -74,13 +74,16 @@ generate-crds:
 helm-docs:
 	helm-docs --chart-search-root charts/
 
-# Lint the Helm chart
+# Lint both Helm charts. The mcp-gate chart refuses to render without token
+# verification settings, so it is linted with the values CI uses.
 helm-lint:
-	helm lint charts/mcp-gate
+	helm lint charts/mcp-gate -f charts/mcp-gate/ci/default-values.yaml
+	helm lint charts/mcp-gate-grafana-dashboard
 
-# Package the Helm chart
+# Package both Helm charts
 helm-package:
 	helm package charts/mcp-gate --destination bin/
+	helm package charts/mcp-gate-grafana-dashboard --destination bin/
 
 # Generate CHANGELOG.md from conventional commits
 changelog:

@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -202,6 +203,28 @@ func TestGate(t *testing.T) {
 		}
 		assert.Empty(t, names(t, session))
 	})
+}
+
+// A server that was never reachable says available: false in so many words.
+// Status is patched against the previous status, and false never differs from
+// the zero value, so without the schema default the field — and the kubectl
+// column built on it — would simply be absent.
+func TestUnreachableServerReportsNotAvailable(t *testing.T) {
+	startController(t)
+	server := &gatev1alpha1.MCPServer{
+		ObjectMeta: metav1.ObjectMeta{Name: "never-reachable"},
+		Spec:       gatev1alpha1.MCPServerSpec{Endpoint: "http://127.0.0.1:1/mcp"},
+	}
+	create(t, server)
+	requireReady(t, server, metav1.ConditionFalse, gatev1alpha1.ReasonDiscoveryFailed)
+
+	var raw unstructured.Unstructured
+	raw.SetGroupVersionKind(gatev1alpha1.GroupVersion.WithKind("MCPServer"))
+	require.NoError(t, k8sClient.Get(context.Background(), types.NamespacedName{Name: server.Name}, &raw))
+	available, found, err := unstructured.NestedBool(raw.Object, "status", "available")
+	require.NoError(t, err)
+	assert.True(t, found, "status.available must be present")
+	assert.False(t, available)
 }
 
 // The schema refuses what it can, so the controller never sees it.

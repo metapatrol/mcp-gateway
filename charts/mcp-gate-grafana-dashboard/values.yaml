@@ -1,0 +1,12 @@
+grafana:
+  dashboard:
+    # -- Enable the Grafana dashboard ConfigMap
+    enabled: true
+    # -- Label key used by the Grafana sidecar to discover dashboards
+    label: grafana_dashboard
+    # -- Label value used by the Grafana sidecar
+    labelValue: "1"
+    # -- Annotation key used to specify the Grafana folder
+    folderAnnotation: grafana_folder
+    # -- Grafana folder name. Leave empty to use the default folder (no annotation set)
+    folder: "MCP Gate"

@@ -39,7 +39,12 @@ type MCPServerStatus struct {
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
 	// Available reports whether the most recent discovery succeeded.
+	//
+	// The default is what makes a server that was never reachable show false
+	// rather than nothing: status is written as a patch against the previous
+	// status, and a false that never changed is never in one.
 	// +optional
+	// +kubebuilder:default=false
 	Available bool `json:"available"`
 
 	// DiscoveredTools is how many tools the last successful discovery found.

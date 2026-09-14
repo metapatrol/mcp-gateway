@@ -98,7 +98,13 @@ spec:
               and not a cache for catalogs that can run to megabytes.
             properties:
               available:
-                description: Available reports whether the most recent discovery succeeded.
+                default: false
+                description: |-
+                  Available reports whether the most recent discovery succeeded.
+
+                  The default is what makes a server that was never reachable show false
+                  rather than nothing: status is written as a patch against the previous
+                  status, and a false that never changed is never in one.
                 type: boolean
               catalogRevision:
                 description: |-
