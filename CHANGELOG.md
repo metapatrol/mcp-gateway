@@ -1,3 +1,32 @@
+# [1.6.0](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/compare/v1.5.0...v1.6.0) (2026-09-15)
+
+
+* refactor!: rename the project to mcp-gateway ([0a2fbe1](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/commit/0a2fbe1228bf0007edb0b7e62c1d1757c28e42f7))
+
+
+### BREAKING CHANGES
+
+* every public name changes, with no aliases for the old ones.
+
+- Binaries and images: mcp-gateway (was mcp-gate-gateway),
+  mcp-gateway-controller, mcp-gateway-proxy.
+- Charts: mcp-gateway and mcp-gateway-grafana-dashboard. The gateway's
+  Deployment, Service, ServiceAccount, ClusterRole, PodDisruptionBudget and
+  NetworkPolicy are named after the release (mcp-gateway), no longer with a
+  -gateway suffix; its metrics Service is mcp-gateway-metrics.
+- API group: mcp-gateway.metapatrol.com/v1alpha1 (was
+  mcp.gate.metapatrol.com), category mcp-gateway. The CRDs are new ones:
+  resources have to be re-created under the new apiVersion, and the old CRDs
+  removed by hand once they are.
+- Metrics: mcp_gateway_* (was mcp_gate_*). The dashboard's uid is
+  mcp-gateway.
+- Labels: mcp-gateway.metapatrol.com/chart-version and
+  mcp-gateway.metapatrol.com/metrics.
+- Environment: MCP_GATEWAY_* (was MCP_GATE_*); the proxy's gateway URL is
+  MCP_GATEWAY_URL.
+- Leader election ID: mcp-gateway-controller.metapatrol.com.
+- Go module: forgejo.metapatrol.local/platform/mcp-gateway.
+
 # [1.5.0](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gate/compare/v1.4.1...v1.5.0) (2026-09-15)
 
 
