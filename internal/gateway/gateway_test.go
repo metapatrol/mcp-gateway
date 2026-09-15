@@ -697,3 +697,42 @@ func TestProtectedResourceMetadataURL(t *testing.T) {
 	_, err := protectedResourceMetadataURL("/relative")
 	assert.Error(t, err)
 }
+
+// Two backends that name a tool alike: without renaming neither is exposed;
+// with a prefix on one of them both are, each call reaches its own backend
+// under the backend's own name, and the instructions say which name is which.
+func TestRenames_TwoBackendsWithTheSameToolName(t *testing.T) {
+	e := newEnv(t, Options{})
+	engram := mcptest.NewBackendWithInstructions(t, "engram", "Use artifact_get to recall.", "artifact_get", "remember")
+	e.register("engram", engram.URL)
+	e.grants = []gatev1alpha1.MCPGrant{grant("reviewer", "reviewer", "both")}
+
+	e.toolSets = append(e.toolSets, toolSet("engram-all", "engram", "*"))
+	e.capabilities = append(e.capabilities, capability("both", "artifact-read", "engram-all"))
+	e.apply()
+	assert.Equal(t, []string{"artifact_search", "remember"}, toolNames(t, e.connect("token-reviewer")),
+		"the colliding name is exposed by neither")
+
+	renamed := toolSet("engram-all", "engram", "*")
+	renamed.Spec.Prefix = "engram_"
+	renamed.Spec.Aliases = map[string]gatev1alpha1.ToolName{"remember": "memorize"}
+	e.toolSets[len(e.toolSets)-1] = renamed
+	e.apply()
+	session := e.connect("token-reviewer")
+	assert.Equal(t, []string{"artifact_get", "artifact_search", "engram_artifact_get", "memorize"}, toolNames(t, session))
+
+	res, err := call(session, "engram_artifact_get")
+	require.NoError(t, err)
+	assert.Equal(t, `engram/artifact_get {"q":"x"}`, text(res))
+	res, err = call(session, "memorize")
+	require.NoError(t, err)
+	assert.Equal(t, `engram/remember {"q":"x"}`, text(res))
+	res, err = call(session, "artifact_get")
+	require.NoError(t, err)
+	assert.Equal(t, `artifact/artifact_get {"q":"x"}`, text(res))
+	_, err = call(session, "remember")
+	assert.Error(t, err, "an aliased tool is not offered under its backend name as well")
+
+	assert.Contains(t, session.InitializeResult().Instructions,
+		"Tools from this server: engram_artifact_get (artifact_get), memorize (remember)\n\nUse artifact_get to recall.")
+}

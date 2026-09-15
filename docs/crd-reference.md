@@ -192,6 +192,8 @@ spec:
 | `serverRef` | string | yes | Name of the `MCPServer`. |
 | `tools` | []string | yes | Tool names or glob patterns. At least one; no duplicates. |
 | `exclude` | []string | no | Tool names or glob patterns removed from the selection. Wins over `tools`. |
+| `prefix` | string | no | Put in front of the name of every selected tool, as agents see it. Up to 64 letters, digits, `_`, `-`, `.`. |
+| `aliases` | map[string]string | no | Backend tool name → the name agents see it under. Wins over `prefix`. Keys are exact names, values 1–128 letters, digits, `_`, `-`, `.`; at most 128 entries. |
 
 **Patterns.** `*` matches any run of characters — dots included, and the empty
 run — and `?` exactly one character. Matching is case-sensitive and anchored at
@@ -210,15 +212,38 @@ exclude: ["artifact_delete"]
 
 `status.resolvedTools` always shows what the tool set selects at the moment.
 
+**Renaming.** Tools are offered under their backend names — unless the tool set
+says otherwise. When two backends name a tool alike, a subject granted both gets
+neither (`ToolNameConflict`); renaming one of them resolves that:
+
+```yaml
+spec:
+  serverRef: engram
+  tools: ["memory_*"]
+  exclude: [memory_remember]
+  prefix: engram_            # memory_list   -> engram_memory_list
+  aliases:
+    memory_search: recall    # memory_search -> recall (an alias wins over the prefix)
+```
+
+`tools`, `exclude` and the keys of `aliases` always use the backend's names; only
+what agents see changes. A tool is offered under one name only — an aliased tool
+is not also offered under its prefixed name. The gateway's instructions list a
+renamed tool with its backend name beside it, `recall (memory_search)`, since
+that is the name the backend's own instructions use.
+
 ### status
 
 | Field | Description |
 |---|---|
 | `catalogRevision` | The server catalog the tools were last verified against. |
-| `resolvedTools` | What the tool set selects from that catalog, sorted: matched patterns and present names, minus exclusions. What a grant on it hands out. |
+| `resolvedTools` | What the tool set selects from that catalog, sorted, under the names agents see: matched patterns and present names, minus exclusions, after `prefix` and `aliases`. What a grant on it hands out. |
+| `backendNames` | For each resolved tool offered under another name, its backend name. |
 | `resolvedToolCount` | Length of `resolvedTools`. |
 | `missingTools` | Exact names in `tools` the server does not currently expose. |
 | `unmatchedPatterns` | Patterns in `tools` that select no tool — none matches, or every match is excluded. |
+| `unusedAliases` | Keys of `aliases` that name no tool the set selects. |
+| `conflictingNames` | Names under which the set itself would offer more than one tool — two aliases alike, or an alias equal to another tool's prefixed name. None of those tools is offered. |
 
 | Condition | Reason | Meaning |
 |---|---|---|
@@ -228,7 +253,9 @@ exclude: ["artifact_delete"]
 | `Ready=False` | `Invalid` | The tool set is not valid. |
 | `Ready=False` | `ServerUnavailable` | The server is not Ready. |
 | `Ready=False` | `MissingTools` | Some names are not exposed — `"symbol_search" is not currently exposed by source-intelligence`. Takes precedence when patterns are unmatched too; the message lists both. |
+| `Ready=False` | `ToolNameConflict` | The set's own renaming would offer two tools under one name — `"e_list" would name more than one tool, so neither is exposed`. Takes precedence over the reasons below. |
 | `Ready=False` | `UnmatchedPatterns` | Some patterns select nothing — `"cod.*" selects no tool of source-intelligence`. A wildcard that matches nothing is almost always a typo. |
+| `Ready=False` | `UnusedAliases` | Some aliases name a tool the set does not select — `"code.serach" has an alias but not selected`. |
 | `Ready=Unknown` | `CatalogPending` | The controller has not read the server's catalog since it started. |
 
 The gateway exposes what does resolve; a missing tool or an unmatched pattern

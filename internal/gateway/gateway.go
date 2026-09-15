@@ -292,16 +292,23 @@ func (g *Gateway) forwardInstructions(subject string) mcp.Middleware {
 // instructions, if any, then one section per backend it reaches, in server name
 // order.
 //
-// Each section names the backend and the tools the subject has from it. Tools
-// are exposed under their bare names, so without that line a model reading
-// "use search before get" cannot tell which of its tools the sentence is about.
+// Each section names the backend and the tools the subject has from it — a tool
+// renamed by a tool set with the backend's own name beside it. Without that line
+// a model reading "use search before get" cannot tell which of its tools the
+// sentence is about.
 // A backend's text is passed on as it is, including what it says about tools
 // the subject was not granted; it is prose, and there is nothing to filter it
 // by.
 func (g *Gateway) instructionsFor(subject string) string {
 	byServer := map[string][]string{}
 	for name, w := range g.desired(subject) {
-		byServer[w.ref.Server] = append(byServer[w.ref.Server], name)
+		// A tool offered under a name of its own is listed with the name the
+		// backend gives it, which is the name its instructions use.
+		listed := name
+		if name != w.ref.Tool {
+			listed = fmt.Sprintf("%s (%s)", name, w.ref.Tool)
+		}
+		byServer[w.ref.Server] = append(byServer[w.ref.Server], listed)
 	}
 	servers := make([]string, 0, len(byServer))
 	for server := range byServer {

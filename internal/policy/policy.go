@@ -115,8 +115,9 @@ func Empty() *Snapshot {
 
 // Resolution is what a set of capabilities comes to.
 type Resolution struct {
-	// Tools maps each exposed name to the backend tool it stands for. A name
-	// that two different backend tools claim is absent: see Conflicts.
+	// Tools maps each exposed name — after a tool set's prefix and aliases —
+	// to the backend tool it stands for. A name that two different backend
+	// tools claim is absent: see Conflicts.
 	Tools map[string]ToolRef
 
 	// Conflicts maps each name claimed by more than one backend tool to all of
@@ -153,10 +154,42 @@ func (s *Snapshot) Resolve(subject string, catalogs Catalogs) Resolution {
 }
 
 // Authorize reports which backend tool subject reaches under name, if any.
-// It is the check the gateway makes on every tools/call.
+// It is the check the gateway makes on every tools/call, and it answers exactly
+// what Resolve(subject).Tools[name] would.
+//
+// It gets there without resolving the subject's whole policy. Every tool set
+// the subject's grants reach is asked only whether it exposes this one name:
+// Exposed inverted gives at most a couple of backend tools it could stand for,
+// and each is checked against the set's selection. A catalog is only read for a
+// tool a pattern matches. Two different backend tools behind the name are a
+// conflict, and a conflict exposes neither.
 func (s *Snapshot) Authorize(subject, name string, catalogs Catalogs) (ToolRef, bool) {
-	ref, ok := s.Resolve(subject, catalogs).Tools[name]
-	return ref, ok
+	var found ToolRef
+	have := false
+	for _, g := range s.grants[subject] {
+		for _, capability := range g.capabilities {
+			for _, set := range s.capabilities[capability] {
+				spec, ok := s.toolSets[set]
+				if !ok || !s.servers[spec.ServerRef] {
+					continue
+				}
+				for _, tool := range backendNames(spec, name) {
+					available := func() []string { return catalogs.names(spec.ServerRef) }
+					if !claimsTool(spec, tool, available) {
+						continue
+					}
+					ref := ToolRef{Server: spec.ServerRef, Tool: tool}
+					switch {
+					case !have:
+						found, have = ref, true
+					case ref != found:
+						return ToolRef{}, false
+					}
+				}
+			}
+		}
+	}
+	return found, have
 }
 
 // ResolveCapabilities returns what the named capabilities come to together.
@@ -190,12 +223,12 @@ func (s *Snapshot) ResolveToolSets(names []string, catalogs Catalogs) Resolution
 			missingServers = append(missingServers, spec.ServerRef)
 			continue
 		}
-		for _, tool := range claims(spec, catalogs.names(spec.ServerRef)) {
-			ref := ToolRef{Server: spec.ServerRef, Tool: tool}
-			// The same backend tool reached through two tool sets is one tool,
-			// not a conflict.
-			if !slices.Contains(claimants[tool], ref) {
-				claimants[tool] = append(claimants[tool], ref)
+		for _, c := range claims(spec, catalogs.names(spec.ServerRef)) {
+			ref := ToolRef{Server: spec.ServerRef, Tool: c.tool}
+			// The same backend tool reached through two tool sets under the
+			// same name is one tool, not a conflict.
+			if !slices.Contains(claimants[c.exposed], ref) {
+				claimants[c.exposed] = append(claimants[c.exposed], ref)
 			}
 		}
 	}

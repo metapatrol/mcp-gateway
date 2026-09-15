@@ -236,6 +236,40 @@ func TestGate(t *testing.T) {
 		sourceIntelligence.RemoveTool("source_blame")
 	})
 
+	// A prefix and an alias rename what agents see; status shows both names,
+	// and a call under the new name reaches the backend under its own.
+	t.Run("a tool set renames tools", func(t *testing.T) {
+		renamed := &gatev1alpha1.MCPToolSet{
+			ObjectMeta: metav1.ObjectMeta{Name: "artifact-renamed"},
+			Spec: gatev1alpha1.MCPToolSetSpec{
+				ServerRef: "artifact",
+				Tools:     []string{"artifact_search", "artifact_get"},
+				Prefix:    "art_",
+				Aliases:   map[string]gatev1alpha1.ToolName{"artifact_get": "fetch"},
+			},
+		}
+		create(t, renamed)
+		create(t, &gatev1alpha1.MCPCapability{
+			ObjectMeta: metav1.ObjectMeta{Name: "renamed"},
+			Spec:       gatev1alpha1.MCPCapabilitySpec{ToolSets: []string{"artifact-renamed"}},
+		})
+		create(t, &gatev1alpha1.MCPGrant{
+			ObjectMeta: metav1.ObjectMeta{Name: "renamed-agent"},
+			Spec:       gatev1alpha1.MCPGrantSpec{Subject: "renamed-agent", Capabilities: []string{"renamed"}},
+		})
+
+		requireReady(t, renamed, metav1.ConditionTrue, gatev1alpha1.ReasonAvailable)
+		require.NoError(t, k8sClient.Get(context.Background(), types.NamespacedName{Name: renamed.Name}, renamed))
+		assert.Equal(t, []string{"art_artifact_search", "fetch"}, renamed.Status.ResolvedTools)
+		assert.Equal(t, map[string]string{"art_artifact_search": "artifact_search", "fetch": "artifact_get"}, renamed.Status.BackendNames)
+
+		agent := connect(t, url, "renamed-agent", nil)
+		require.Eventually(t, func() bool { return slices.Equal(names(t, agent), []string{"art_artifact_search", "fetch"}) }, eventually, tick)
+		res, err := agent.CallTool(context.Background(), &mcp.CallToolParams{Name: "fetch", Arguments: map[string]any{}})
+		require.NoError(t, err)
+		assert.Equal(t, "artifact/artifact_get {}", res.Content[0].(*mcp.TextContent).Text)
+	})
+
 	t.Run("revoking the grant", func(t *testing.T) {
 		for len(changed) > 0 {
 			<-changed
@@ -298,6 +332,15 @@ func TestSchemaValidation(t *testing.T) {
 		Spec:       gatev1alpha1.MCPToolSetSpec{ServerRef: "artifact", Tools: []string{"a", "a"}},
 	})
 	assert.Error(t, err, "tools are a set")
+
+	for name, spec := range map[string]gatev1alpha1.MCPToolSetSpec{
+		"alias-for-a-pattern": {ServerRef: "artifact", Tools: []string{"*"}, Aliases: map[string]gatev1alpha1.ToolName{"artifact_*": "fetch"}},
+		"alias-with-a-space":  {ServerRef: "artifact", Tools: []string{"*"}, Aliases: map[string]gatev1alpha1.ToolName{"artifact_get": "fetch it"}},
+		"prefix-with-a-slash": {ServerRef: "artifact", Tools: []string{"*"}, Prefix: "art/"},
+	} {
+		err = k8sClient.Create(ctx, &gatev1alpha1.MCPToolSet{ObjectMeta: metav1.ObjectMeta{Name: name}, Spec: spec})
+		assert.Error(t, err, name)
+	}
 
 	err = k8sClient.Create(ctx, &gatev1alpha1.MCPGrant{
 		ObjectMeta: metav1.ObjectMeta{Name: "nobody"},

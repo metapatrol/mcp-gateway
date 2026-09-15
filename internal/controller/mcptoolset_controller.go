@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"time"
@@ -78,9 +79,12 @@ func (r *MCPToolSetReconciler) verify(ctx context.Context, toolSet *gatev1alpha1
 		setCondition(&status.Conditions, gen, gatev1alpha1.ConditionReady, metav1.ConditionFalse, gatev1alpha1.ReasonInvalid, msg)
 		status.CatalogRevision = ""
 		status.ResolvedTools = nil
+		status.BackendNames = nil
 		status.ResolvedToolCount = 0
 		status.MissingTools = nil
 		status.UnmatchedPatterns = nil
+		status.UnusedAliases = nil
+		status.ConflictingNames = nil
 		return ctrl.Result{}, nil
 	}
 	setCondition(&status.Conditions, gen, gatev1alpha1.ConditionValid, metav1.ConditionTrue, gatev1alpha1.ReasonResolved,
@@ -107,11 +111,17 @@ func (r *MCPToolSetReconciler) verify(ctx context.Context, toolSet *gatev1alpha1
 	sel := policy.Select(toolSet.Spec, catalog.Names())
 	status.CatalogRevision = catalog.Revision
 	status.ResolvedTools = sel.Tools
+	status.BackendNames = sel.BackendNames
 	status.ResolvedToolCount = len(sel.Tools)
 	status.MissingTools = sel.Missing
 	status.UnmatchedPatterns = sel.Unmatched
+	status.UnusedAliases = sel.UnusedAliases
+	status.ConflictingNames = sel.Conflicts
 
 	var problems []string
+	if len(sel.Conflicts) > 0 {
+		problems = append(problems, fmt.Sprintf("%s would name more than one tool, so neither is exposed", quoted(sel.Conflicts)))
+	}
 	if len(sel.Missing) > 0 {
 		problems = append(problems, fmt.Sprintf("%s %s not currently exposed by %s",
 			quoted(sel.Missing), plural(len(sel.Missing), "is", "are"), serverName))
@@ -120,12 +130,22 @@ func (r *MCPToolSetReconciler) verify(ctx context.Context, toolSet *gatev1alpha1
 		problems = append(problems, fmt.Sprintf("%s %s no tool of %s",
 			quoted(sel.Unmatched), plural(len(sel.Unmatched), "selects", "select"), serverName))
 	}
+	if len(sel.UnusedAliases) > 0 {
+		problems = append(problems, fmt.Sprintf("%s %s an alias but not selected",
+			quoted(sel.UnusedAliases), plural(len(sel.UnusedAliases), "has", "have")))
+	}
 	switch {
+	case len(sel.Conflicts) > 0:
+		setCondition(&status.Conditions, gen, gatev1alpha1.ConditionReady, metav1.ConditionFalse, gatev1alpha1.ReasonToolNameConflict,
+			strings.Join(problems, "; "))
 	case len(sel.Missing) > 0:
 		setCondition(&status.Conditions, gen, gatev1alpha1.ConditionReady, metav1.ConditionFalse, gatev1alpha1.ReasonMissingTools,
 			strings.Join(problems, "; "))
 	case len(sel.Unmatched) > 0:
 		setCondition(&status.Conditions, gen, gatev1alpha1.ConditionReady, metav1.ConditionFalse, gatev1alpha1.ReasonUnmatchedPatterns,
+			strings.Join(problems, "; "))
+	case len(sel.UnusedAliases) > 0:
+		setCondition(&status.Conditions, gen, gatev1alpha1.ConditionReady, metav1.ConditionFalse, gatev1alpha1.ReasonUnusedAliases,
 			strings.Join(problems, "; "))
 	default:
 		setCondition(&status.Conditions, gen, gatev1alpha1.ConditionReady, metav1.ConditionTrue, gatev1alpha1.ReasonAvailable,
@@ -210,7 +230,8 @@ func (toolSetSelectionChanged) Update(e event.UpdateEvent) bool {
 func selectionChanged(e event.UpdateEvent) bool {
 	oldSet, ok1 := e.ObjectOld.(*gatev1alpha1.MCPToolSet)
 	newSet, ok2 := e.ObjectNew.(*gatev1alpha1.MCPToolSet)
-	return ok1 && ok2 && !slices.Equal(oldSet.Status.ResolvedTools, newSet.Status.ResolvedTools)
+	return ok1 && ok2 && (!slices.Equal(oldSet.Status.ResolvedTools, newSet.Status.ResolvedTools) ||
+		!maps.Equal(oldSet.Status.BackendNames, newSet.Status.BackendNames))
 }
 
 func conditionChanged(oldConditions, newConditions []metav1.Condition, conditionType string) bool {

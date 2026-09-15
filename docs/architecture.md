@@ -119,10 +119,11 @@ for each tool set the subject's grants reach:
     its exact names                        (claimed whether or not the backend has them)
     and its patterns, expanded against the server's usable catalog
     minus its exclusions
-for each tool claimed by exactly one (server, tool):
+each named as agents see it: its alias, or the set's prefix and its backend name
+for each name claimed by exactly one (server, tool):
     the server's catalog is usable        (discovered, not failing for longer than --catalog-max-age)
     and the catalog contains the tool
-    → exposed under the tool's own name, with the backend's definition
+    → exposed under that name, with the backend's definition
 ```
 
 When the policy or a catalog changes, every subject's list is recomputed and only
@@ -198,7 +199,10 @@ sequenceDiagram
 
 Authorisation is decided on every call, from the current snapshot and the token
 on that request. The registered tool list is not trusted for it: a grant revoked
-a millisecond ago is refused even if the list has not caught up.
+a millisecond ago is refused even if the list has not caught up. The check does
+not resolve the subject's whole policy: each tool set the subject reaches is
+asked only whether it exposes the requested name, by the same rules as the
+resolution — a few microseconds however large the policy grows.
 
 A refused call gets exactly the error a nonexistent tool gets, so a caller cannot
 probe for tools outside its grants.
@@ -351,8 +355,6 @@ backend report `ServerUnavailable`.
   `spec.auth` covers no credentials, passthrough, client credentials and API
   keys; another type is another variant of the union and another
   `credentials.Credential`.
-- **Aliases** (CONCEPT §14). Tools are exposed under their backend names; a
-  collision exposes neither.
 - **Prompts, resources, sampling, elicitation.** The gateway aggregates tools
   only.
 - **Progress notifications** from backends are not relayed to agents.

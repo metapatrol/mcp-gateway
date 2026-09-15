@@ -52,7 +52,7 @@ func policyOfSize(servers, toolsPerServer, capabilitySize, subjects int) (*Snaps
 // BenchmarkAuthorize is the policy work of one tools/call.
 func BenchmarkAuthorize(b *testing.B) {
 	for _, size := range []struct {
-		name                                             string
+		name                                              string
 		servers, toolsPerServer, capabilitySize, subjects int
 	}{
 		{"small/3-servers-20-tools", 3, 20, 2, 10},

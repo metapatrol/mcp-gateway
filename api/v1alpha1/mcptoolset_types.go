@@ -35,7 +35,30 @@ type MCPToolSetSpec struct {
 	// +kubebuilder:validation:items:MinLength=1
 	// +listType=set
 	Exclude []string `json:"exclude,omitempty"`
+
+	// Prefix goes in front of the name of every tool the set selects, as agents
+	// see it: with prefix "engram_", the backend's memory_search is offered as
+	// engram_memory_search. Tools, exclude and aliases keep using the backend's
+	// names. It is how two backends that name a tool alike can both be granted
+	// to one subject, where otherwise neither tool would be exposed.
+	// +optional
+	// +kubebuilder:validation:Pattern=`^[A-Za-z0-9_.-]{0,64}$`
+	Prefix string `json:"prefix,omitempty"`
+
+	// Aliases offers single tools under a name of their own: the backend's name
+	// of a tool the set selects, mapped to the name agents see. An alias wins
+	// over prefix. A key names one tool, never a pattern; a key the set does not
+	// select makes the tool set Ready=False, and so do two tools the set would
+	// expose under one name.
+	// +optional
+	// +kubebuilder:validation:MaxProperties=128
+	// +kubebuilder:validation:XValidation:rule="self.all(k, !k.contains('*') && !k.contains('?'))",message="aliases name exact tools, not patterns"
+	Aliases map[string]ToolName `json:"aliases,omitempty"`
 }
+
+// ToolName is a tool's name as agents see it.
+// +kubebuilder:validation:Pattern=`^[A-Za-z0-9_.-]{1,128}$`
+type ToolName string
 
 // MCPToolSetStatus is the result of verifying the selection against the
 // server's current catalog.
@@ -51,10 +74,15 @@ type MCPToolSetStatus struct {
 
 	// ResolvedTools are the tools the tool set selects from the catalog it was
 	// last verified against, sorted: the names and pattern matches the server
-	// exposes, minus the exclusions. It is what a grant on this tool set hands
-	// out.
+	// exposes, minus the exclusions, under the names agents see — after prefix
+	// and aliases. It is what a grant on this tool set hands out.
 	// +optional
 	ResolvedTools []string `json:"resolvedTools,omitempty"`
+
+	// BackendNames maps each resolved tool offered under a name other than the
+	// backend's — through prefix or an alias — to the backend's name.
+	// +optional
+	BackendNames map[string]string `json:"backendNames,omitempty"`
 
 	// ResolvedToolCount is the length of resolvedTools, for kubectl's columns.
 	// +optional
@@ -69,6 +97,17 @@ type MCPToolSetStatus struct {
 	// the current catalog — none matches, or every match is excluded.
 	// +optional
 	UnmatchedPatterns []string `json:"unmatchedPatterns,omitempty"`
+
+	// UnusedAliases are the keys of spec.aliases that name no tool the set
+	// selects from the current catalog.
+	// +optional
+	UnusedAliases []string `json:"unusedAliases,omitempty"`
+
+	// ConflictingNames are the names under which the set itself would expose
+	// more than one tool — two aliases alike, or an alias equal to another
+	// tool's prefixed name. None of those tools is exposed.
+	// +optional
+	ConflictingNames []string `json:"conflictingNames,omitempty"`
 
 	// Conditions: Valid and Ready.
 	// +optional

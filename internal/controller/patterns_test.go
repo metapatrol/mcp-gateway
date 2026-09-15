@@ -90,3 +90,43 @@ func TestMCPCapabilityReconciler_ConflictBetweenPatterns(t *testing.T) {
 	assert.Equal(t, gatev1alpha1.ReasonToolNameConflict, valid.Reason)
 	assert.Equal(t, `"code.search" is exposed by engram/code.search and source-intelligence/code.search; the gateway exposes none of them`, valid.Message)
 }
+
+// A tool set that renames tools shows the names agents get, and which backend
+// tool each renamed one is.
+func TestMCPToolSetReconciler_RenamesResolveIntoStatus(t *testing.T) {
+	backend := mcptest.NewBackend(t, "source-intelligence", siTools...)
+	ts := mcpToolSet("research", "source-intelligence", "code.search", "refs.list")
+	ts.Spec.Prefix = "si_"
+	ts.Spec.Aliases = map[string]gatev1alpha1.ToolName{"code.search": "search"}
+	c := newFakeClient(readyServer("source-intelligence"), ts)
+	r := &MCPToolSetReconciler{Client: c, Scheme: c.Scheme(), Registry: newTestRegistry(t)}
+	discovered(t, r, backend)
+
+	reconcileNamed(t, r, "research")
+
+	got := get(t, c, "research", &gatev1alpha1.MCPToolSet{})
+	assert.Equal(t, []string{"search", "si_refs.list"}, got.Status.ResolvedTools)
+	assert.Equal(t, map[string]string{"search": "code.search", "si_refs.list": "refs.list"}, got.Status.BackendNames)
+	assert.Empty(t, got.Status.UnusedAliases)
+	assert.Equal(t, metav1.ConditionTrue, condition(t, got.Status.Conditions, gatev1alpha1.ConditionReady).Status)
+}
+
+// An alias for a tool the set does not select renames nothing, which is almost
+// always a slip — a typo in the key, or an exclusion that took the tool away.
+func TestMCPToolSetReconciler_UnusedAlias(t *testing.T) {
+	backend := mcptest.NewBackend(t, "source-intelligence", siTools...)
+	ts := mcpToolSet("research", "source-intelligence", "code.*")
+	ts.Spec.Aliases = map[string]gatev1alpha1.ToolName{"code.serach": "search"}
+	c := newFakeClient(readyServer("source-intelligence"), ts)
+	r := &MCPToolSetReconciler{Client: c, Scheme: c.Scheme(), Registry: newTestRegistry(t)}
+	discovered(t, r, backend)
+
+	reconcileNamed(t, r, "research")
+
+	got := get(t, c, "research", &gatev1alpha1.MCPToolSet{})
+	assert.Equal(t, []string{"code.serach"}, got.Status.UnusedAliases)
+	ready := condition(t, got.Status.Conditions, gatev1alpha1.ConditionReady)
+	assert.Equal(t, metav1.ConditionFalse, ready.Status)
+	assert.Equal(t, gatev1alpha1.ReasonUnusedAliases, ready.Reason)
+	assert.Equal(t, `"code.serach" has an alias but not selected`, ready.Message)
+}

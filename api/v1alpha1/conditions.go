@@ -46,8 +46,9 @@ const (
 	// ReasonCapabilityNotFound: spec.capabilities names an MCPCapability that
 	// does not exist.
 	ReasonCapabilityNotFound = "CapabilityNotFound"
-	// ReasonToolNameConflict: two tools from different servers would be
-	// exposed under the same name. The gateway exposes neither.
+	// ReasonToolNameConflict: two different tools would be exposed under the
+	// same name — from different servers, or through one tool set's prefix and
+	// aliases. The gateway exposes neither.
 	ReasonToolNameConflict = "ToolNameConflict"
 
 	// ReasonAvailable: everything referenced is currently available.
@@ -63,6 +64,9 @@ const (
 	// ReasonUnmatchedPatterns: the server is up and some of the declared
 	// patterns select none of its tools.
 	ReasonUnmatchedPatterns = "UnmatchedPatterns"
+	// ReasonUnusedAliases: the server is up and some of the declared aliases
+	// name a tool the set does not select.
+	ReasonUnusedAliases = "UnusedAliases"
 	// ReasonToolSetNotReady: a referenced tool set is not Ready.
 	ReasonToolSetNotReady = "ToolSetNotReady"
 	// ReasonCapabilityNotReady: a referenced capability is not Ready.

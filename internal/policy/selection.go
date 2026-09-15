@@ -50,10 +50,44 @@ func Match(pattern, name string) bool {
 	return pi == len(p)
 }
 
+// Exposed is the name agents see a backend tool under, through a tool set: its
+// alias if it has one, the prefix and the backend's name otherwise. It is the
+// one place a tool set renames anything; resolution and authorisation both go
+// through it.
+func Exposed(spec gatev1alpha1.MCPToolSetSpec, tool string) string {
+	if alias, ok := spec.Aliases[tool]; ok {
+		return string(alias)
+	}
+	return spec.Prefix + tool
+}
+
+// backendNames returns the backend tools a tool set would expose under name,
+// if it selected them: Exposed inverted. There are at most a few — an alias,
+// and the name without the prefix unless that tool has an alias of its own.
+func backendNames(spec gatev1alpha1.MCPToolSetSpec, name string) []string {
+	var out []string
+	for tool, alias := range spec.Aliases {
+		if string(alias) == name {
+			out = append(out, tool)
+		}
+	}
+	if tool, ok := strings.CutPrefix(name, spec.Prefix); ok && tool != "" {
+		if _, aliased := spec.Aliases[tool]; !aliased {
+			out = append(out, tool)
+		}
+	}
+	return out
+}
+
 // Selection is what one tool set selects from one catalog.
 type Selection struct {
-	// Tools are the selected tools the catalog contains, sorted.
+	// Tools are the selected tools the catalog contains, under the names agents
+	// see them, sorted.
 	Tools []string
+
+	// BackendNames maps each of Tools offered under a name other than the
+	// backend's to the backend's name. Nil when nothing is renamed.
+	BackendNames map[string]string
 
 	// Missing are the exact names the tool set lists, does not exclude, and
 	// the catalog lacks, sorted.
@@ -63,12 +97,22 @@ type Selection struct {
 	// exclusion, so a pattern whose every match is excluded counts. A
 	// wildcard that selects nothing is almost always a typo.
 	Unmatched []string
+
+	// UnusedAliases are the alias keys that name no tool the set selects,
+	// sorted — neither one the catalog holds nor an exact name it lacks.
+	UnusedAliases []string
+
+	// Conflicts are the names under which the set would expose more than one of
+	// the tools it selects, sorted. None of them is in Tools: a conflict
+	// exposes neither, here as in a capability.
+	Conflicts []string
 }
 
 // Select resolves a tool set against the tool names a catalog holds.
 func Select(spec gatev1alpha1.MCPToolSetSpec, available []string) Selection {
 	var sel Selection
 	selected := map[string]bool{}
+	named := map[string]bool{}
 	for _, entry := range spec.Tools {
 		if !IsPattern(entry) {
 			switch {
@@ -76,6 +120,7 @@ func Select(spec gatev1alpha1.MCPToolSetSpec, available []string) Selection {
 			case slices.Contains(available, entry):
 				selected[entry] = true
 			default:
+				named[entry] = true
 				sel.Missing = append(sel.Missing, entry)
 			}
 			continue
@@ -91,16 +136,45 @@ func Select(spec gatev1alpha1.MCPToolSetSpec, available []string) Selection {
 			sel.Unmatched = append(sel.Unmatched, entry)
 		}
 	}
-	for name := range selected {
-		sel.Tools = append(sel.Tools, name)
+	byName := map[string][]string{}
+	for tool := range selected {
+		exposed := Exposed(spec, tool)
+		byName[exposed] = append(byName[exposed], tool)
+	}
+	for exposed, tools := range byName {
+		if len(tools) > 1 {
+			sel.Conflicts = append(sel.Conflicts, exposed)
+			continue
+		}
+		sel.Tools = append(sel.Tools, exposed)
+		if exposed != tools[0] {
+			if sel.BackendNames == nil {
+				sel.BackendNames = map[string]string{}
+			}
+			sel.BackendNames[exposed] = tools[0]
+		}
+	}
+	sort.Strings(sel.Conflicts)
+	for tool := range spec.Aliases {
+		if !selected[tool] && !named[tool] {
+			sel.UnusedAliases = append(sel.UnusedAliases, tool)
+		}
 	}
 	sort.Strings(sel.Tools)
 	sel.Missing = sortedUnique(sel.Missing)
 	sel.Unmatched = sortedUnique(sel.Unmatched)
+	sel.UnusedAliases = sortedUnique(sel.UnusedAliases)
 	return sel
 }
 
-// claims returns the names a tool set lays claim to: every exact name it lists,
+// claim is one tool a tool set lays claim to: the backend's name, and the name
+// agents see it under.
+type claim struct {
+	tool    string
+	exposed string
+}
+
+// claims returns the tools a tool set lays claim to: every exact name it lists,
 // whether or not the catalog has it, and every catalog tool a pattern matches —
 // in both cases minus what it excludes.
 //
@@ -109,22 +183,49 @@ func Select(spec gatev1alpha1.MCPToolSetSpec, available []string) Selection {
 // it does not appear the moment the second backend happens to come up. Patterns
 // can only be expanded against what a backend offers, so a conflict they cause
 // appears when the backend offers the tool.
-func claims(spec gatev1alpha1.MCPToolSetSpec, available []string) []string {
-	var out []string
+func claims(spec gatev1alpha1.MCPToolSetSpec, available []string) []claim {
+	var tools []string
 	for _, entry := range spec.Tools {
 		if !IsPattern(entry) {
 			if !excluded(spec, entry) {
-				out = append(out, entry)
+				tools = append(tools, entry)
 			}
 			continue
 		}
 		for _, name := range available {
 			if Match(entry, name) && !excluded(spec, name) {
-				out = append(out, name)
+				tools = append(tools, name)
 			}
 		}
 	}
-	return sortedUnique(out)
+	tools = sortedUnique(tools)
+	out := make([]claim, len(tools))
+	for i, tool := range tools {
+		out[i] = claim{tool: tool, exposed: Exposed(spec, tool)}
+	}
+	return out
+}
+
+// claimsTool reports whether a tool set lays claim to one backend tool, by the
+// same rules as claims. available is only consulted for a tool a pattern
+// matches, which is the one case the catalog decides.
+func claimsTool(spec gatev1alpha1.MCPToolSetSpec, tool string, available func() []string) bool {
+	if excluded(spec, tool) {
+		return false
+	}
+	patternMatches := false
+	for _, entry := range spec.Tools {
+		if !IsPattern(entry) {
+			if entry == tool {
+				return true
+			}
+			continue
+		}
+		if Match(entry, tool) {
+			patternMatches = true
+		}
+	}
+	return patternMatches && slices.Contains(available(), tool)
 }
 
 func excluded(spec gatev1alpha1.MCPToolSetSpec, name string) bool {

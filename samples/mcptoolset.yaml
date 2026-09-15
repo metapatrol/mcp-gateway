@@ -37,3 +37,20 @@ spec:
     - artifact_*
   exclude:
     - artifact_delete
+---
+# Two backends that name a tool alike cannot both be granted to one subject
+# under that name: neither would be exposed. Renaming the tools of one of them
+# resolves it. Selection still uses the backend's names.
+apiVersion: mcp.gate.metapatrol.com/v1alpha1
+kind: MCPToolSet
+metadata:
+  name: engram-memory-read
+spec:
+  serverRef: engram
+  tools:
+    - memory_*
+  exclude:
+    - memory_remember
+  prefix: engram_              # memory_list   -> engram_memory_list
+  aliases:
+    memory_search: recall      # memory_search -> recall
