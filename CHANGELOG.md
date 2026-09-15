@@ -1,3 +1,10 @@
+## [1.4.1](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gate/compare/v1.4.0...v1.4.1) (2026-09-15)
+
+
+### Bug Fixes
+
+* **discovery:** keep connections to backends open under concurrent calls ([d2d025e](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gate/commit/d2d025e98193ef802d0923834022134658de972a)), closes [#7](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gate/issues/7)
+
 # [1.4.0](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gate/compare/v1.3.2...v1.4.0) (2026-09-15)
 
 
