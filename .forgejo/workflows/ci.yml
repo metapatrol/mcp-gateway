@@ -1,7 +1,7 @@
 # Checks that run on every pull request, and on pushes to develop.
 #
 # Jobs run on the runner's default image rather than overriding `container:`,
-# and install what they need. Pinning a tool image like golang:1.26 is faster
+# and install what they need. Pinning a tool image like golang:1.27 is faster
 # but breaks every JavaScript action: those images ship no node, and
 # `actions/checkout` needs one.
 #
@@ -31,7 +31,7 @@ on:
 env:
   # The instance uses a private CA the runner may not carry.
   GIT_SSL_NO_VERIFY: "true"
-  GO_VERSION: "1.26"
+  GO_VERSION: "1.27"
   # setup-go's own cache stays off, here and in the other two workflows. The
   # runner points GOPROXY at the in-cluster ci-cache, so the archive the action
   # saves and restores per job only duplicates it.

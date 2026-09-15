@@ -2,7 +2,7 @@
 CONTROLLER_GEN_VERSION ?= v0.20.1
 # A full release tag, not a minor: the install script the lint job uses fetches a
 # GitHub release, and there is no release called v2.11.
-GOLANGCI_LINT_VERSION ?= v2.11.4
+GOLANGCI_LINT_VERSION ?= v2.13.2
 GITLEAKS_VERSION ?= v8.30.1
 SETUP_ENVTEST_VERSION ?= v0.25.1
 # The Kubernetes version integration tests run their API server at.

@@ -4,7 +4,7 @@
 # into every pod it joins.
 #
 #   podman build --build-arg BINARY=mcp-gate-gateway -t .../mcp-gate-gateway .
-FROM zot.metapatrol.local/library/golang:1.26-alpine AS builder
+FROM zot.metapatrol.local/library/golang:1.27-alpine AS builder
 
 ARG BINARY
 ARG VERSION=dev

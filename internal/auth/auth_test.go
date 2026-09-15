@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lestrrat-go/jwx/v3/jwa"
-	"github.com/lestrrat-go/jwx/v3/jwk"
-	"github.com/lestrrat-go/jwx/v3/jwt"
+	"github.com/lestrrat-go/jwx/v4/jwa"
+	"github.com/lestrrat-go/jwx/v4/jwk"
+	"github.com/lestrrat-go/jwx/v4/jwt"
 	sdkauth "github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -53,7 +53,7 @@ func newIssuer(t *testing.T) *issuer {
 func (i *issuer) rotate(kid string) {
 	raw, err := rsa.GenerateKey(rand.Reader, 2048)
 	require.NoError(i.t, err)
-	key, err := jwk.Import(raw)
+	key, err := jwk.Import[jwk.Key](raw)
 	require.NoError(i.t, err)
 	require.NoError(i.t, key.Set(jwk.KeyIDKey, kid))
 	require.NoError(i.t, key.Set(jwk.AlgorithmKey, jwa.RS256()))

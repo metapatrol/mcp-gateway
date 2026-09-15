@@ -34,7 +34,7 @@ env:
   # name holding its own ephemeral token, and it wins over a job env of the same
   # name — requests then go out as the bot, and cross-repository calls quietly
   # fail. See .forgejo/README.md.
-  GO_VERSION: "1.26"
+  GO_VERSION: "1.27"
   FORGEJO_BASE_URL: ${{ github.server_url }}
   FORGEJO_REPO: ${{ github.repository }}
   FORGEJO_ORG: ${{ github.repository_owner }}

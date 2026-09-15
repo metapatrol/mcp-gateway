@@ -5,13 +5,15 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"sync"
 	"time"
 
-	"github.com/lestrrat-go/jwx/v3/jwk"
-	"github.com/lestrrat-go/jwx/v3/jws"
-	"github.com/lestrrat-go/jwx/v3/jwt"
+	"github.com/lestrrat-go/jwx/v4/jwk"
+	"github.com/lestrrat-go/jwx/v4/jws"
+	"github.com/lestrrat-go/jwx/v4/jwt"
 	sdkauth "github.com/modelcontextprotocol/go-sdk/auth"
 )
 
@@ -63,7 +65,7 @@ func (k *keySet) get(ctx context.Context) (jwk.Set, uint64, error) {
 	if k.set != nil && time.Since(k.fetchedAt) < k.refreshInterval {
 		return k.set, k.generation, nil
 	}
-	set, err := jwk.Fetch(ctx, k.url, jwk.WithHTTPClient(k.client))
+	set, err := k.fetch(ctx)
 	if err != nil {
 		if k.set != nil {
 			return k.set, k.generation, nil
@@ -82,7 +84,7 @@ func (k *keySet) refresh(ctx context.Context) (jwk.Set, uint64, bool) {
 	if time.Since(k.fetchedAt) < k.minRefreshInterval {
 		return k.set, k.generation, false
 	}
-	set, err := jwk.Fetch(ctx, k.url, jwk.WithHTTPClient(k.client))
+	set, err := k.fetch(ctx)
 	if err != nil {
 		// Count the attempt, so a provider that is down is not asked again
 		// on every bad token either.
@@ -91,6 +93,27 @@ func (k *keySet) refresh(ctx context.Context) (jwk.Set, uint64, bool) {
 	}
 	k.store(set)
 	return set, k.generation, true
+}
+
+// maxKeySetBytes bounds the JWKS document read from the provider.
+const maxKeySetBytes = 1 << 20
+
+// fetch reads the key set from the provider.
+func (k *keySet) fetch(ctx context.Context) (jwk.Set, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, k.url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/json")
+	resp, err := k.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("JWKS endpoint answered %d", resp.StatusCode)
+	}
+	return jwk.ParseReader(io.LimitReader(resp.Body, maxKeySetBytes))
 }
 
 // store keeps a freshly fetched set, starting a new generation if it differs
@@ -166,25 +189,22 @@ func (v *Verifier) checkJWT(ctx context.Context, raw string, set jwk.Set, genera
 	}
 	if err := jwt.Validate(token, opts...); err != nil {
 		switch {
-		case errors.Is(err, jwt.TokenExpiredError()):
+		case errors.Is(err, jwt.TokenExpiredError{}):
 			return nil, time.Time{}, 0, reject(ReasonExpired)
-		case errors.Is(err, jwt.TokenNotYetValidError()):
+		case errors.Is(err, jwt.TokenNotYetValidError{}):
 			return nil, time.Time{}, 0, reject(ReasonNotYetValid)
-		case errors.Is(err, jwt.InvalidIssuerError()):
+		case errors.Is(err, jwt.InvalidIssuerError{}):
 			return nil, time.Time{}, 0, reject(ReasonIssuer)
-		case errors.Is(err, jwt.InvalidAudienceError()):
+		case errors.Is(err, jwt.InvalidAudienceError{}):
 			return nil, time.Time{}, 0, reject(ReasonAudience)
 		default:
 			return nil, time.Time{}, 0, reject(ReasonMalformed)
 		}
 	}
 
-	claims := make(map[string]any, len(token.Keys()))
-	for _, key := range token.Keys() {
-		var value any
-		if err := token.Get(key, &value); err == nil {
-			claims[key] = value
-		}
+	claims := map[string]any{}
+	for name, value := range token.Claims() {
+		claims[name] = value
 	}
 	// Registered claims come back typed; the subject and scope readers want
 	// the JSON shapes.

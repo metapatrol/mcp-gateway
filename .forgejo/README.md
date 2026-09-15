@@ -62,7 +62,7 @@ semantic-release's `successCmd`, which dispatches `release.yml` directly.
 If the runners are registered under another label, the workflows sit queued.
 
 **Fully qualified base images.** podman does not guess registries, so the
-Dockerfile's `FROM` names zot: `zot.metapatrol.local/library/golang:1.26-alpine`.
+Dockerfile's `FROM` names zot: `zot.metapatrol.local/library/golang:1.27-alpine`.
 The image jobs build with `--tls-verify=false` because zot uses the instance's
 private CA.
 

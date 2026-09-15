@@ -37,9 +37,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lestrrat-go/jwx/v3/jwa"
-	"github.com/lestrrat-go/jwx/v3/jwk"
-	"github.com/lestrrat-go/jwx/v3/jwt"
+	"github.com/lestrrat-go/jwx/v4/jwa"
+	"github.com/lestrrat-go/jwx/v4/jwk"
+	"github.com/lestrrat-go/jwx/v4/jwt"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -71,7 +71,7 @@ type issuer struct {
 func newIssuer(t *testing.T) *issuer {
 	raw, err := rsa.GenerateKey(rand.Reader, 2048)
 	require.NoError(t, err)
-	key, err := jwk.Import(raw)
+	key, err := jwk.Import[jwk.Key](raw)
 	require.NoError(t, err)
 	require.NoError(t, key.Set(jwk.KeyIDKey, "load"))
 	require.NoError(t, key.Set(jwk.AlgorithmKey, jwa.RS256()))

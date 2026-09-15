@@ -16,7 +16,7 @@ on:
 
 env:
   GIT_SSL_NO_VERIFY: "true"
-  GO_VERSION: "1.26"
+  GO_VERSION: "1.27"
   # From the runner, not hardcoded: the workflows are meant to be copied between
   # repositories in this org without an edit.
   FORGEJO_BASE_URL: ${{ github.server_url }}
