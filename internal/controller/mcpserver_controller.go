@@ -19,8 +19,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	gatev1alpha1 "forgejo.metapatrol.local/platform/mcp-gate/api/v1alpha1"
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/discovery"
+	mcpv1alpha1 "forgejo.metapatrol.local/platform/mcp-gateway/api/v1alpha1"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/discovery"
 )
 
 // discoveryTimeout bounds one catalog read: the handshake, if a session has to
@@ -38,7 +38,7 @@ type MCPServerReconciler struct {
 	Scheme   *runtime.Scheme
 	Registry *discovery.Registry
 
-	announcements chan event.TypedGenericEvent[*gatev1alpha1.MCPServer]
+	announcements chan event.TypedGenericEvent[*mcpv1alpha1.MCPServer]
 }
 
 // NewMCPServerReconciler builds an MCPServerReconciler. Wire the registry's
@@ -48,7 +48,7 @@ func NewMCPServerReconciler(c client.Client, scheme *runtime.Scheme, registry *d
 		Client:        c,
 		Scheme:        scheme,
 		Registry:      registry,
-		announcements: make(chan event.TypedGenericEvent[*gatev1alpha1.MCPServer], 64),
+		announcements: make(chan event.TypedGenericEvent[*mcpv1alpha1.MCPServer], 64),
 	}
 }
 
@@ -56,20 +56,20 @@ func NewMCPServerReconciler(c client.Client, scheme *runtime.Scheme, registry *d
 // notifications/tools/list_changed. It never blocks.
 func (r *MCPServerReconciler) Announce(server string) {
 	select {
-	case r.announcements <- event.TypedGenericEvent[*gatev1alpha1.MCPServer]{
-		Object: &gatev1alpha1.MCPServer{ObjectMeta: metav1.ObjectMeta{Name: server}},
+	case r.announcements <- event.TypedGenericEvent[*mcpv1alpha1.MCPServer]{
+		Object: &mcpv1alpha1.MCPServer{ObjectMeta: metav1.ObjectMeta{Name: server}},
 	}:
 	default:
 	}
 }
 
-// +kubebuilder:rbac:groups=mcp.gate.metapatrol.com,resources=mcpservers,verbs=get;list;watch
-// +kubebuilder:rbac:groups=mcp.gate.metapatrol.com,resources=mcpservers/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=mcp-gateway.metapatrol.com,resources=mcpservers,verbs=get;list;watch
+// +kubebuilder:rbac:groups=mcp-gateway.metapatrol.com,resources=mcpservers/status,verbs=get;update;patch
 
 func (r *MCPServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
-	var server gatev1alpha1.MCPServer
+	var server mcpv1alpha1.MCPServer
 	if err := r.Get(ctx, req.NamespacedName, &server); err != nil {
 		if apierrors.IsNotFound(err) {
 			r.Registry.Forget(req.Name)
@@ -99,7 +99,7 @@ func (r *MCPServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		// DiscoveredTools, CatalogRevision and LastDiscoveryTime are left as
 		// they were: they describe the last discovery that worked.
 		server.Status.Available = false
-		setCondition(&server.Status.Conditions, server.Generation, gatev1alpha1.ConditionReady, metav1.ConditionFalse,
+		setCondition(&server.Status.Conditions, server.Generation, mcpv1alpha1.ConditionReady, metav1.ConditionFalse,
 			discoveryFailureReason(err), err.Error())
 		result.RequeueAfter = min(discovery.RetryDelay(health.Failures), interval)
 	} else {
@@ -111,8 +111,8 @@ func (r *MCPServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		server.Status.DiscoveredTools = catalog.Len()
 		server.Status.CatalogRevision = catalog.Revision
 		server.Status.LastDiscoveryTime = &now
-		setCondition(&server.Status.Conditions, server.Generation, gatev1alpha1.ConditionReady, metav1.ConditionTrue,
-			gatev1alpha1.ReasonDiscovered, fmt.Sprintf("%d %s discovered", catalog.Len(), plural(catalog.Len(), "tool", "tools")))
+		setCondition(&server.Status.Conditions, server.Generation, mcpv1alpha1.ConditionReady, metav1.ConditionTrue,
+			mcpv1alpha1.ReasonDiscovered, fmt.Sprintf("%d %s discovered", catalog.Len(), plural(catalog.Len(), "tool", "tools")))
 		result.RequeueAfter = interval
 	}
 
@@ -127,8 +127,8 @@ func (r *MCPServerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		// Only spec changes. Every discovery writes status, and reacting to
 		// that would turn the interval into a busy loop.
-		For(&gatev1alpha1.MCPServer{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		WatchesRawSource(source.Channel(r.announcements, &handler.TypedEnqueueRequestForObject[*gatev1alpha1.MCPServer]{})).
+		For(&mcpv1alpha1.MCPServer{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		WatchesRawSource(source.Channel(r.announcements, &handler.TypedEnqueueRequestForObject[*mcpv1alpha1.MCPServer]{})).
 		WithOptions(controller.Options{
 			// A backend that takes the full timeout to fail must not hold up
 			// the others.
@@ -146,10 +146,10 @@ func discoveryFailureReason(err error) string {
 	var credential *discovery.CredentialError
 	switch {
 	case errors.As(err, &credential):
-		return gatev1alpha1.ReasonCredentialsUnavailable
+		return mcpv1alpha1.ReasonCredentialsUnavailable
 	case errors.As(err, &refused):
-		return gatev1alpha1.ReasonUnauthorized
+		return mcpv1alpha1.ReasonUnauthorized
 	default:
-		return gatev1alpha1.ReasonDiscoveryFailed
+		return mcpv1alpha1.ReasonDiscoveryFailed
 	}
 }

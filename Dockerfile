@@ -3,7 +3,7 @@
 # next to agents, and has no business shipping the gateway and the controller
 # into every pod it joins.
 #
-#   podman build --build-arg BINARY=mcp-gate-gateway -t .../mcp-gate-gateway .
+#   podman build --build-arg BINARY=mcp-gateway -t .../mcp-gateway .
 FROM zot.metapatrol.local/library/golang:1.27-alpine AS builder
 
 ARG BINARY
@@ -11,7 +11,7 @@ ARG VERSION=dev
 ARG COMMIT=unknown
 ARG BUILT_AT=unknown
 
-RUN test -n "$BINARY" || (echo "--build-arg BINARY=mcp-gate-{controller,gateway,proxy} is required" && exit 1)
+RUN test -n "$BINARY" || (echo "--build-arg BINARY=mcp-gateway{,-controller,-proxy} is required" && exit 1)
 
 WORKDIR /src
 COPY go.mod go.sum ./

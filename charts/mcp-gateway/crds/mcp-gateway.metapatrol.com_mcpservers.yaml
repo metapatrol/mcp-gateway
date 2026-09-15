@@ -1,0 +1,467 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.22.0
+  name: mcpservers.mcp-gateway.metapatrol.com
+spec:
+  group: mcp-gateway.metapatrol.com
+  names:
+    categories:
+    - mcp-gateway
+    kind: MCPServer
+    listKind: MCPServerList
+    plural: mcpservers
+    shortNames:
+    - mcpsrv
+    singular: mcpserver
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.endpoint
+      name: Endpoint
+      type: string
+    - jsonPath: .status.available
+      name: Available
+      type: boolean
+    - jsonPath: .status.discoveredTools
+      name: Tools
+      type: integer
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          MCPServer registers an MCP backend with the gateway.
+
+          It is cluster-scoped, like the other three kinds. The gateway can reach every
+          backend it routes to, so whoever may create an MCPServer decides what that
+          network position is used for; a namespaced kind would hand that decision to
+          every namespace. See docs/architecture.md.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              MCPServerSpec says where an MCP backend is and how to reach it.
+
+              It deliberately carries no list of tools. The backend is the one source of
+              truth for what it offers; the controller and the gateway both read the
+              catalog from it, and a copy here would be a second source that drifts.
+            properties:
+              auth:
+                description: |-
+                  Auth says how the gateway and the controller authenticate to the
+                  backend. Left out, they do not: type None.
+                properties:
+                  apiKey:
+                    description: APIKey configures type APIKey.
+                    properties:
+                      header:
+                        default: Authorization
+                        description: Header is the request header the key is sent
+                          in.
+                        minLength: 1
+                        type: string
+                      prefix:
+                        description: |-
+                          Prefix goes in front of the key. Left out, it is "Bearer " when the
+                          header is Authorization and nothing otherwise; set it to "" to send a key
+                          in Authorization bare.
+                        type: string
+                      secretRef:
+                        description: SecretRef is where the key is.
+                        properties:
+                          key:
+                            description: |-
+                              Key is the data key holding the value. Named explicitly, so a Secret
+                              written by some other tool — CLIENT_SECRET, client-secret, token — is
+                              used as it is.
+                            minLength: 1
+                            type: string
+                          name:
+                            description: Name of the Secret.
+                            minLength: 1
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                    required:
+                    - secretRef
+                    type: object
+                  clientCredentials:
+                    description: ClientCredentials configures type ClientCredentials.
+                    properties:
+                      audience:
+                        description: |-
+                          Audience is requested with each token, as the audience parameter
+                          providers such as Ory Hydra accept. Several are sent space-separated.
+                        items:
+                          type: string
+                        type: array
+                        x-kubernetes-list-type: set
+                      clientID:
+                        description: ClientID is the OAuth client ID, written out.
+                        minLength: 1
+                        type: string
+                      clientIDRef:
+                        description: |-
+                          ClientIDRef reads the client ID from a Secret instead — for providers,
+                          or operators like hydra-maester, that generate the ID and store it beside
+                          the secret.
+                        properties:
+                          key:
+                            description: |-
+                              Key is the data key holding the value. Named explicitly, so a Secret
+                              written by some other tool — CLIENT_SECRET, client-secret, token — is
+                              used as it is.
+                            minLength: 1
+                            type: string
+                          name:
+                            description: Name of the Secret.
+                            minLength: 1
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                      clientSecretRef:
+                        description: ClientSecretRef is where the client secret is.
+                        properties:
+                          key:
+                            description: |-
+                              Key is the data key holding the value. Named explicitly, so a Secret
+                              written by some other tool — CLIENT_SECRET, client-secret, token — is
+                              used as it is.
+                            minLength: 1
+                            type: string
+                          name:
+                            description: Name of the Secret.
+                            minLength: 1
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                      scopes:
+                        description: Scopes are requested with each token.
+                        items:
+                          type: string
+                        type: array
+                        x-kubernetes-list-type: set
+                      tokenURL:
+                        description: TokenURL is the provider's token endpoint.
+                        pattern: ^https?://[^\s]+$
+                        type: string
+                    required:
+                    - clientSecretRef
+                    - tokenURL
+                    type: object
+                    x-kubernetes-validations:
+                    - message: set exactly one of clientID or clientIDRef
+                      rule: has(self.clientID) != has(self.clientIDRef)
+                  passthrough:
+                    description: Passthrough configures type Passthrough.
+                    properties:
+                      discovery:
+                        description: |-
+                          Discovery authenticates the requests that read the catalog. Those are
+                          made in the background, by the controller and the gateway, with no agent
+                          and therefore no token to pass through. Left out, they carry no
+                          credentials, which suits a backend that lists its tools openly and
+                          guards only the calls.
+
+                          A backend whose tool list depends on the caller is seen through this
+                          credential alone: agents are offered what it can see.
+                        properties:
+                          apiKey:
+                            description: APIKey authenticates catalog reads with a
+                              static key.
+                            properties:
+                              header:
+                                default: Authorization
+                                description: Header is the request header the key
+                                  is sent in.
+                                minLength: 1
+                                type: string
+                              prefix:
+                                description: |-
+                                  Prefix goes in front of the key. Left out, it is "Bearer " when the
+                                  header is Authorization and nothing otherwise; set it to "" to send a key
+                                  in Authorization bare.
+                                type: string
+                              secretRef:
+                                description: SecretRef is where the key is.
+                                properties:
+                                  key:
+                                    description: |-
+                                      Key is the data key holding the value. Named explicitly, so a Secret
+                                      written by some other tool — CLIENT_SECRET, client-secret, token — is
+                                      used as it is.
+                                    minLength: 1
+                                    type: string
+                                  name:
+                                    description: Name of the Secret.
+                                    minLength: 1
+                                    type: string
+                                required:
+                                - key
+                                - name
+                                type: object
+                            required:
+                            - secretRef
+                            type: object
+                          clientCredentials:
+                            description: ClientCredentials authenticates catalog reads
+                              as an OAuth client.
+                            properties:
+                              audience:
+                                description: |-
+                                  Audience is requested with each token, as the audience parameter
+                                  providers such as Ory Hydra accept. Several are sent space-separated.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: set
+                              clientID:
+                                description: ClientID is the OAuth client ID, written
+                                  out.
+                                minLength: 1
+                                type: string
+                              clientIDRef:
+                                description: |-
+                                  ClientIDRef reads the client ID from a Secret instead — for providers,
+                                  or operators like hydra-maester, that generate the ID and store it beside
+                                  the secret.
+                                properties:
+                                  key:
+                                    description: |-
+                                      Key is the data key holding the value. Named explicitly, so a Secret
+                                      written by some other tool — CLIENT_SECRET, client-secret, token — is
+                                      used as it is.
+                                    minLength: 1
+                                    type: string
+                                  name:
+                                    description: Name of the Secret.
+                                    minLength: 1
+                                    type: string
+                                required:
+                                - key
+                                - name
+                                type: object
+                              clientSecretRef:
+                                description: ClientSecretRef is where the client secret
+                                  is.
+                                properties:
+                                  key:
+                                    description: |-
+                                      Key is the data key holding the value. Named explicitly, so a Secret
+                                      written by some other tool — CLIENT_SECRET, client-secret, token — is
+                                      used as it is.
+                                    minLength: 1
+                                    type: string
+                                  name:
+                                    description: Name of the Secret.
+                                    minLength: 1
+                                    type: string
+                                required:
+                                - key
+                                - name
+                                type: object
+                              scopes:
+                                description: Scopes are requested with each token.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: set
+                              tokenURL:
+                                description: TokenURL is the provider's token endpoint.
+                                pattern: ^https?://[^\s]+$
+                                type: string
+                            required:
+                            - clientSecretRef
+                            - tokenURL
+                            type: object
+                            x-kubernetes-validations:
+                            - message: set exactly one of clientID or clientIDRef
+                              rule: has(self.clientID) != has(self.clientIDRef)
+                        type: object
+                        x-kubernetes-validations:
+                        - message: set exactly one of clientCredentials or apiKey
+                          rule: has(self.clientCredentials) != has(self.apiKey)
+                    type: object
+                  type:
+                    default: None
+                    description: |-
+                      Type is how requests to the backend are authenticated:
+
+                        None               no credentials
+                        Passthrough        the calling agent's own bearer token, on tool calls
+                        ClientCredentials  a token the gateway obtains as an OAuth client of its own
+                        APIKey             a static key from a Secret
+                    enum:
+                    - None
+                    - Passthrough
+                    - ClientCredentials
+                    - APIKey
+                    type: string
+                required:
+                - type
+                type: object
+                x-kubernetes-validations:
+                - message: passthrough may only be set with type Passthrough
+                  rule: self.type == 'Passthrough' || !has(self.passthrough)
+                - message: clientCredentials is required with type ClientCredentials,
+                    and may only be set with it
+                  rule: 'self.type == ''ClientCredentials'' ? has(self.clientCredentials)
+                    : !has(self.clientCredentials)'
+                - message: apiKey is required with type APIKey, and may only be set
+                    with it
+                  rule: 'self.type == ''APIKey'' ? has(self.apiKey) : !has(self.apiKey)'
+              discoveryInterval:
+                default: 1m
+                description: |-
+                  DiscoveryInterval is how often the catalog is re-read when the backend
+                  does not announce changes itself. A backend that sends
+                  notifications/tools/list_changed is re-read as soon as it does.
+                type: string
+              endpoint:
+                description: |-
+                  Endpoint is the URL of the backend's Streamable HTTP MCP endpoint, for
+                  example http://source-intelligence.mcp-system.svc/mcp.
+
+                  The gateway is the only thing meant to reach it: agents talk to the
+                  gateway, and a NetworkPolicy on the backend's side should say so.
+                pattern: ^https?://[^\s]+$
+                type: string
+            required:
+            - endpoint
+            type: object
+          status:
+            description: |-
+              MCPServerStatus is what the controller last learned from the backend.
+
+              It is compact on purpose. Tool names, descriptions and schemas stay in memory
+              in the processes that need them; the Kubernetes API is the desired-state API
+              and not a cache for catalogs that can run to megabytes.
+            properties:
+              available:
+                default: false
+                description: |-
+                  Available reports whether the most recent discovery succeeded.
+
+                  The default is what makes a server that was never reachable show false
+                  rather than nothing: status is written as a patch against the previous
+                  status, and a false that never changed is never in one.
+                type: boolean
+              catalogRevision:
+                description: |-
+                  CatalogRevision identifies the catalog the last successful discovery
+                  found: a sha256 over the tool definitions and the server's instructions,
+                  so any change to a name, a description, a schema or the instructions
+                  produces a new one. The gateway re-reads a backend whose revision here
+                  differs from the one it holds.
+                type: string
+              conditions:
+                description: 'Conditions: Ready.'
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              discoveredTools:
+                description: DiscoveredTools is how many tools the last successful
+                  discovery found.
+                type: integer
+              lastDiscoveryTime:
+                description: |-
+                  LastDiscoveryTime is when discovery last succeeded. DiscoveredTools and
+                  CatalogRevision describe that moment, not the latest attempt — while
+                  the backend is down they keep saying what it offered when it was up.
+                format: date-time
+                type: string
+              observedGeneration:
+                description: ObservedGeneration is the generation this status describes.
+                format: int64
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

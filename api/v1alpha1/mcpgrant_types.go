@@ -42,7 +42,7 @@ type MCPGrantStatus struct {
 }
 
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:scope=Cluster,shortName=mcpg,categories=mcp-gate
+// +kubebuilder:resource:scope=Cluster,shortName=mcpg,categories=mcp-gateway
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Subject",type=string,JSONPath=`.spec.subject`
 // +kubebuilder:printcolumn:name="Capabilities",type=string,JSONPath=`.spec.capabilities`

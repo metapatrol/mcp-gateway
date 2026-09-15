@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	gatev1alpha1 "forgejo.metapatrol.local/platform/mcp-gate/api/v1alpha1"
+	mcpv1alpha1 "forgejo.metapatrol.local/platform/mcp-gateway/api/v1alpha1"
 )
 
 // policyOfSize builds a policy the gateway resolves every tools/call against:
@@ -13,8 +13,8 @@ import (
 // sets, and one grant per subject naming two capabilities.
 func policyOfSize(servers, toolsPerServer, capabilitySize, subjects int) (*Snapshot, Catalogs, string, string) {
 	catalogs := map[string][]string{}
-	var srv []gatev1alpha1.MCPServer
-	var sets []gatev1alpha1.MCPToolSet
+	var srv []mcpv1alpha1.MCPServer
+	var sets []mcpv1alpha1.MCPToolSet
 	for s := range servers {
 		name := fmt.Sprintf("server-%d", s)
 		srv = append(srv, server(name))
@@ -28,7 +28,7 @@ func policyOfSize(servers, toolsPerServer, capabilitySize, subjects int) (*Snaps
 			toolSet(name+"-pattern", name, fmt.Sprintf("s%d_tool_*", s)))
 		sets[len(sets)-1].Spec.Exclude = []string{fmt.Sprintf("s%d_tool_1?", s)}
 	}
-	var caps []gatev1alpha1.MCPCapability
+	var caps []mcpv1alpha1.MCPCapability
 	for c := 0; c+capabilitySize <= len(sets); c += capabilitySize {
 		var names []string
 		for _, ts := range sets[c : c+capabilitySize] {
@@ -36,7 +36,7 @@ func policyOfSize(servers, toolsPerServer, capabilitySize, subjects int) (*Snaps
 		}
 		caps = append(caps, capability(fmt.Sprintf("capability-%d", c), names...))
 	}
-	var grants []gatev1alpha1.MCPGrant
+	var grants []mcpv1alpha1.MCPGrant
 	for i := range subjects {
 		subject := fmt.Sprintf("subject-%d", i)
 		grants = append(grants, grantFor(subject, subject, caps[i%len(caps)].Name, caps[(i+1)%len(caps)].Name))

@@ -22,11 +22,11 @@ import (
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	gatev1alpha1 "forgejo.metapatrol.local/platform/mcp-gate/api/v1alpha1"
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/discovery"
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/mcptest"
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/metrics"
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/policy"
+	mcpv1alpha1 "forgejo.metapatrol.local/platform/mcp-gateway/api/v1alpha1"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/discovery"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/mcptest"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/metrics"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/policy"
 )
 
 // tokens maps bearer tokens to subjects. Token verification has its own tests;
@@ -55,10 +55,10 @@ type env struct {
 	sourceIntelligence *mcptest.Backend
 	artifact           *mcptest.Backend
 
-	servers      []gatev1alpha1.MCPServer
-	toolSets     []gatev1alpha1.MCPToolSet
-	capabilities []gatev1alpha1.MCPCapability
-	grants       []gatev1alpha1.MCPGrant
+	servers      []mcpv1alpha1.MCPServer
+	toolSets     []mcpv1alpha1.MCPToolSet
+	capabilities []mcpv1alpha1.MCPCapability
+	grants       []mcpv1alpha1.MCPGrant
 }
 
 func newEnv(t *testing.T, opts Options) *env {
@@ -77,7 +77,7 @@ func newEnv(t *testing.T, opts Options) *env {
 
 	handler, err := e.gateway.Handler(HandlerOptions{
 		Verifier:             fakeVerifier,
-		ResourceURL:          "https://mcp-gate.example.com/mcp",
+		ResourceURL:          "https://mcp-gateway.example.com/mcp",
 		AuthorizationServers: []string{"https://oauth.example.com/"},
 	})
 	require.NoError(t, err)
@@ -91,16 +91,16 @@ func newEnv(t *testing.T, opts Options) *env {
 
 	e.register("source-intelligence", e.sourceIntelligence.URL)
 	e.register("artifact", e.artifact.URL)
-	e.toolSets = []gatev1alpha1.MCPToolSet{
+	e.toolSets = []mcpv1alpha1.MCPToolSet{
 		toolSet("source-intelligence-analysis", "source-intelligence", "source_search", "source_get", "symbol_search"),
 		toolSet("artifact-read", "artifact", "artifact_search", "artifact_get"),
 		toolSet("artifact-readwrite", "artifact", "artifact_search", "artifact_get", "artifact_publish"),
 	}
-	e.capabilities = []gatev1alpha1.MCPCapability{
+	e.capabilities = []mcpv1alpha1.MCPCapability{
 		capability("code-research", "source-intelligence-analysis", "artifact-read"),
 		capability("artifact-authoring", "artifact-readwrite"),
 	}
-	e.grants = []gatev1alpha1.MCPGrant{
+	e.grants = []mcpv1alpha1.MCPGrant{
 		grant("coding-agent", "coding-agent", "code-research"),
 		grant("reviewer", "reviewer", "artifact-authoring"),
 	}
@@ -113,11 +113,11 @@ func (e *env) register(name, url string) {
 	e.registerWithAuth(name, url, nil)
 }
 
-func (e *env) registerWithAuth(name, url string, auth *gatev1alpha1.BackendAuth) {
+func (e *env) registerWithAuth(name, url string, auth *mcpv1alpha1.BackendAuth) {
 	e.t.Helper()
-	e.servers = append(e.servers, gatev1alpha1.MCPServer{
+	e.servers = append(e.servers, mcpv1alpha1.MCPServer{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
-		Spec:       gatev1alpha1.MCPServerSpec{Endpoint: url, Auth: auth},
+		Spec:       mcpv1alpha1.MCPServerSpec{Endpoint: url, Auth: auth},
 	})
 	e.registry.Ensure(name, url, auth)
 	_, _, err := e.registry.Discover(context.Background(), name)
@@ -187,24 +187,24 @@ func text(res *mcp.CallToolResult) string {
 	return strings.Join(parts, "\n")
 }
 
-func toolSet(name, server string, tools ...string) gatev1alpha1.MCPToolSet {
-	return gatev1alpha1.MCPToolSet{
+func toolSet(name, server string, tools ...string) mcpv1alpha1.MCPToolSet {
+	return mcpv1alpha1.MCPToolSet{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
-		Spec:       gatev1alpha1.MCPToolSetSpec{ServerRef: server, Tools: tools},
+		Spec:       mcpv1alpha1.MCPToolSetSpec{ServerRef: server, Tools: tools},
 	}
 }
 
-func capability(name string, toolSets ...string) gatev1alpha1.MCPCapability {
-	return gatev1alpha1.MCPCapability{
+func capability(name string, toolSets ...string) mcpv1alpha1.MCPCapability {
+	return mcpv1alpha1.MCPCapability{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
-		Spec:       gatev1alpha1.MCPCapabilitySpec{ToolSets: toolSets},
+		Spec:       mcpv1alpha1.MCPCapabilitySpec{ToolSets: toolSets},
 	}
 }
 
-func grant(name, subject string, capabilities ...string) gatev1alpha1.MCPGrant {
-	return gatev1alpha1.MCPGrant{
+func grant(name, subject string, capabilities ...string) mcpv1alpha1.MCPGrant {
+	return mcpv1alpha1.MCPGrant{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
-		Spec:       gatev1alpha1.MCPGrantSpec{Subject: subject, Capabilities: capabilities},
+		Spec:       mcpv1alpha1.MCPGrantSpec{Subject: subject, Capabilities: capabilities},
 	}
 }
 
@@ -280,7 +280,7 @@ func TestToolsCall_RevocationTakesEffectOnAnOpenSession(t *testing.T) {
 	_, err = call(session, "artifact_get")
 	require.NoError(t, err)
 
-	e.grants = []gatev1alpha1.MCPGrant{grant("reviewer", "reviewer", "artifact-authoring")}
+	e.grants = []mcpv1alpha1.MCPGrant{grant("reviewer", "reviewer", "artifact-authoring")}
 	e.apply()
 
 	require.Eventually(t, func() bool {
@@ -433,7 +433,7 @@ func TestUnauthenticatedRequestsGetAChallenge(t *testing.T) {
 
 		assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 		assert.Contains(t, resp.Header.Get("WWW-Authenticate"),
-			`resource_metadata="https://mcp-gate.example.com/.well-known/oauth-protected-resource/mcp"`)
+			`resource_metadata="https://mcp-gateway.example.com/.well-known/oauth-protected-resource/mcp"`)
 	}
 
 	_, err := e.connectWith("not-a-known-token", nil)
@@ -463,7 +463,7 @@ func TestProtectedResourceMetadata(t *testing.T) {
 		var metadata map[string]any
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(&metadata))
 		_ = resp.Body.Close()
-		assert.Equal(t, "https://mcp-gate.example.com/mcp", metadata["resource"])
+		assert.Equal(t, "https://mcp-gateway.example.com/mcp", metadata["resource"])
 		assert.Equal(t, []any{"https://oauth.example.com/"}, metadata["authorization_servers"])
 	}
 }
@@ -571,9 +571,9 @@ func TestPatterns_ExposeWhatTheCatalogMatches(t *testing.T) {
 // manifest changing.
 func TestPatterns_AToolTheBackendAddsReachesOpenSessions(t *testing.T) {
 	e := newEnv(t, Options{})
-	e.toolSets = []gatev1alpha1.MCPToolSet{toolSet("artifact-all", "artifact", "artifact_*")}
-	e.capabilities = []gatev1alpha1.MCPCapability{capability("artifact-all", "artifact-all")}
-	e.grants = []gatev1alpha1.MCPGrant{grant("reviewer", "reviewer", "artifact-all")}
+	e.toolSets = []mcpv1alpha1.MCPToolSet{toolSet("artifact-all", "artifact", "artifact_*")}
+	e.capabilities = []mcpv1alpha1.MCPCapability{capability("artifact-all", "artifact-all")}
+	e.grants = []mcpv1alpha1.MCPGrant{grant("reviewer", "reviewer", "artifact-all")}
 	e.apply()
 
 	changed := make(chan struct{}, 8)
@@ -605,12 +605,12 @@ func TestPatterns_AConflictTheyCauseExposesNeither(t *testing.T) {
 	e := newEnv(t, Options{})
 	engram := mcptest.NewBackend(t, "engram", "remember", "artifact_get")
 	e.register("engram", engram.URL)
-	e.toolSets = []gatev1alpha1.MCPToolSet{
+	e.toolSets = []mcpv1alpha1.MCPToolSet{
 		toolSet("artifact-all", "artifact", "*"),
 		toolSet("engram-all", "engram", "*"),
 	}
-	e.capabilities = []gatev1alpha1.MCPCapability{capability("everything", "artifact-all", "engram-all")}
-	e.grants = []gatev1alpha1.MCPGrant{grant("reviewer", "reviewer", "everything")}
+	e.capabilities = []mcpv1alpha1.MCPCapability{capability("everything", "artifact-all", "engram-all")}
+	e.grants = []mcpv1alpha1.MCPGrant{grant("reviewer", "reviewer", "everything")}
 	e.apply()
 
 	names := toolNames(t, e.connect("token-reviewer"))
@@ -636,9 +636,9 @@ func TestInstructions_FollowTheGrants(t *testing.T) {
 }
 
 func TestInstructions_GatewayPrefaceComesFirst(t *testing.T) {
-	e := newEnv(t, Options{Instructions: "Tools reach several backends through mcp-gate."})
+	e := newEnv(t, Options{Instructions: "Tools reach several backends through mcp-gateway."})
 	instructions := e.connect("token-reviewer").InitializeResult().Instructions
-	assert.True(t, strings.HasPrefix(instructions, "Tools reach several backends through mcp-gate.\n\n## artifact\n\n"), instructions)
+	assert.True(t, strings.HasPrefix(instructions, "Tools reach several backends through mcp-gateway.\n\n## artifact\n\n"), instructions)
 }
 
 // A backend redeployed with new instructions and the same tools has changed:
@@ -707,7 +707,7 @@ func TestRenames_TwoBackendsWithTheSameToolName(t *testing.T) {
 	e := newEnv(t, Options{})
 	engram := mcptest.NewBackendWithInstructions(t, "engram", "Use artifact_get to recall.", "artifact_get", "remember")
 	e.register("engram", engram.URL)
-	e.grants = []gatev1alpha1.MCPGrant{grant("reviewer", "reviewer", "both")}
+	e.grants = []mcpv1alpha1.MCPGrant{grant("reviewer", "reviewer", "both")}
 
 	e.toolSets = append(e.toolSets, toolSet("engram-all", "engram", "*"))
 	e.capabilities = append(e.capabilities, capability("both", "artifact-read", "engram-all"))
@@ -717,7 +717,7 @@ func TestRenames_TwoBackendsWithTheSameToolName(t *testing.T) {
 
 	renamed := toolSet("engram-all", "engram", "*")
 	renamed.Spec.Prefix = "engram_"
-	renamed.Spec.Aliases = map[string]gatev1alpha1.ToolName{"remember": "memorize"}
+	renamed.Spec.Aliases = map[string]mcpv1alpha1.ToolName{"remember": "memorize"}
 	e.toolSets[len(e.toolSets)-1] = renamed
 	e.apply()
 	session := e.connect("token-reviewer")

@@ -1,6 +1,6 @@
-// Package v1alpha1 contains API Schema definitions for the mcp.gate.metapatrol.com API group.
+// Package v1alpha1 contains API Schema definitions for the mcp-gateway.metapatrol.com API group.
 // +kubebuilder:object:generate=true
-// +groupName=mcp.gate.metapatrol.com
+// +groupName=mcp-gateway.metapatrol.com
 package v1alpha1
 
 import (
@@ -11,7 +11,7 @@ import (
 
 var (
 	// GroupVersion is group version used to register these objects.
-	GroupVersion = schema.GroupVersion{Group: "mcp.gate.metapatrol.com", Version: "v1alpha1"}
+	GroupVersion = schema.GroupVersion{Group: "mcp-gateway.metapatrol.com", Version: "v1alpha1"}
 
 	// SchemeBuilder collects the functions that add this group's types to a
 	// scheme. It is apimachinery's builder rather than controller-runtime's,

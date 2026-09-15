@@ -13,11 +13,11 @@ import (
 )
 
 // dashboardPath is the dashboard the grafana chart ships.
-const dashboardPath = "../../charts/mcp-gate-grafana-dashboard/dashboards/mcp-gate.json"
+const dashboardPath = "../../charts/mcp-gateway-grafana-dashboard/dashboards/mcp-gateway.json"
 
 // The dashboard and the metrics live in different files and nothing ties them
 // together: a renamed metric compiles, passes every other test, and leaves a
-// panel that silently shows no data. This reads every mcp_gate_* name the
+// panel that silently shows no data. This reads every mcp_gateway_* name the
 // dashboard queries and checks that this package still registers it.
 func TestDashboardQueriesOnlyRegisteredMetrics(t *testing.T) {
 	raw, err := os.ReadFile(dashboardPath)
@@ -39,7 +39,7 @@ func TestDashboardQueriesOnlyRegisteredMetrics(t *testing.T) {
 	require.NoError(t, json.Unmarshal(raw, &dashboard))
 
 	registered := registeredNames()
-	name := regexp.MustCompile(`mcp_gate_[a-z_]+`)
+	name := regexp.MustCompile(`mcp_gateway_[a-z_]+`)
 	used := map[string]bool{}
 
 	check := func(where, expr string) {
@@ -58,7 +58,7 @@ func TestDashboardQueriesOnlyRegisteredMetrics(t *testing.T) {
 			check("variable query", q)
 		}
 	}
-	assert.NotEmpty(t, used, "the dashboard queries no mcp_gate metric at all")
+	assert.NotEmpty(t, used, "the dashboard queries no mcp_gateway metric at all")
 }
 
 // registeredNames returns the series names the package's collectors produce. A
@@ -92,7 +92,7 @@ func registeredNames() map[string]bool {
 	}
 	// Guard the parsing above: if Desc's String format ever changes, every
 	// name would go missing and the test would fail for the wrong reason.
-	if !names["mcp_gate_tool_calls_total"] {
+	if !names["mcp_gateway_tool_calls_total"] {
 		panic("could not read metric names from prometheus.Desc: " + strings.TrimSpace(ToolCalls.WithLabelValues("", "", "").Desc().String()))
 	}
 	return names

@@ -123,7 +123,7 @@ jobs:
     runs-on: docker
     strategy:
       matrix:
-        binary: [mcp-gate-controller, mcp-gate-gateway, mcp-gate-proxy]
+        binary: [mcp-gateway-controller, mcp-gateway, mcp-gateway-proxy]
     env:
       ZOT_URL: ${{ vars.ZOT_URL }}
       ZOT_USERNAME: ${{ vars.ZOT_USERNAME }}

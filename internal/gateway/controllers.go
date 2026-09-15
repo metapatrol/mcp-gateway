@@ -19,9 +19,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	gatev1alpha1 "forgejo.metapatrol.local/platform/mcp-gate/api/v1alpha1"
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/discovery"
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/policy"
+	mcpv1alpha1 "forgejo.metapatrol.local/platform/mcp-gateway/api/v1alpha1"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/discovery"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/policy"
 )
 
 // The gateway watches the API and never writes to it. Both reconcilers below run
@@ -42,7 +42,7 @@ type CatalogReconciler struct {
 
 	// announcements carries backends that sent
 	// notifications/tools/list_changed.
-	announcements chan event.TypedGenericEvent[*gatev1alpha1.MCPServer]
+	announcements chan event.TypedGenericEvent[*mcpv1alpha1.MCPServer]
 }
 
 // NewCatalogReconciler builds a CatalogReconciler. Wire the registry's
@@ -52,7 +52,7 @@ func NewCatalogReconciler(c client.Client, registry *discovery.Registry, gw *Gat
 		Client:        c,
 		Registry:      registry,
 		Gateway:       gw,
-		announcements: make(chan event.TypedGenericEvent[*gatev1alpha1.MCPServer], 64),
+		announcements: make(chan event.TypedGenericEvent[*mcpv1alpha1.MCPServer], 64),
 	}
 }
 
@@ -60,8 +60,8 @@ func NewCatalogReconciler(c client.Client, registry *discovery.Registry, gw *Gat
 // backend announcing faster than the reconciler keeps up is re-read once.
 func (r *CatalogReconciler) Announce(server string) {
 	select {
-	case r.announcements <- event.TypedGenericEvent[*gatev1alpha1.MCPServer]{
-		Object: &gatev1alpha1.MCPServer{ObjectMeta: metav1.ObjectMeta{Name: server}},
+	case r.announcements <- event.TypedGenericEvent[*mcpv1alpha1.MCPServer]{
+		Object: &mcpv1alpha1.MCPServer{ObjectMeta: metav1.ObjectMeta{Name: server}},
 	}:
 	default:
 	}
@@ -73,7 +73,7 @@ const discoveryTimeout = 15 * time.Second
 func (r *CatalogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
-	var server gatev1alpha1.MCPServer
+	var server mcpv1alpha1.MCPServer
 	if err := r.Get(ctx, req.NamespacedName, &server); err != nil {
 		if apierrors.IsNotFound(err) {
 			r.Registry.Forget(req.Name)
@@ -111,11 +111,11 @@ func (r *CatalogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 func (r *CatalogReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&gatev1alpha1.MCPServer{}, builder.WithPredicates(predicate.Or(
+		For(&mcpv1alpha1.MCPServer{}, builder.WithPredicates(predicate.Or(
 			predicate.GenerationChangedPredicate{},
 			catalogRevisionChanged{},
 		))).
-		WatchesRawSource(source.Channel(r.announcements, &handler.TypedEnqueueRequestForObject[*gatev1alpha1.MCPServer]{})).
+		WatchesRawSource(source.Channel(r.announcements, &handler.TypedEnqueueRequestForObject[*mcpv1alpha1.MCPServer]{})).
 		WithOptions(controller.Options{
 			NeedLeaderElection: ptr.To(false),
 			// Backends are independent. One that takes its full timeout to
@@ -133,8 +133,8 @@ type catalogRevisionChanged struct {
 }
 
 func (catalogRevisionChanged) Update(e event.UpdateEvent) bool {
-	oldServer, ok1 := e.ObjectOld.(*gatev1alpha1.MCPServer)
-	newServer, ok2 := e.ObjectNew.(*gatev1alpha1.MCPServer)
+	oldServer, ok1 := e.ObjectOld.(*mcpv1alpha1.MCPServer)
+	newServer, ok2 := e.ObjectNew.(*mcpv1alpha1.MCPServer)
 	return ok1 && ok2 && oldServer.Status.CatalogRevision != newServer.Status.CatalogRevision
 }
 
@@ -153,19 +153,19 @@ type PolicyReconciler struct {
 var policyKey = reconcile.Request{NamespacedName: types.NamespacedName{Name: "policy"}}
 
 func (r *PolicyReconciler) Reconcile(ctx context.Context, _ ctrl.Request) (ctrl.Result, error) {
-	var servers gatev1alpha1.MCPServerList
+	var servers mcpv1alpha1.MCPServerList
 	if err := r.List(ctx, &servers); err != nil {
 		return ctrl.Result{}, err
 	}
-	var toolSets gatev1alpha1.MCPToolSetList
+	var toolSets mcpv1alpha1.MCPToolSetList
 	if err := r.List(ctx, &toolSets); err != nil {
 		return ctrl.Result{}, err
 	}
-	var capabilities gatev1alpha1.MCPCapabilityList
+	var capabilities mcpv1alpha1.MCPCapabilityList
 	if err := r.List(ctx, &capabilities); err != nil {
 		return ctrl.Result{}, err
 	}
-	var grants gatev1alpha1.MCPGrantList
+	var grants mcpv1alpha1.MCPGrantList
 	if err := r.List(ctx, &grants); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -183,18 +183,18 @@ func (r *PolicyReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// A cluster with none of the four kinds yet produces no event at all, and
 	// the gateway would never become ready. One event at startup builds the
 	// first snapshot regardless.
-	initial := make(chan event.TypedGenericEvent[*gatev1alpha1.MCPGrant], 1)
-	initial <- event.TypedGenericEvent[*gatev1alpha1.MCPGrant]{Object: &gatev1alpha1.MCPGrant{}}
+	initial := make(chan event.TypedGenericEvent[*mcpv1alpha1.MCPGrant], 1)
+	initial <- event.TypedGenericEvent[*mcpv1alpha1.MCPGrant]{Object: &mcpv1alpha1.MCPGrant{}}
 	onlySpec := builder.WithPredicates(predicate.GenerationChangedPredicate{})
 
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("policy").
-		Watches(&gatev1alpha1.MCPServer{}, toPolicy, onlySpec).
-		Watches(&gatev1alpha1.MCPToolSet{}, toPolicy, onlySpec).
-		Watches(&gatev1alpha1.MCPCapability{}, toPolicy, onlySpec).
-		Watches(&gatev1alpha1.MCPGrant{}, toPolicy, onlySpec).
+		Watches(&mcpv1alpha1.MCPServer{}, toPolicy, onlySpec).
+		Watches(&mcpv1alpha1.MCPToolSet{}, toPolicy, onlySpec).
+		Watches(&mcpv1alpha1.MCPCapability{}, toPolicy, onlySpec).
+		Watches(&mcpv1alpha1.MCPGrant{}, toPolicy, onlySpec).
 		WatchesRawSource(source.Channel(initial, handler.TypedEnqueueRequestsFromMapFunc(
-			func(context.Context, *gatev1alpha1.MCPGrant) []reconcile.Request { return []reconcile.Request{policyKey} },
+			func(context.Context, *mcpv1alpha1.MCPGrant) []reconcile.Request { return []reconcile.Request{policyKey} },
 		))).
 		WithOptions(controller.Options{NeedLeaderElection: ptr.To(false)}).
 		Complete(r)

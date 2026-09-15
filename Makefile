@@ -8,7 +8,7 @@ SETUP_ENVTEST_VERSION ?= v0.25.1
 # The Kubernetes version integration tests run their API server at.
 ENVTEST_K8S_VERSION ?= 1.34.1
 
-BINARIES := mcp-gate-controller mcp-gate-gateway mcp-gate-proxy
+BINARIES := mcp-gateway-controller mcp-gateway mcp-gateway-proxy
 
 .PHONY: secret-scan secret-scan-history generate generate-crds build test integration-test lint clean build-binaries build-all changelog helm-docs helm-lint helm-package install-tools $(addprefix build-,$(BINARIES))
 
@@ -62,28 +62,28 @@ install-tools:
 	go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_VERSION)
 	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 
-# Generate CRD manifests from the API types into charts/mcp-gate/crds/.
+# Generate CRD manifests from the API types into charts/mcp-gateway/crds/.
 generate-crds:
-	@mkdir -p charts/mcp-gate/crds
+	@mkdir -p charts/mcp-gateway/crds
 	controller-gen crd:generateEmbeddedObjectMeta=true \
 		paths="./api/v1alpha1/..." \
-		output:crd:artifacts:config=charts/mcp-gate/crds
-	@echo "Done. CRDs updated in charts/mcp-gate/crds/"
+		output:crd:artifacts:config=charts/mcp-gateway/crds
+	@echo "Done. CRDs updated in charts/mcp-gateway/crds/"
 
 # Generate Helm chart documentation (README.md) via helm-docs
 helm-docs:
 	helm-docs --chart-search-root charts/
 
-# Lint both Helm charts. The mcp-gate chart refuses to render without token
+# Lint both Helm charts. The mcp-gateway chart refuses to render without token
 # verification settings, so it is linted with the values CI uses.
 helm-lint:
-	helm lint charts/mcp-gate -f charts/mcp-gate/ci/default-values.yaml
-	helm lint charts/mcp-gate-grafana-dashboard
+	helm lint charts/mcp-gateway -f charts/mcp-gateway/ci/default-values.yaml
+	helm lint charts/mcp-gateway-grafana-dashboard
 
 # Package both Helm charts
 helm-package:
-	helm package charts/mcp-gate --destination bin/
-	helm package charts/mcp-gate-grafana-dashboard --destination bin/
+	helm package charts/mcp-gateway --destination bin/
+	helm package charts/mcp-gateway-grafana-dashboard --destination bin/
 
 # Generate CHANGELOG.md from conventional commits
 changelog:

@@ -59,7 +59,7 @@ func newProgressRoutes() *progressRoutes {
 func (p *progressRoutes) open(progress Progress) (string, *progressRoute) {
 	raw := make([]byte, 16)
 	_, _ = rand.Read(raw)
-	token := "mcp-gate-" + hex.EncodeToString(raw)
+	token := "mcp-gateway-" + hex.EncodeToString(raw)
 	route := &progressRoute{progress: progress, seen: make(chan struct{}, 1)}
 	p.mu.Lock()
 	p.routes[token] = route

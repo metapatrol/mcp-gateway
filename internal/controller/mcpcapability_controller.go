@@ -17,8 +17,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	gatev1alpha1 "forgejo.metapatrol.local/platform/mcp-gate/api/v1alpha1"
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/discovery"
+	mcpv1alpha1 "forgejo.metapatrol.local/platform/mcp-gateway/api/v1alpha1"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/discovery"
 )
 
 // MCPCapabilityReconciler checks that a capability's tool sets exist, fit
@@ -30,11 +30,11 @@ type MCPCapabilityReconciler struct {
 	Registry *discovery.Registry
 }
 
-// +kubebuilder:rbac:groups=mcp.gate.metapatrol.com,resources=mcpcapabilities,verbs=get;list;watch
-// +kubebuilder:rbac:groups=mcp.gate.metapatrol.com,resources=mcpcapabilities/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=mcp-gateway.metapatrol.com,resources=mcpcapabilities,verbs=get;list;watch
+// +kubebuilder:rbac:groups=mcp-gateway.metapatrol.com,resources=mcpcapabilities/status,verbs=get;update;patch
 
 func (r *MCPCapabilityReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	var capability gatev1alpha1.MCPCapability
+	var capability mcpv1alpha1.MCPCapability
 	if err := r.Get(ctx, req.NamespacedName, &capability); err != nil {
 		if apierrors.IsNotFound(err) {
 			observeResource("MCPCapability", req.Name, nil)
@@ -57,17 +57,17 @@ func (r *MCPCapabilityReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	switch {
 	case len(res.MissingToolSets) > 0:
 		msg := fmt.Sprintf("MCPToolSet %s %s not exist", quoted(res.MissingToolSets), plural(len(res.MissingToolSets), "does", "do"))
-		setCondition(&status.Conditions, gen, gatev1alpha1.ConditionValid, metav1.ConditionFalse, gatev1alpha1.ReasonToolSetNotFound, msg)
+		setCondition(&status.Conditions, gen, mcpv1alpha1.ConditionValid, metav1.ConditionFalse, mcpv1alpha1.ReasonToolSetNotFound, msg)
 	case len(res.Conflicts) > 0:
-		setCondition(&status.Conditions, gen, gatev1alpha1.ConditionValid, metav1.ConditionFalse, gatev1alpha1.ReasonToolNameConflict, conflictMessage(res.Conflicts))
+		setCondition(&status.Conditions, gen, mcpv1alpha1.ConditionValid, metav1.ConditionFalse, mcpv1alpha1.ReasonToolNameConflict, conflictMessage(res.Conflicts))
 	default:
-		setCondition(&status.Conditions, gen, gatev1alpha1.ConditionValid, metav1.ConditionTrue, gatev1alpha1.ReasonResolved,
+		setCondition(&status.Conditions, gen, mcpv1alpha1.ConditionValid, metav1.ConditionTrue, mcpv1alpha1.ReasonResolved,
 			fmt.Sprintf("%d %s resolve to %d %s", len(capability.Spec.ToolSets), plural(len(capability.Spec.ToolSets), "tool set", "tool sets"),
 				len(res.Tools), plural(len(res.Tools), "tool", "tools")))
 	}
 
-	if !isCurrentlyTrue(status.Conditions, gatev1alpha1.ConditionValid, gen) {
-		setCondition(&status.Conditions, gen, gatev1alpha1.ConditionReady, metav1.ConditionFalse, gatev1alpha1.ReasonInvalid,
+	if !isCurrentlyTrue(status.Conditions, mcpv1alpha1.ConditionValid, gen) {
+		setCondition(&status.Conditions, gen, mcpv1alpha1.ConditionReady, metav1.ConditionFalse, mcpv1alpha1.ReasonInvalid,
 			"the capability is not valid")
 	} else {
 		notReady, err := r.notReadyToolSets(ctx, capability.Spec.ToolSets)
@@ -75,10 +75,10 @@ func (r *MCPCapabilityReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			return ctrl.Result{}, err
 		}
 		if len(notReady) > 0 {
-			setCondition(&status.Conditions, gen, gatev1alpha1.ConditionReady, metav1.ConditionFalse, gatev1alpha1.ReasonToolSetNotReady,
+			setCondition(&status.Conditions, gen, mcpv1alpha1.ConditionReady, metav1.ConditionFalse, mcpv1alpha1.ReasonToolSetNotReady,
 				joinReasons(notReady))
 		} else {
-			setCondition(&status.Conditions, gen, gatev1alpha1.ConditionReady, metav1.ConditionTrue, gatev1alpha1.ReasonAvailable,
+			setCondition(&status.Conditions, gen, mcpv1alpha1.ConditionReady, metav1.ConditionTrue, mcpv1alpha1.ReasonAvailable,
 				"all tool sets are ready")
 		}
 	}
@@ -94,7 +94,7 @@ func (r *MCPCapabilityReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 func (r *MCPCapabilityReconciler) notReadyToolSets(ctx context.Context, names []string) (map[string]string, error) {
 	notReady := map[string]string{}
 	for _, name := range names {
-		var toolSet gatev1alpha1.MCPToolSet
+		var toolSet mcpv1alpha1.MCPToolSet
 		if err := r.Get(ctx, types.NamespacedName{Name: name}, &toolSet); err != nil {
 			if apierrors.IsNotFound(err) {
 				notReady[name] = "does not exist"
@@ -102,8 +102,8 @@ func (r *MCPCapabilityReconciler) notReadyToolSets(ctx context.Context, names []
 			}
 			return nil, err
 		}
-		if !isCurrentlyTrue(toolSet.Status.Conditions, gatev1alpha1.ConditionReady, toolSet.Generation) {
-			notReady[name] = conditionSummary(toolSet.Status.Conditions, gatev1alpha1.ConditionReady)
+		if !isCurrentlyTrue(toolSet.Status.Conditions, mcpv1alpha1.ConditionReady, toolSet.Generation) {
+			notReady[name] = conditionSummary(toolSet.Status.Conditions, mcpv1alpha1.ConditionReady)
 		}
 	}
 	return notReady, nil
@@ -111,9 +111,9 @@ func (r *MCPCapabilityReconciler) notReadyToolSets(ctx context.Context, names []
 
 func (r *MCPCapabilityReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&gatev1alpha1.MCPCapability{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		For(&mcpv1alpha1.MCPCapability{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Watches(
-			&gatev1alpha1.MCPToolSet{},
+			&mcpv1alpha1.MCPToolSet{},
 			handler.EnqueueRequestsFromMapFunc(r.capabilitiesForToolSet),
 			builder.WithPredicates(dependencyChanged{}),
 		).
@@ -123,7 +123,7 @@ func (r *MCPCapabilityReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 // capabilitiesForToolSet enqueues the capabilities that name a tool set.
 func (r *MCPCapabilityReconciler) capabilitiesForToolSet(ctx context.Context, obj client.Object) []reconcile.Request {
-	var list gatev1alpha1.MCPCapabilityList
+	var list mcpv1alpha1.MCPCapabilityList
 	if err := r.List(ctx, &list); err != nil {
 		return nil
 	}

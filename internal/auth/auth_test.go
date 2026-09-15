@@ -22,7 +22,7 @@ import (
 
 const (
 	testIssuer   = "https://oauth.example.com/"
-	testAudience = "https://mcp-gate.example.com/mcp"
+	testAudience = "https://mcp-gateway.example.com/mcp"
 )
 
 // issuer is an OAuth provider as far as the gateway can tell: a JWKS endpoint,
@@ -228,10 +228,10 @@ func TestJWT_SubjectFromANestedClaim(t *testing.T) {
 
 func TestJWT_ClaimNamedByURLIsReadWhole(t *testing.T) {
 	iss := newIssuer(t)
-	v := iss.verifier(t, func(c *Config) { c.SubjectClaim = "https://mcp-gate.example.com/subject" })
+	v := iss.verifier(t, func(c *Config) { c.SubjectClaim = "https://mcp-gateway.example.com/subject" })
 
 	info, err := v.Verify(context.Background(), iss.token(func(tok jwt.Token) {
-		_ = tok.Set("https://mcp-gate.example.com/subject", "coding-agent")
+		_ = tok.Set("https://mcp-gateway.example.com/subject", "coding-agent")
 	}), nil)
 	require.NoError(t, err)
 	assert.Equal(t, "coding-agent", info.UserID)
@@ -280,13 +280,13 @@ func TestIntrospection(t *testing.T) {
 		"ory_at_past_exp": {"active": true, "sub": "coding-agent", "exp": float64(time.Now().Add(-time.Hour).Unix()), "iss": testIssuer, "aud": testAudience},
 	}
 	var calls atomic.Int64
-	endpoint := introspectionEndpoint(t, tokens, &calls, [2]string{"mcp-gate", "s3cret"})
+	endpoint := introspectionEndpoint(t, tokens, &calls, [2]string{"mcp-gateway", "s3cret"})
 
 	v, err := NewVerifier(Config{
 		Issuer:                    testIssuer,
 		Audience:                  testAudience,
 		IntrospectionURL:          endpoint.URL,
-		IntrospectionClientID:     "mcp-gate",
+		IntrospectionClientID:     "mcp-gateway",
 		IntrospectionClientSecret: "s3cret",
 	})
 	require.NoError(t, err)
@@ -337,8 +337,8 @@ func TestIntrospection_EndpointFailureIsNotCached(t *testing.T) {
 		"ory_at_good": {"active": true, "sub": "coding-agent"},
 	}
 	var calls atomic.Int64
-	endpoint := introspectionEndpoint(t, tokens, &calls, [2]string{"mcp-gate", "right"})
-	v, err := NewVerifier(Config{IntrospectionURL: endpoint.URL, IntrospectionClientID: "mcp-gate", IntrospectionClientSecret: "wrong"})
+	endpoint := introspectionEndpoint(t, tokens, &calls, [2]string{"mcp-gateway", "right"})
+	v, err := NewVerifier(Config{IntrospectionURL: endpoint.URL, IntrospectionClientID: "mcp-gateway", IntrospectionClientSecret: "wrong"})
 	require.NoError(t, err)
 
 	_, err = v.Verify(context.Background(), "ory_at_good", nil)

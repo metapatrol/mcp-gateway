@@ -9,9 +9,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	gatev1alpha1 "forgejo.metapatrol.local/platform/mcp-gate/api/v1alpha1"
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/mcptest"
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/metrics"
+	mcpv1alpha1 "forgejo.metapatrol.local/platform/mcp-gateway/api/v1alpha1"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/mcptest"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/metrics"
 )
 
 // authorizations records the Authorization headers a backend received, by
@@ -60,7 +60,7 @@ func withMemory(e *env, accepted ...string) (*mcptest.Backend, *authorizations) 
 		}
 		return http.StatusUnauthorized
 	})
-	e.registerWithAuth("memory", memory.URL, &gatev1alpha1.BackendAuth{Type: gatev1alpha1.BackendAuthPassthrough})
+	e.registerWithAuth("memory", memory.URL, &mcpv1alpha1.BackendAuth{Type: mcpv1alpha1.BackendAuthPassthrough})
 	e.toolSets = append(e.toolSets, toolSet("memory", "memory", "memory_search"))
 	e.capabilities = append(e.capabilities, capability("memory", "memory"))
 	e.grants = append(e.grants,
@@ -101,7 +101,7 @@ func TestPassthrough_ARefusedTokenIsReportedToTheCaller(t *testing.T) {
 	res, err := call(e.connect("token-nobody"), "memory_search")
 	require.NoError(t, err)
 	assert.True(t, res.IsError)
-	assert.Equal(t, "mcp-gate: the backend serving this tool refused the caller's credentials (HTTP 401 Unauthorized)", text(res))
+	assert.Equal(t, "mcp-gateway: the backend serving this tool refused the caller's credentials (HTTP 401 Unauthorized)", text(res))
 	assert.NotContains(t, text(res), memory.URL)
 	assert.Equal(t, before+1, testutil.ToFloat64(metrics.ToolCalls.WithLabelValues("memory", "memory_search", metrics.CallUnauthorized)))
 

@@ -25,10 +25,10 @@ verified as one, and anything else is introspected.
 ### JWT against a JWKS
 
 ```bash
-mcp-gate-gateway \
+mcp-gateway \
   --oauth-jwks-url=https://hydra.example.com/.well-known/jwks.json \
   --oauth-issuer=https://hydra.example.com/ \
-  --oauth-audience=https://mcp-gate.example.com/mcp
+  --oauth-audience=https://mcp-gateway.example.com/mcp
 ```
 
 - The signature is checked against the provider's published keys. The
@@ -55,7 +55,7 @@ With Ory Hydra this needs `strategies.access_token: jwt`.
 ### Opaque tokens by introspection (RFC 7662)
 
 ```bash
-mcp-gate-gateway \
+mcp-gateway \
   --oauth-introspection-url=http://hydra-admin.hydra.svc:4445/admin/oauth2/introspect \
   --oauth-issuer=https://hydra.example.com/
 ```
@@ -68,7 +68,7 @@ mcp-gate-gateway \
   longest a revoked token keeps working.**
 - If the endpoint wants client authentication, set
   `--oauth-introspection-client-id` and provide the secret in
-  `MCP_GATE_INTROSPECTION_CLIENT_SECRET` or `--oauth-introspection-client-secret-file`
+  `MCP_GATEWAY_INTROSPECTION_CLIENT_SECRET` or `--oauth-introspection-client-secret-file`
   (chart: `gateway.oauth.introspection.clientSecretRef`). Hydra's admin port
   wants none, and is protected by the network instead.
 
@@ -76,7 +76,7 @@ This is Hydra's default token strategy.
 
 ### Failures
 
-| Situation | Response | `mcp_gate_auth_failures_total{reason}` |
+| Situation | Response | `mcp_gateway_auth_failures_total{reason}` |
 |---|---|---|
 | No `Authorization: Bearer` | 401 | `missing_token` |
 | Bad signature, wrong issuer or audience, expired, no subject … | 401 | `signature`, `issuer`, `audience`, `expired`, `no_subject`, … |
@@ -127,7 +127,7 @@ and which claim it came from is the gateway's configuration, not the resource's.
 ## Protected resource metadata (RFC 9728)
 
 ```bash
---resource-url=https://mcp-gate.example.com/mcp \
+--resource-url=https://mcp-gateway.example.com/mcp \
 --authorization-servers=https://hydra.example.com/
 ```
 
@@ -136,7 +136,7 @@ With both set, the gateway serves its metadata at
 carries
 
 ```text
-WWW-Authenticate: Bearer resource_metadata="https://mcp-gate.example.com/.well-known/oauth-protected-resource/mcp"
+WWW-Authenticate: Bearer resource_metadata="https://mcp-gateway.example.com/.well-known/oauth-protected-resource/mcp"
 ```
 
 so an OAuth-capable MCP client can find the authorization server on its own.
@@ -211,7 +211,7 @@ backend that should only accept tokens meant for it has to say so itself.
 A refusal never costs the session other callers share: the SDK would end a
 session on an HTTP error, so the gateway turns 401 and 403 into an error of its
 own before the SDK sees them. Refused calls count as
-`mcp_gate_tool_calls_total{outcome="unauthorized"}`.
+`mcp_gateway_tool_calls_total{outcome="unauthorized"}`.
 
 ### With Ory Hydra and hydra-maester
 
@@ -219,14 +219,14 @@ own before the SDK sees them. Refused calls count as
 apiVersion: hydra.ory.sh/v1alpha1
 kind: OAuth2Client
 metadata:
-  name: mcp-gate-memory
-  namespace: mcp-system              # where mcp-gate runs
+  name: mcp-gateway-memory
+  namespace: mcp-system              # where mcp-gateway runs
 spec:
   grantTypes: [client_credentials]
   scope: memory.read
-  secretName: mcp-gate-memory        # hydra-maester writes CLIENT_ID and CLIENT_SECRET
+  secretName: mcp-gateway-memory     # hydra-maester writes CLIENT_ID and CLIENT_SECRET
 ---
-apiVersion: mcp.gate.metapatrol.com/v1alpha1
+apiVersion: mcp-gateway.metapatrol.com/v1alpha1
 kind: MCPServer
 metadata:
   name: memory
@@ -236,20 +236,20 @@ spec:
     type: ClientCredentials
     clientCredentials:
       tokenURL: https://hydra.example.com/oauth2/token
-      clientIDRef:     {name: mcp-gate-memory, key: CLIENT_ID}
-      clientSecretRef: {name: mcp-gate-memory, key: CLIENT_SECRET}
+      clientIDRef:     {name: mcp-gateway-memory, key: CLIENT_ID}
+      clientSecretRef: {name: mcp-gateway-memory, key: CLIENT_SECRET}
       scopes: [memory.read]
 ```
 
-## mcp-gate-proxy
+## mcp-gateway-proxy
 
 For agents without OAuth. The agent talks to the proxy on loopback, without
 credentials; the proxy runs the client credentials grant and forwards everything
 to the gateway with a bearer token.
 
 ```bash
-mcp-gate-proxy \
-  --gateway-url=https://mcp-gate.example.com/mcp \
+mcp-gateway-proxy \
+  --gateway-url=https://mcp-gateway.example.com/mcp \
   --token-url=https://hydra.example.com/oauth2/token \
   --client-id=coding-agent \
   --client-secret-file=/var/run/secrets/oauth/CLIENT_SECRET
@@ -257,14 +257,14 @@ mcp-gate-proxy \
 
 | Flag | Environment | Default |
 |---|---|---|
-| `--listen-address` | `MCP_GATE_PROXY_LISTEN_ADDRESS` | `127.0.0.1:8765` |
-| `--gateway-url` | `MCP_GATE_GATEWAY_URL` | — |
-| `--token-url` | `MCP_GATE_TOKEN_URL` | — |
-| `--client-id` | `MCP_GATE_CLIENT_ID` | — |
-| `--client-secret-file` | `MCP_GATE_CLIENT_SECRET_FILE`, or the secret itself in `MCP_GATE_CLIENT_SECRET` | — |
-| `--scopes` | `MCP_GATE_SCOPES` | none |
-| `--audience` | `MCP_GATE_AUDIENCE` | none |
-| `--allowed-hosts` | `MCP_GATE_PROXY_ALLOWED_HOSTS` | loopback names only |
+| `--listen-address` | `MCP_GATEWAY_PROXY_LISTEN_ADDRESS` | `127.0.0.1:8765` |
+| `--gateway-url` | `MCP_GATEWAY_URL` | — |
+| `--token-url` | `MCP_GATEWAY_TOKEN_URL` | — |
+| `--client-id` | `MCP_GATEWAY_CLIENT_ID` | — |
+| `--client-secret-file` | `MCP_GATEWAY_CLIENT_SECRET_FILE`, or the secret itself in `MCP_GATEWAY_CLIENT_SECRET` | — |
+| `--scopes` | `MCP_GATEWAY_SCOPES` | none |
+| `--audience` | `MCP_GATEWAY_AUDIENCE` | none |
+| `--allowed-hosts` | `MCP_GATEWAY_PROXY_ALLOWED_HOSTS` | loopback names only |
 
 What it does:
 

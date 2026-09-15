@@ -20,7 +20,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/mcptest"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/mcptest"
 )
 
 func TestCatalog_RevisionIsOrderIndependent(t *testing.T) {

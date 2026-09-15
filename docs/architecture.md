@@ -1,4 +1,4 @@
-# Architecture — mcp-gate
+# Architecture — mcp-gateway
 
 How the pieces fit, what happens on a request, and what happens when something
 breaks. The design goals are in [CONCEPT.md](../CONCEPT.md); this is how the
@@ -10,7 +10,7 @@ implementation meets them.
 
 ```mermaid
 graph TB
-    subgraph "mcp-gate-gateway (every replica)"
+    subgraph "mcp-gateway (every replica)"
         H["Streamable HTTP handler<br/>+ bearer token middleware"]
         S["per-subject MCP servers"]
         PR["PolicyReconciler<br/>(read-only)"]
@@ -18,7 +18,7 @@ graph TB
         REG1["discovery.Registry<br/>one connection per backend"]
     end
 
-    subgraph "mcp-gate-controller (leader)"
+    subgraph "mcp-gateway-controller (leader)"
         R1["MCPServerReconciler"]
         R2["MCPToolSetReconciler"]
         R3["MCPCapabilityReconciler"]
@@ -52,7 +52,7 @@ graph TB
 | `internal/auth` | Token verification: JWT against a JWKS, opaque tokens by RFC 7662 introspection |
 | `internal/gateway` | The data plane: HTTP handler, per-subject servers, authorisation, the gateway's reconcilers |
 | `internal/controller` | The control plane: verification and status |
-| `internal/proxy` | `mcp-gate-proxy` |
+| `internal/proxy` | `mcp-gateway-proxy` |
 | `internal/metrics` | Prometheus metrics of all three binaries |
 
 ## Why the controller is not in the request path
@@ -343,7 +343,7 @@ namespace:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: only-mcp-gate
+  name: only-mcp-gateway
   namespace: mcp-system            # the backend's namespace
 spec:
   podSelector:
@@ -354,10 +354,10 @@ spec:
     - from:
         - namespaceSelector:
             matchLabels:
-              kubernetes.io/metadata.name: mcp-gate   # where the chart is installed
+              kubernetes.io/metadata.name: mcp-gateway   # where the chart is installed
           podSelector:
             matchLabels:
-              app.kubernetes.io/name: mcp-gate
+              app.kubernetes.io/name: mcp-gateway
               app.kubernetes.io/component: gateway
 ```
 

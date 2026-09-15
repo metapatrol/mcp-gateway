@@ -13,8 +13,8 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/modelcontextprotocol/go-sdk/oauthex"
 
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/auth"
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/metrics"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/auth"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/metrics"
 )
 
 // HandlerOptions configures the HTTP side of the gateway.
@@ -26,7 +26,7 @@ type HandlerOptions struct {
 	Verifier sdkauth.TokenVerifier
 
 	// ResourceURL is the gateway's public URL for its MCP endpoint, as agents
-	// reach it — for example https://mcp-gate.example.com/mcp. With
+	// reach it — for example https://mcp-gateway.example.com/mcp. With
 	// AuthorizationServers it enables RFC 9728 protected resource metadata:
 	// a 401 then tells an agent where to get a token, instead of just saying
 	// no.
@@ -68,7 +68,7 @@ func (g *Gateway) Handler(opts HandlerOptions) (http.Handler, error) {
 			AuthorizationServers:   opts.AuthorizationServers,
 			ScopesSupported:        opts.ScopesSupported,
 			BearerMethodsSupported: []string{"header"},
-			ResourceName:           "mcp-gate",
+			ResourceName:           "mcp-gateway",
 		})
 		u, _ := url.Parse(metadataURL)
 		mux.Handle(u.Path, metadata)

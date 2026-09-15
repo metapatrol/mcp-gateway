@@ -1,13 +1,13 @@
 # Two backends, as CONCEPT.md registers them. The catalog is discovered from
 # each; nothing here lists a tool.
-apiVersion: mcp.gate.metapatrol.com/v1alpha1
+apiVersion: mcp-gateway.metapatrol.com/v1alpha1
 kind: MCPServer
 metadata:
   name: source-intelligence
 spec:
   endpoint: http://source-intelligence.mcp-system.svc/mcp
 ---
-apiVersion: mcp.gate.metapatrol.com/v1alpha1
+apiVersion: mcp-gateway.metapatrol.com/v1alpha1
 kind: MCPServer
 metadata:
   name: artifact

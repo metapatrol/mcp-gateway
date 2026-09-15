@@ -27,8 +27,8 @@ In `release.yml` nothing is published until all three images are pushed: `notes`
 creates the Forgejo release, and a release whose images do not exist is worse
 than none. `binaries` and `chart` follow `notes` because both attach assets.
 
-`chart` publishes both charts at the release version: `mcp-gate` and
-`mcp-gate-grafana-dashboard`.
+`chart` publishes both charts at the release version: `mcp-gateway` and
+`mcp-gateway-grafana-dashboard`.
 
 ## Images
 
@@ -36,9 +36,9 @@ One Dockerfile, three images, selected with `--build-arg BINARY=`:
 
 | image | binary |
 |---|---|
-| `images/platform/mcp-gate-controller` | control plane |
-| `images/platform/mcp-gate-gateway` | data plane |
-| `images/platform/mcp-gate-proxy` | the sidecar — kept separate so agent pods do not carry the other two |
+| `images/platform/mcp-gateway-controller` | control plane |
+| `images/platform/mcp-gateway` | data plane |
+| `images/platform/mcp-gateway-proxy` | the sidecar — kept separate so agent pods do not carry the other two |
 
 Every image is tagged with the version (releases), `latest`, the full commit SHA
 and its twelve-character prefix. The prefix is what Flux writes into a chart

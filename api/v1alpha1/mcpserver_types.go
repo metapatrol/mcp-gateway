@@ -78,7 +78,7 @@ type MCPServerStatus struct {
 }
 
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:scope=Cluster,shortName=mcpsrv,categories=mcp-gate
+// +kubebuilder:resource:scope=Cluster,shortName=mcpsrv,categories=mcp-gateway
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Endpoint",type=string,JSONPath=`.spec.endpoint`
 // +kubebuilder:printcolumn:name="Available",type=boolean,JSONPath=`.status.available`

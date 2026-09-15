@@ -19,7 +19,7 @@ import (
 	"slices"
 	"sort"
 
-	gatev1alpha1 "forgejo.metapatrol.local/platform/mcp-gate/api/v1alpha1"
+	mcpv1alpha1 "forgejo.metapatrol.local/platform/mcp-gateway/api/v1alpha1"
 )
 
 // ToolRef is the backend-qualified identity of a tool: the server it lives on
@@ -52,7 +52,7 @@ func (c Catalogs) names(server string) []string {
 // Snapshot is the declared policy at one moment.
 type Snapshot struct {
 	servers      map[string]bool
-	toolSets     map[string]gatev1alpha1.MCPToolSetSpec
+	toolSets     map[string]mcpv1alpha1.MCPToolSetSpec
 	capabilities map[string][]string
 	// grants maps a subject to the capability names its grants name, in grant
 	// name order so that resolution does not depend on list order.
@@ -68,14 +68,14 @@ type grant struct {
 // grant whose deletion has been requested no longer grants anything, even while
 // a finalizer holds it.
 func NewSnapshot(
-	servers []gatev1alpha1.MCPServer,
-	toolSets []gatev1alpha1.MCPToolSet,
-	capabilities []gatev1alpha1.MCPCapability,
-	grants []gatev1alpha1.MCPGrant,
+	servers []mcpv1alpha1.MCPServer,
+	toolSets []mcpv1alpha1.MCPToolSet,
+	capabilities []mcpv1alpha1.MCPCapability,
+	grants []mcpv1alpha1.MCPGrant,
 ) *Snapshot {
 	s := &Snapshot{
 		servers:      make(map[string]bool, len(servers)),
-		toolSets:     make(map[string]gatev1alpha1.MCPToolSetSpec, len(toolSets)),
+		toolSets:     make(map[string]mcpv1alpha1.MCPToolSetSpec, len(toolSets)),
 		capabilities: make(map[string][]string, len(capabilities)),
 		grants:       map[string][]grant{},
 	}

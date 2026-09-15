@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	gatev1alpha1 "forgejo.metapatrol.local/platform/mcp-gate/api/v1alpha1"
+	mcpv1alpha1 "forgejo.metapatrol.local/platform/mcp-gateway/api/v1alpha1"
 )
 
 func TestMatch(t *testing.T) {
@@ -49,8 +49,8 @@ var siCatalog = []string{
 	"refs.list", "repositories.get", "repositories.list", "repositories.list_files", "repositories.read_file",
 }
 
-func spec(tools []string, exclude ...string) gatev1alpha1.MCPToolSetSpec {
-	return gatev1alpha1.MCPToolSetSpec{ServerRef: "source-intelligence", Tools: tools, Exclude: exclude}
+func spec(tools []string, exclude ...string) mcpv1alpha1.MCPToolSetSpec {
+	return mcpv1alpha1.MCPToolSetSpec{ServerRef: "source-intelligence", Tools: tools, Exclude: exclude}
 }
 
 func TestSelect(t *testing.T) {
@@ -109,10 +109,10 @@ func TestResolve_PatternsExpandAgainstTheCatalog(t *testing.T) {
 	ts := toolSet("si", "source-intelligence", "code.*", "repositories.*")
 	ts.Spec.Exclude = []string{"repositories.read_file"}
 	s := NewSnapshot(
-		[]gatev1alpha1.MCPServer{server("source-intelligence")},
-		[]gatev1alpha1.MCPToolSet{ts},
-		[]gatev1alpha1.MCPCapability{capability("research", "si")},
-		[]gatev1alpha1.MCPGrant{grantFor("g", "agent", "research")},
+		[]mcpv1alpha1.MCPServer{server("source-intelligence")},
+		[]mcpv1alpha1.MCPToolSet{ts},
+		[]mcpv1alpha1.MCPCapability{capability("research", "si")},
+		[]mcpv1alpha1.MCPGrant{grantFor("g", "agent", "research")},
 	)
 
 	res := s.Resolve("agent", catalogsOf(map[string][]string{"source-intelligence": siCatalog}))
@@ -130,10 +130,10 @@ func TestResolve_PatternsExpandAgainstTheCatalog(t *testing.T) {
 // since the manifest was written.
 func TestResolve_APatternPicksUpToolsTheBackendAddsLater(t *testing.T) {
 	s := NewSnapshot(
-		[]gatev1alpha1.MCPServer{server("source-intelligence")},
-		[]gatev1alpha1.MCPToolSet{toolSet("si", "source-intelligence", "code.*")},
-		[]gatev1alpha1.MCPCapability{capability("research", "si")},
-		[]gatev1alpha1.MCPGrant{grantFor("g", "agent", "research")},
+		[]mcpv1alpha1.MCPServer{server("source-intelligence")},
+		[]mcpv1alpha1.MCPToolSet{toolSet("si", "source-intelligence", "code.*")},
+		[]mcpv1alpha1.MCPCapability{capability("research", "si")},
+		[]mcpv1alpha1.MCPGrant{grantFor("g", "agent", "research")},
 	)
 	later := append([]string{"code.callers"}, siCatalog...)
 
@@ -146,10 +146,10 @@ func TestResolve_APatternPicksUpToolsTheBackendAddsLater(t *testing.T) {
 // does not have it either.
 func TestResolve_WithoutACatalogPatternsSelectNothing(t *testing.T) {
 	s := NewSnapshot(
-		[]gatev1alpha1.MCPServer{server("source-intelligence")},
-		[]gatev1alpha1.MCPToolSet{toolSet("si", "source-intelligence", "code.*", "refs.list")},
-		[]gatev1alpha1.MCPCapability{capability("research", "si")},
-		[]gatev1alpha1.MCPGrant{grantFor("g", "agent", "research")},
+		[]mcpv1alpha1.MCPServer{server("source-intelligence")},
+		[]mcpv1alpha1.MCPToolSet{toolSet("si", "source-intelligence", "code.*", "refs.list")},
+		[]mcpv1alpha1.MCPCapability{capability("research", "si")},
+		[]mcpv1alpha1.MCPGrant{grantFor("g", "agent", "research")},
 	)
 	assert.Equal(t, map[string]ToolRef{"refs.list": {Server: "source-intelligence", Tool: "refs.list"}},
 		s.Resolve("agent", nil).Tools)
@@ -161,13 +161,13 @@ func TestResolve_WithoutACatalogPatternsSelectNothing(t *testing.T) {
 // expose neither under it.
 func TestResolve_PatternConflictsExposeNeither(t *testing.T) {
 	s := NewSnapshot(
-		[]gatev1alpha1.MCPServer{server("engram"), server("source-intelligence")},
-		[]gatev1alpha1.MCPToolSet{
+		[]mcpv1alpha1.MCPServer{server("engram"), server("source-intelligence")},
+		[]mcpv1alpha1.MCPToolSet{
 			toolSet("memory", "engram", "*"),
 			toolSet("code", "source-intelligence", "code.*"),
 		},
-		[]gatev1alpha1.MCPCapability{capability("both", "memory", "code")},
-		[]gatev1alpha1.MCPGrant{grantFor("g", "agent", "both")},
+		[]mcpv1alpha1.MCPCapability{capability("both", "memory", "code")},
+		[]mcpv1alpha1.MCPGrant{grantFor("g", "agent", "both")},
 	)
 	catalogs := catalogsOf(map[string][]string{
 		"engram":              {"remember", "code.search"},
@@ -186,10 +186,10 @@ func TestResolve_ToolSetsBeingDeletedSelectNothing(t *testing.T) {
 	now := metav1.Now()
 	ts.DeletionTimestamp = &now
 	s := NewSnapshot(
-		[]gatev1alpha1.MCPServer{server("source-intelligence")},
-		[]gatev1alpha1.MCPToolSet{ts},
-		[]gatev1alpha1.MCPCapability{capability("research", "si")},
-		[]gatev1alpha1.MCPGrant{grantFor("g", "agent", "research")},
+		[]mcpv1alpha1.MCPServer{server("source-intelligence")},
+		[]mcpv1alpha1.MCPToolSet{ts},
+		[]mcpv1alpha1.MCPCapability{capability("research", "si")},
+		[]mcpv1alpha1.MCPGrant{grantFor("g", "agent", "research")},
 	)
 	assert.Empty(t, s.Resolve("agent", catalogsOf(map[string][]string{"source-intelligence": siCatalog})).Tools)
 }

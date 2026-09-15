@@ -74,7 +74,7 @@ jobs:
     runs-on: docker
     strategy:
       matrix:
-        binary: [mcp-gate-controller, mcp-gate-gateway, mcp-gate-proxy]
+        binary: [mcp-gateway-controller, mcp-gateway, mcp-gateway-proxy]
     env:
       ZOT_URL: ${{ vars.ZOT_URL }}
       ZOT_USERNAME: ${{ vars.ZOT_USERNAME }}
@@ -198,9 +198,9 @@ jobs:
           ASSETS=""
           for GOOS in linux darwin; do
             for GOARCH in amd64 arm64; do
-              for BIN in mcp-gate-controller mcp-gate-gateway mcp-gate-proxy; do
+              for BIN in mcp-gateway-controller mcp-gateway mcp-gateway-proxy; do
                 # Only the proxy is useful off Linux.
-                [ "$GOOS" = linux ] || [ "$BIN" = mcp-gate-proxy ] || continue
+                [ "$GOOS" = linux ] || [ "$BIN" = mcp-gateway-proxy ] || continue
                 GOOS=$GOOS GOARCH=$GOARCH go build -trimpath \
                   -ldflags "-s -w -X main.version=$VERSION -X main.commit=$COMMIT -X main.builtAt=$BUILD_TIME" \
                   -o "$BIN-$GOOS-$GOARCH" "./cmd/$BIN"
@@ -280,7 +280,7 @@ jobs:
             "$FORGEJO_BASE_URL/api/v1/repos/$FORGEJO_REPO/releases/tags/$TAG" | jq -r '.id')
           [ -n "$RELEASE_ID" ] && [ "$RELEASE_ID" != "null" ]
 
-          for CHART_DIR in charts/mcp-gate charts/mcp-gate-grafana-dashboard; do
+          for CHART_DIR in charts/mcp-gateway charts/mcp-gateway-grafana-dashboard; do
             CHART_NAME=$(basename "$CHART_DIR")
             sed -i "s/^version:.*/version: $VERSION/" "$CHART_DIR/Chart.yaml"
             sed -i "s/^appVersion:.*/appVersion: \"$VERSION\"/" "$CHART_DIR/Chart.yaml"

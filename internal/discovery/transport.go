@@ -9,7 +9,7 @@ import (
 	"net/url"
 	"time"
 
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/credentials"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/credentials"
 )
 
 // RefusedError is a request the backend answered with 401 or 403.

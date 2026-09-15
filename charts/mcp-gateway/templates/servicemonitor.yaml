@@ -1,0 +1,45 @@
+{{- if .Values.serviceMonitor.enabled }}
+{{/*
+  Off by default, because this is the one object in the chart that needs a CRD
+  the cluster may not have: without the Prometheus operator the apply fails
+  outright rather than degrading.
+
+  One ServiceMonitor for both components. Their series are told apart by the
+  job label Prometheus derives from each Service.
+*/}}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "mcp-gateway.fullname" . }}
+  namespace: {{ default .Release.Namespace .Values.serviceMonitor.namespace }}
+  labels:
+    {{- include "mcp-gateway.labels" . | nindent 4 }}
+    {{- with .Values.serviceMonitor.additionalLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "mcp-gateway.selectorLabels" . | nindent 6 }}
+      mcp-gateway.metapatrol.com/metrics: "true"
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  endpoints:
+    - port: metrics
+      path: /metrics
+      scheme: http
+      interval: {{ .Values.serviceMonitor.interval }}
+      {{- with .Values.serviceMonitor.scrapeTimeout }}
+      scrapeTimeout: {{ . }}
+      {{- end }}
+      honorLabels: {{ .Values.serviceMonitor.honorLabels }}
+      {{- with .Values.serviceMonitor.relabelings }}
+      relabelings:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.serviceMonitor.metricRelabelings }}
+      metricRelabelings:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

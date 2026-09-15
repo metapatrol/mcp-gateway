@@ -6,8 +6,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	gatev1alpha1 "forgejo.metapatrol.local/platform/mcp-gate/api/v1alpha1"
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/mcptest"
+	mcpv1alpha1 "forgejo.metapatrol.local/platform/mcp-gateway/api/v1alpha1"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/mcptest"
 )
 
 var siTools = []string{
@@ -27,13 +27,13 @@ func TestMCPToolSetReconciler_PatternsResolveIntoStatus(t *testing.T) {
 
 	reconcileNamed(t, r, "research")
 
-	got := get(t, c, "research", &gatev1alpha1.MCPToolSet{})
+	got := get(t, c, "research", &mcpv1alpha1.MCPToolSet{})
 	assert.Equal(t, []string{
 		"code.architecture", "code.inventory", "code.search", "code.symbol",
 		"repositories.get", "repositories.list", "repositories.list_files",
 	}, got.Status.ResolvedTools)
 	assert.Equal(t, 7, got.Status.ResolvedToolCount)
-	ready := condition(t, got.Status.Conditions, gatev1alpha1.ConditionReady)
+	ready := condition(t, got.Status.Conditions, mcpv1alpha1.ConditionReady)
 	assert.Equal(t, metav1.ConditionTrue, ready.Status)
 	assert.Equal(t, "7 tools selected from source-intelligence", ready.Message)
 }
@@ -48,12 +48,12 @@ func TestMCPToolSetReconciler_UnmatchedPattern(t *testing.T) {
 
 	reconcileNamed(t, r, "research")
 
-	got := get(t, c, "research", &gatev1alpha1.MCPToolSet{})
+	got := get(t, c, "research", &mcpv1alpha1.MCPToolSet{})
 	assert.Equal(t, []string{"cod.*"}, got.Status.UnmatchedPatterns)
 	assert.Equal(t, []string{"refs.list"}, got.Status.ResolvedTools)
-	ready := condition(t, got.Status.Conditions, gatev1alpha1.ConditionReady)
+	ready := condition(t, got.Status.Conditions, mcpv1alpha1.ConditionReady)
 	assert.Equal(t, metav1.ConditionFalse, ready.Status)
-	assert.Equal(t, gatev1alpha1.ReasonUnmatchedPatterns, ready.Reason)
+	assert.Equal(t, mcpv1alpha1.ReasonUnmatchedPatterns, ready.Reason)
 	assert.Equal(t, `"cod.*" selects no tool of source-intelligence`, ready.Message)
 }
 
@@ -65,8 +65,8 @@ func TestMCPToolSetReconciler_MissingNameAndUnmatchedPatternTogether(t *testing.
 
 	reconcileNamed(t, r, "research")
 
-	ready := condition(t, get(t, c, "research", &gatev1alpha1.MCPToolSet{}).Status.Conditions, gatev1alpha1.ConditionReady)
-	assert.Equal(t, gatev1alpha1.ReasonMissingTools, ready.Reason)
+	ready := condition(t, get(t, c, "research", &mcpv1alpha1.MCPToolSet{}).Status.Conditions, mcpv1alpha1.ConditionReady)
+	assert.Equal(t, mcpv1alpha1.ReasonMissingTools, ready.Reason)
 	assert.Equal(t, `"symbol_search" is not currently exposed by source-intelligence; "cod.*" selects no tool of source-intelligence`, ready.Message)
 }
 
@@ -86,8 +86,8 @@ func TestMCPCapabilityReconciler_ConflictBetweenPatterns(t *testing.T) {
 
 	reconcileNamed(t, &MCPCapabilityReconciler{Client: c, Scheme: c.Scheme(), Registry: registry}, "both")
 
-	valid := condition(t, get(t, c, "both", &gatev1alpha1.MCPCapability{}).Status.Conditions, gatev1alpha1.ConditionValid)
-	assert.Equal(t, gatev1alpha1.ReasonToolNameConflict, valid.Reason)
+	valid := condition(t, get(t, c, "both", &mcpv1alpha1.MCPCapability{}).Status.Conditions, mcpv1alpha1.ConditionValid)
+	assert.Equal(t, mcpv1alpha1.ReasonToolNameConflict, valid.Reason)
 	assert.Equal(t, `"code.search" is exposed by engram/code.search and source-intelligence/code.search; the gateway exposes none of them`, valid.Message)
 }
 
@@ -97,18 +97,18 @@ func TestMCPToolSetReconciler_RenamesResolveIntoStatus(t *testing.T) {
 	backend := mcptest.NewBackend(t, "source-intelligence", siTools...)
 	ts := mcpToolSet("research", "source-intelligence", "code.search", "refs.list")
 	ts.Spec.Prefix = "si_"
-	ts.Spec.Aliases = map[string]gatev1alpha1.ToolName{"code.search": "search"}
+	ts.Spec.Aliases = map[string]mcpv1alpha1.ToolName{"code.search": "search"}
 	c := newFakeClient(readyServer("source-intelligence"), ts)
 	r := &MCPToolSetReconciler{Client: c, Scheme: c.Scheme(), Registry: newTestRegistry(t)}
 	discovered(t, r, backend)
 
 	reconcileNamed(t, r, "research")
 
-	got := get(t, c, "research", &gatev1alpha1.MCPToolSet{})
+	got := get(t, c, "research", &mcpv1alpha1.MCPToolSet{})
 	assert.Equal(t, []string{"search", "si_refs.list"}, got.Status.ResolvedTools)
 	assert.Equal(t, map[string]string{"search": "code.search", "si_refs.list": "refs.list"}, got.Status.BackendNames)
 	assert.Empty(t, got.Status.UnusedAliases)
-	assert.Equal(t, metav1.ConditionTrue, condition(t, got.Status.Conditions, gatev1alpha1.ConditionReady).Status)
+	assert.Equal(t, metav1.ConditionTrue, condition(t, got.Status.Conditions, mcpv1alpha1.ConditionReady).Status)
 }
 
 // An alias for a tool the set does not select renames nothing, which is almost
@@ -116,17 +116,17 @@ func TestMCPToolSetReconciler_RenamesResolveIntoStatus(t *testing.T) {
 func TestMCPToolSetReconciler_UnusedAlias(t *testing.T) {
 	backend := mcptest.NewBackend(t, "source-intelligence", siTools...)
 	ts := mcpToolSet("research", "source-intelligence", "code.*")
-	ts.Spec.Aliases = map[string]gatev1alpha1.ToolName{"code.serach": "search"}
+	ts.Spec.Aliases = map[string]mcpv1alpha1.ToolName{"code.serach": "search"}
 	c := newFakeClient(readyServer("source-intelligence"), ts)
 	r := &MCPToolSetReconciler{Client: c, Scheme: c.Scheme(), Registry: newTestRegistry(t)}
 	discovered(t, r, backend)
 
 	reconcileNamed(t, r, "research")
 
-	got := get(t, c, "research", &gatev1alpha1.MCPToolSet{})
+	got := get(t, c, "research", &mcpv1alpha1.MCPToolSet{})
 	assert.Equal(t, []string{"code.serach"}, got.Status.UnusedAliases)
-	ready := condition(t, got.Status.Conditions, gatev1alpha1.ConditionReady)
+	ready := condition(t, got.Status.Conditions, mcpv1alpha1.ConditionReady)
 	assert.Equal(t, metav1.ConditionFalse, ready.Status)
-	assert.Equal(t, gatev1alpha1.ReasonUnusedAliases, ready.Reason)
+	assert.Equal(t, mcpv1alpha1.ReasonUnusedAliases, ready.Reason)
 	assert.Equal(t, `"code.serach" has an alias but not selected`, ready.Message)
 }

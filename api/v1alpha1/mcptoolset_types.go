@@ -117,7 +117,7 @@ type MCPToolSetStatus struct {
 }
 
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:scope=Cluster,shortName=mcpts,categories=mcp-gate
+// +kubebuilder:resource:scope=Cluster,shortName=mcpts,categories=mcp-gateway
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Server",type=string,JSONPath=`.spec.serverRef`
 // +kubebuilder:printcolumn:name="Tools",type=integer,JSONPath=`.status.resolvedToolCount`

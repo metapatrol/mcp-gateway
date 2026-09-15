@@ -1,0 +1,107 @@
+{{- if .Values.rbac.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "mcp-gateway.controller.fullname" . }}
+  labels:
+    {{- include "mcp-gateway.labels" . | nindent 4 }}
+    app.kubernetes.io/component: controller
+rules:
+  # The controller verifies and reports. It never creates or deletes one of
+  # these; the manifests belong to whoever applies them.
+  - apiGroups: ["mcp-gateway.metapatrol.com"]
+    resources: ["mcpservers", "mcptoolsets", "mcpcapabilities", "mcpgrants"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["mcp-gateway.metapatrol.com"]
+    resources: ["mcpservers/status", "mcptoolsets/status", "mcpcapabilities/status", "mcpgrants/status"]
+    verbs: ["get", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+  # Leader election
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "mcp-gateway.controller.fullname" . }}
+  labels:
+    {{- include "mcp-gateway.labels" . | nindent 4 }}
+    app.kubernetes.io/component: controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "mcp-gateway.controller.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "mcp-gateway.controller.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "mcp-gateway.gateway.fullname" . }}
+  labels:
+    {{- include "mcp-gateway.labels" . | nindent 4 }}
+    app.kubernetes.io/component: gateway
+rules:
+  # Read-only, and nothing else: the enforcement point is the one component
+  # that must not be able to change what it enforces.
+  - apiGroups: ["mcp-gateway.metapatrol.com"]
+    resources: ["mcpservers", "mcptoolsets", "mcpcapabilities", "mcpgrants"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "mcp-gateway.gateway.fullname" . }}
+  labels:
+    {{- include "mcp-gateway.labels" . | nindent 4 }}
+    app.kubernetes.io/component: gateway
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "mcp-gateway.gateway.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "mcp-gateway.gateway.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+---
+# Credentials for backends. An MCPServer is cluster-scoped, and the Secrets its
+# spec.auth names are read from this namespace alone: whoever may create an
+# MCPServer can have these components read a Secret here, and nowhere else.
+# Only get — the components ask for the Secrets they are told about, and never
+# list or watch the others.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "mcp-gateway.fullname" . }}-backend-credentials
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "mcp-gateway.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "mcp-gateway.fullname" . }}-backend-credentials
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "mcp-gateway.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "mcp-gateway.fullname" . }}-backend-credentials
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "mcp-gateway.controller.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+  - kind: ServiceAccount
+    name: {{ include "mcp-gateway.gateway.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}

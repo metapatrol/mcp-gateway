@@ -1,7 +1,7 @@
 # The subject is what the gateway derives from the caller's access token — by
 # default its sub claim, which for the client credentials grant is the OAuth
 # client ID. See docs/authentication.md for providers that generate client IDs.
-apiVersion: mcp.gate.metapatrol.com/v1alpha1
+apiVersion: mcp-gateway.metapatrol.com/v1alpha1
 kind: MCPGrant
 metadata:
   name: coding-agent

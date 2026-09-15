@@ -1,4 +1,4 @@
-// Package metrics provides the Prometheus metrics of all three mcp-gate
+// Package metrics provides the Prometheus metrics of all three mcp-gateway
 // processes.
 //
 // They share one package and one prefix because they describe one system, and
@@ -20,8 +20,8 @@ var (
 	// build-time metadata.
 	BuildInfo = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "mcp_gate_build_info",
-			Help: "Build information for mcp-gate.",
+			Name: "mcp_gateway_build_info",
+			Help: "Build information for mcp-gateway.",
 		},
 		[]string{"component", "version", "commit", "built_at", "go_version"},
 	)
@@ -31,8 +31,8 @@ var (
 	// what they promise.
 	Resources = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "mcp_gate_resources",
-			Help: "mcp-gate custom resources by kind and Ready condition status.",
+			Name: "mcp_gateway_resources",
+			Help: "mcp-gateway custom resources by kind and Ready condition status.",
 		},
 		[]string{"kind", "ready"},
 	)
@@ -40,7 +40,7 @@ var (
 	// Discoveries counts catalog reads against a backend.
 	Discoveries = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "mcp_gate_discoveries_total",
+			Name: "mcp_gateway_discoveries_total",
 			Help: "Catalog discoveries against MCP backends by server and outcome.",
 		},
 		[]string{"server", "outcome"},
@@ -49,7 +49,7 @@ var (
 	// DiscoveredTools is the size of each backend's catalog as last read.
 	DiscoveredTools = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "mcp_gate_discovered_tools",
+			Name: "mcp_gateway_discovered_tools",
 			Help: "Tools in the most recently discovered catalog of each MCP backend.",
 		},
 		[]string{"server"},
@@ -58,7 +58,7 @@ var (
 	// BackendAvailable is 1 while a backend's catalog is usable, 0 otherwise.
 	BackendAvailable = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "mcp_gate_backend_available",
+			Name: "mcp_gateway_backend_available",
 			Help: "Whether the most recent discovery of an MCP backend succeeded (1) or not (0).",
 		},
 		[]string{"server"},
@@ -72,7 +72,7 @@ var (
 	// is arbitrary input, and a label made of it would mint a series per typo.
 	ToolCalls = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "mcp_gate_tool_calls_total",
+			Name: "mcp_gateway_tool_calls_total",
 			Help: "Tool calls forwarded to MCP backends by server, tool and outcome.",
 		},
 		[]string{"server", "tool", "outcome"},
@@ -81,7 +81,7 @@ var (
 	// ToolCallDuration measures forwarded tool calls end to end.
 	ToolCallDuration = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Name: "mcp_gate_tool_call_duration_seconds",
+			Name: "mcp_gateway_tool_call_duration_seconds",
 			Help: "Duration of tool calls forwarded to MCP backends by server and tool.",
 			// Tools run anything from a lookup to a build. A bucket set that
 			// stops at a few seconds would report every long tool as simply
@@ -94,7 +94,7 @@ var (
 	// DeniedToolCalls counts tools/call requests refused by authorisation.
 	DeniedToolCalls = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "mcp_gate_tool_calls_denied_total",
+			Name: "mcp_gateway_tool_calls_denied_total",
 			Help: "Tool calls refused because the subject holds no grant for the tool.",
 		},
 		[]string{"subject"},
@@ -103,7 +103,7 @@ var (
 	// AuthFailures counts requests whose bearer token was refused.
 	AuthFailures = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "mcp_gate_auth_failures_total",
+			Name: "mcp_gateway_auth_failures_total",
 			Help: "Requests refused at authentication by reason.",
 		},
 		[]string{"reason"},

@@ -1,10 +1,10 @@
 # CRD Reference
 
-Group `mcp.gate.metapatrol.com`, version `v1alpha1`. All four kinds are
-cluster-scoped and share the category `mcp-gate`:
+Group `mcp-gateway.metapatrol.com`, version `v1alpha1`. All four kinds are
+cluster-scoped and share the category `mcp-gateway`:
 
 ```bash
-kubectl get mcp-gate
+kubectl get mcp-gateway
 kubectl explain mcptoolset.spec
 ```
 
@@ -19,7 +19,7 @@ tooling may match on them.
 Registers an MCP backend. Short name `mcpsrv`.
 
 ```yaml
-apiVersion: mcp.gate.metapatrol.com/v1alpha1
+apiVersion: mcp-gateway.metapatrol.com/v1alpha1
 kind: MCPServer
 metadata:
   name: source-intelligence
@@ -171,7 +171,7 @@ A curated subset of the tools of **one** server, selected by name or by glob
 pattern. Short name `mcpts`.
 
 ```yaml
-apiVersion: mcp.gate.metapatrol.com/v1alpha1
+apiVersion: mcp-gateway.metapatrol.com/v1alpha1
 kind: MCPToolSet
 metadata:
   name: source-intelligence-read
@@ -272,7 +272,7 @@ A useful ability built from tool sets, possibly of several servers. Short name
 `mcpcap`.
 
 ```yaml
-apiVersion: mcp.gate.metapatrol.com/v1alpha1
+apiVersion: mcp-gateway.metapatrol.com/v1alpha1
 kind: MCPCapability
 metadata:
   name: code-research
@@ -317,7 +317,7 @@ Printer columns: `ToolSets`, `Valid`, `Ready`, and `Reason` with `-o wide`.
 Assigns capabilities to a subject. Short name `mcpg`.
 
 ```yaml
-apiVersion: mcp.gate.metapatrol.com/v1alpha1
+apiVersion: mcp-gateway.metapatrol.com/v1alpha1
 kind: MCPGrant
 metadata:
   name: coding-agent

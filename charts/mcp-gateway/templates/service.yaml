@@ -1,0 +1,48 @@
+{{/*
+  The gateway's MCP endpoint — the one address agents are given.
+*/}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "mcp-gateway.gateway.fullname" . }}
+  labels:
+    {{- include "mcp-gateway.labels" . | nindent 4 }}
+    app.kubernetes.io/component: gateway
+spec:
+  type: {{ .Values.gateway.service.type }}
+  ports:
+    - name: mcp
+      port: {{ .Values.gateway.service.port }}
+      targetPort: mcp
+      protocol: TCP
+  selector:
+    {{- include "mcp-gateway.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: gateway
+{{- range $component := list "controller" "gateway" }}
+{{- $values := index $.Values $component }}
+---
+{{/*
+  Metrics, one Service per component. Rendered unconditionally: a Service with
+  no consumer costs nothing, and the ServiceMonitor has nothing to select
+  without it. The metrics label keeps the gateway's MCP Service out of the
+  ServiceMonitor's selection.
+*/}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include (printf "mcp-gateway.%s.fullname" $component) $ }}-metrics
+  labels:
+    {{- include "mcp-gateway.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $component }}
+    mcp-gateway.metapatrol.com/metrics: "true"
+spec:
+  type: ClusterIP
+  ports:
+    - name: metrics
+      port: {{ include "mcp-gateway.port" $values.metricsBindAddress }}
+      targetPort: metrics
+      protocol: TCP
+  selector:
+    {{- include "mcp-gateway.selectorLabels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $component }}
+{{- end }}

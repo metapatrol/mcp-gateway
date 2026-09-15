@@ -19,7 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	gatev1alpha1 "forgejo.metapatrol.local/platform/mcp-gate/api/v1alpha1"
+	mcpv1alpha1 "forgejo.metapatrol.local/platform/mcp-gateway/api/v1alpha1"
 )
 
 // countingReader counts the Gets that reach the API.
@@ -38,22 +38,22 @@ func newReader(t *testing.T, objs ...client.Object) (*SecretReader, *countingRea
 	scheme := runtime.NewScheme()
 	require.NoError(t, clientgoscheme.AddToScheme(scheme))
 	c := &countingReader{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build()}
-	r := NewSecretReader(c, "mcp-gate")
+	r := NewSecretReader(c, "mcp-gateway")
 	now := time.Now()
 	r.now = func() time.Time { return now }
 	return r, c, &now
 }
 
 func secret(name string, data map[string]string) *corev1.Secret {
-	s := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "mcp-gate"}, Data: map[string][]byte{}}
+	s := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "mcp-gateway"}, Data: map[string][]byte{}}
 	for k, v := range data {
 		s.Data[k] = []byte(v)
 	}
 	return s
 }
 
-func ref(name, key string) gatev1alpha1.SecretKeyRef {
-	return gatev1alpha1.SecretKeyRef{Name: name, Key: key}
+func ref(name, key string) mcpv1alpha1.SecretKeyRef {
+	return mcpv1alpha1.SecretKeyRef{Name: name, Key: key}
 }
 
 // A Secret some other tool wrote is used as it is: the reference names the key.
@@ -76,14 +76,14 @@ func TestSecretReader_AWrongKeyListsTheKeysThereAre(t *testing.T) {
 
 	_, err := r.Value(context.Background(), ref("memory-client", "client-secret"))
 	require.Error(t, err)
-	assert.Equal(t, `secret "memory-client" in namespace "mcp-gate" has no key "client-secret" (it has CLIENT_ID, CLIENT_SECRET)`, err.Error())
+	assert.Equal(t, `secret "memory-client" in namespace "mcp-gateway" has no key "client-secret" (it has CLIENT_ID, CLIENT_SECRET)`, err.Error())
 	assert.NotContains(t, err.Error(), "s3cret")
 }
 
 func TestSecretReader_AnEmptyValueIsAnError(t *testing.T) {
 	r, _, _ := newReader(t, secret("memory-client", map[string]string{"token": " \n"}))
 	_, err := r.Value(context.Background(), ref("memory-client", "token"))
-	assert.EqualError(t, err, `key "token" of secret "memory-client" in namespace "mcp-gate" is empty`)
+	assert.EqualError(t, err, `key "token" of secret "memory-client" in namespace "mcp-gateway" is empty`)
 }
 
 func TestSecretReader_KeepsSecretsForTheTTL(t *testing.T) {
@@ -113,7 +113,7 @@ func TestSecretReader_AMissingSecretIsRememberedBriefly(t *testing.T) {
 
 	for range 3 {
 		_, err := r.Value(ctx, ref("memory-client", "token"))
-		assert.EqualError(t, err, `secret "memory-client" not found in namespace "mcp-gate"`)
+		assert.EqualError(t, err, `secret "memory-client" not found in namespace "mcp-gateway"`)
 	}
 	assert.Equal(t, int64(1), c.gets.Load())
 
@@ -148,9 +148,9 @@ func authorize(t *testing.T, c Credential) http.Header {
 func TestAPIKey_HeaderAndPrefix(t *testing.T) {
 	r, _, _ := newReader(t, secret("memory", map[string]string{"key": "k-123"}))
 	build := func(header string, prefix *string) Credential {
-		return Build(&gatev1alpha1.BackendAuth{
-			Type:   gatev1alpha1.BackendAuthAPIKey,
-			APIKey: &gatev1alpha1.APIKeyAuth{SecretRef: ref("memory", "key"), Header: header, Prefix: prefix},
+		return Build(&mcpv1alpha1.BackendAuth{
+			Type:   mcpv1alpha1.BackendAuthAPIKey,
+			APIKey: &mcpv1alpha1.APIKeyAuth{SecretRef: ref("memory", "key"), Header: header, Prefix: prefix},
 		}, r, nil).Credential
 	}
 
@@ -177,9 +177,9 @@ func TestClientCredentials_TheClientIDMayBeWrittenOut(t *testing.T) {
 	t.Cleanup(tokenURL.Close)
 	r, _, _ := newReader(t, secret("memory-client", map[string]string{"secret": "s3cret"}))
 
-	c := Build(&gatev1alpha1.BackendAuth{
-		Type: gatev1alpha1.BackendAuthClientCredentials,
-		ClientCredentials: &gatev1alpha1.ClientCredentialsAuth{
+	c := Build(&mcpv1alpha1.BackendAuth{
+		Type: mcpv1alpha1.BackendAuthClientCredentials,
+		ClientCredentials: &mcpv1alpha1.ClientCredentialsAuth{
 			TokenURL:        tokenURL.URL,
 			ClientID:        "memory-gateway",
 			ClientSecretRef: ref("memory-client", "secret"),
@@ -205,9 +205,9 @@ func TestClientCredentials_ARefusedClientIsAnError(t *testing.T) {
 	t.Cleanup(tokenURL.Close)
 	r, _, _ := newReader(t, secret("memory-client", map[string]string{"id": "x", "secret": "y"}))
 
-	c := Build(&gatev1alpha1.BackendAuth{
-		Type: gatev1alpha1.BackendAuthClientCredentials,
-		ClientCredentials: &gatev1alpha1.ClientCredentialsAuth{
+	c := Build(&mcpv1alpha1.BackendAuth{
+		Type: mcpv1alpha1.BackendAuthClientCredentials,
+		ClientCredentials: &mcpv1alpha1.ClientCredentialsAuth{
 			TokenURL:        tokenURL.URL,
 			ClientIDRef:     ptr.To(ref("memory-client", "id")),
 			ClientSecretRef: ref("memory-client", "secret"),
@@ -222,19 +222,19 @@ func TestClientCredentials_ARefusedClientIsAnError(t *testing.T) {
 
 func TestBuild(t *testing.T) {
 	none := Build(nil, nil, nil)
-	assert.Equal(t, gatev1alpha1.BackendAuthNone, none.Type)
+	assert.Equal(t, mcpv1alpha1.BackendAuthNone, none.Type)
 	assert.Nil(t, none.Credential)
 	assert.False(t, none.Passthrough())
-	assert.Equal(t, none.Fingerprint, Build(&gatev1alpha1.BackendAuth{Type: gatev1alpha1.BackendAuthNone}, nil, nil).Fingerprint,
+	assert.Equal(t, none.Fingerprint, Build(&mcpv1alpha1.BackendAuth{Type: mcpv1alpha1.BackendAuthNone}, nil, nil).Fingerprint,
 		"auth left out and type None are one configuration")
 
-	passthrough := Build(&gatev1alpha1.BackendAuth{Type: gatev1alpha1.BackendAuthPassthrough}, nil, nil)
+	passthrough := Build(&mcpv1alpha1.BackendAuth{Type: mcpv1alpha1.BackendAuthPassthrough}, nil, nil)
 	assert.True(t, passthrough.Passthrough())
 	assert.Nil(t, passthrough.Credential, "without a discovery credential, catalog reads carry none")
 
-	apiKey := &gatev1alpha1.BackendAuth{
-		Type:   gatev1alpha1.BackendAuthAPIKey,
-		APIKey: &gatev1alpha1.APIKeyAuth{SecretRef: ref("memory", "key")},
+	apiKey := &mcpv1alpha1.BackendAuth{
+		Type:   mcpv1alpha1.BackendAuthAPIKey,
+		APIKey: &mcpv1alpha1.APIKeyAuth{SecretRef: ref("memory", "key")},
 	}
 	err := Build(apiKey, nil, nil).Credential.Authorize(context.Background(), http.Header{})
 	assert.ErrorContains(t, err, "--secret-namespace", "a process without Secrets says how to give it some")
@@ -244,7 +244,7 @@ func TestBuild(t *testing.T) {
 	assert.Equal(t, Build(apiKey, nil, nil).Fingerprint, Build(apiKey.DeepCopy(), nil, nil).Fingerprint)
 	assert.NotEqual(t, Build(apiKey, nil, nil).Fingerprint, Build(other, nil, nil).Fingerprint)
 
-	broken := Build(&gatev1alpha1.BackendAuth{Type: gatev1alpha1.BackendAuthClientCredentials}, nil, nil)
+	broken := Build(&mcpv1alpha1.BackendAuth{Type: mcpv1alpha1.BackendAuthClientCredentials}, nil, nil)
 	assert.EqualError(t, broken.Credential.Authorize(context.Background(), http.Header{}), "clientCredentials is required with type ClientCredentials")
 }
 

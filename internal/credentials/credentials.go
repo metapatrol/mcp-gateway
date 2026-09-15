@@ -19,8 +19,8 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
 
-	gatev1alpha1 "forgejo.metapatrol.local/platform/mcp-gate/api/v1alpha1"
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/oauth"
+	mcpv1alpha1 "forgejo.metapatrol.local/platform/mcp-gateway/api/v1alpha1"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/oauth"
 )
 
 // Credential authenticates requests.
@@ -41,7 +41,7 @@ type Credential interface {
 // Auth is how one backend is authenticated.
 type Auth struct {
 	// Type is spec.auth.type, None when auth is left out.
-	Type gatev1alpha1.BackendAuthType
+	Type mcpv1alpha1.BackendAuthType
 
 	// Credential authenticates the requests made on the gateway's own behalf:
 	// every request, or under Passthrough the catalog reads alone. Nil sends
@@ -55,7 +55,7 @@ type Auth struct {
 }
 
 // Passthrough reports whether tool calls carry the caller's own token.
-func (a Auth) Passthrough() bool { return a.Type == gatev1alpha1.BackendAuthPassthrough }
+func (a Auth) Passthrough() bool { return a.Type == mcpv1alpha1.BackendAuthPassthrough }
 
 // Build turns spec.auth into an Auth. It reads nothing: a missing Secret shows
 // up when a request needs it, as an error that names it.
@@ -64,11 +64,11 @@ func (a Auth) Passthrough() bool { return a.Type == gatev1alpha1.BackendAuthPass
 // out of the API server — yields a credential that fails every request with the
 // reason, rather than an error here, so that it is reported where discovery
 // failures are. So does a nil secrets, once a credential needs a Secret.
-func Build(spec *gatev1alpha1.BackendAuth, secrets Secrets, httpClient *http.Client) Auth {
-	if spec == nil || spec.Type == "" || spec.Type == gatev1alpha1.BackendAuthNone {
+func Build(spec *mcpv1alpha1.BackendAuth, secrets Secrets, httpClient *http.Client) Auth {
+	if spec == nil || spec.Type == "" || spec.Type == mcpv1alpha1.BackendAuthNone {
 		// One fingerprint for every way of saying None: auth left out, and the
 		// auth: {} the API server stores as type None, are the same backend.
-		return Auth{Type: gatev1alpha1.BackendAuthNone}
+		return Auth{Type: mcpv1alpha1.BackendAuthNone}
 	}
 	// The credentials keep what they are built from, and the caller's object
 	// may be one a cache hands out.
@@ -82,7 +82,7 @@ func Build(spec *gatev1alpha1.BackendAuth, secrets Secrets, httpClient *http.Cli
 	}
 
 	switch spec.Type {
-	case gatev1alpha1.BackendAuthPassthrough:
+	case mcpv1alpha1.BackendAuthPassthrough:
 		if spec.Passthrough != nil && spec.Passthrough.Discovery != nil {
 			d := spec.Passthrough.Discovery
 			switch {
@@ -94,13 +94,13 @@ func Build(spec *gatev1alpha1.BackendAuth, secrets Secrets, httpClient *http.Cli
 				auth.Credential = failing{errors.New("passthrough.discovery must set exactly one of clientCredentials or apiKey")}
 			}
 		}
-	case gatev1alpha1.BackendAuthClientCredentials:
+	case mcpv1alpha1.BackendAuthClientCredentials:
 		if spec.ClientCredentials == nil {
 			auth.Credential = failing{errors.New("clientCredentials is required with type ClientCredentials")}
 			break
 		}
 		auth.Credential = newClientCredentials(spec.ClientCredentials, secrets, httpClient)
-	case gatev1alpha1.BackendAuthAPIKey:
+	case mcpv1alpha1.BackendAuthAPIKey:
 		if spec.APIKey == nil {
 			auth.Credential = failing{errors.New("apiKey is required with type APIKey")}
 			break
@@ -112,7 +112,7 @@ func Build(spec *gatev1alpha1.BackendAuth, secrets Secrets, httpClient *http.Cli
 	return auth
 }
 
-func fingerprint(spec *gatev1alpha1.BackendAuth) string {
+func fingerprint(spec *mcpv1alpha1.BackendAuth) string {
 	b, err := json.Marshal(spec)
 	if err != nil {
 		// A struct of strings and slices always encodes.
@@ -141,12 +141,12 @@ func (forward) String() string { return "the caller's token" }
 // apiKey sends a key from a Secret in a header.
 type apiKey struct {
 	secrets Secrets
-	ref     gatev1alpha1.SecretKeyRef
+	ref     mcpv1alpha1.SecretKeyRef
 	header  string
 	prefix  string
 }
 
-func newAPIKey(spec *gatev1alpha1.APIKeyAuth, secrets Secrets) *apiKey {
+func newAPIKey(spec *mcpv1alpha1.APIKeyAuth, secrets Secrets) *apiKey {
 	header := spec.Header
 	if header == "" {
 		header = "Authorization"
@@ -180,12 +180,12 @@ func (k *apiKey) String() string {
 
 // clientCredentials sends a token obtained with the client credentials grant.
 type clientCredentials struct {
-	spec    *gatev1alpha1.ClientCredentialsAuth
+	spec    *mcpv1alpha1.ClientCredentialsAuth
 	secrets Secrets
 	tokens  *oauth.Cache
 }
 
-func newClientCredentials(spec *gatev1alpha1.ClientCredentialsAuth, secrets Secrets, httpClient *http.Client) *clientCredentials {
+func newClientCredentials(spec *mcpv1alpha1.ClientCredentialsAuth, secrets Secrets, httpClient *http.Client) *clientCredentials {
 	c := &clientCredentials{spec: spec, secrets: secrets}
 	c.tokens = oauth.NewCache(func(ctx context.Context) (*oauth2.Token, error) {
 		cfg, err := c.config(ctx)
@@ -263,11 +263,11 @@ func (failing) String() string                                 { return "an inva
 // has.
 type noSecrets struct{}
 
-func (noSecrets) Value(context.Context, gatev1alpha1.SecretKeyRef) (string, error) {
+func (noSecrets) Value(context.Context, mcpv1alpha1.SecretKeyRef) (string, error) {
 	return "", errors.New("this process has no namespace to read Secrets from; start it with --secret-namespace")
 }
 
-func (noSecrets) Invalidate(gatev1alpha1.SecretKeyRef) bool { return false }
+func (noSecrets) Invalidate(mcpv1alpha1.SecretKeyRef) bool { return false }
 
 type callerKey struct{}
 

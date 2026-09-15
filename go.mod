@@ -1,4 +1,4 @@
-module forgejo.metapatrol.local/platform/mcp-gate
+module forgejo.metapatrol.local/platform/mcp-gateway
 
 go 1.27.0
 

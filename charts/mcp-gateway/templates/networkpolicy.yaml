@@ -1,0 +1,43 @@
+{{- if .Values.networkPolicy.enabled }}
+{{/*
+  Ingress to the gateway: agents on the MCP port, monitoring on the metrics and
+  health ports. Egress is left open — the gateway has to reach every backend,
+  the OAuth provider and the API server, and a list of those belongs to whoever
+  knows where they are.
+
+  This is the gateway's half. The half that matters more — agents cannot reach
+  a backend except through the gateway — is a policy in the backend's own
+  namespace; docs/architecture.md has one.
+*/}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "mcp-gateway.gateway.fullname" . }}
+  labels:
+    {{- include "mcp-gateway.labels" . | nindent 4 }}
+    app.kubernetes.io/component: gateway
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "mcp-gateway.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: gateway
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            {{- toYaml .Values.networkPolicy.agentNamespaceSelector | nindent 12 }}
+          podSelector:
+            {{- toYaml .Values.networkPolicy.agentPodSelector | nindent 12 }}
+      ports:
+        - port: mcp
+          protocol: TCP
+    - from:
+        - namespaceSelector:
+            {{- toYaml .Values.networkPolicy.monitoringNamespaceSelector | nindent 12 }}
+      ports:
+        - port: metrics
+          protocol: TCP
+        - port: health
+          protocol: TCP
+{{- end }}

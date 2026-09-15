@@ -27,11 +27,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	gatev1alpha1 "forgejo.metapatrol.local/platform/mcp-gate/api/v1alpha1"
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/controller"
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/credentials"
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/discovery"
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/gateway"
+	mcpv1alpha1 "forgejo.metapatrol.local/platform/mcp-gateway/api/v1alpha1"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/controller"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/credentials"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/discovery"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/gateway"
 )
 
 // secretNamespace is where the components read backend credentials from, as
@@ -50,11 +50,11 @@ func TestMain(m *testing.M) {
 		os.Exit(0)
 	}
 	_ = clientgoscheme.AddToScheme(scheme)
-	_ = gatev1alpha1.AddToScheme(scheme)
+	_ = mcpv1alpha1.AddToScheme(scheme)
 	ctrl.SetLogger(logr.Discard())
 
 	env := &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "charts", "mcp-gate", "crds")},
+		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "charts", "mcp-gateway", "crds")},
 		ErrorIfCRDPathMissing: true,
 	}
 	var err error
@@ -72,7 +72,7 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-// startController runs mcp-gate-controller's reconcilers, as its main does.
+// startController runs mcp-gateway-controller's reconcilers, as its main does.
 func startController(t *testing.T) {
 	t.Helper()
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
@@ -104,7 +104,7 @@ func startController(t *testing.T) {
 	run(t, mgr)
 }
 
-// startGateway runs mcp-gate-gateway, as its main does, and returns the URL of
+// startGateway runs mcp-gateway, as its main does, and returns the URL of
 // its MCP endpoint.
 func startGateway(t *testing.T) (string, *gateway.Gateway) {
 	t.Helper()

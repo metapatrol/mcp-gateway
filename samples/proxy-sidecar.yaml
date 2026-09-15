@@ -1,4 +1,4 @@
-# An agent that speaks MCP without OAuth, with mcp-gate-proxy beside it. The
+# An agent that speaks MCP without OAuth, with mcp-gateway-proxy beside it. The
 # agent is configured with http://127.0.0.1:8765/mcp and nothing else.
 #
 # The Secret is the OAuth client's credentials. With hydra-maester it is the
@@ -24,24 +24,24 @@ spec:
           env:
             - name: MCP_SERVER_URL
               value: http://127.0.0.1:8765/mcp
-        - name: mcp-gate-proxy
-          image: zot.metapatrol.local/images/platform/mcp-gate-proxy:0.1.0
+        - name: mcp-gateway-proxy
+          image: zot.metapatrol.local/images/platform/mcp-gateway-proxy:0.1.0
           env:
-            - name: MCP_GATE_GATEWAY_URL
-              value: http://mcp-gate-gateway.mcp-system.svc/mcp
-            - name: MCP_GATE_TOKEN_URL
+            - name: MCP_GATEWAY_URL
+              value: http://mcp-gateway.mcp-system.svc/mcp
+            - name: MCP_GATEWAY_TOKEN_URL
               value: http://hydra-public.hydra.svc:4444/oauth2/token
-            - name: MCP_GATE_CLIENT_ID
+            - name: MCP_GATEWAY_CLIENT_ID
               valueFrom:
                 secretKeyRef:
                   name: coding-agent-oauth
                   key: CLIENT_ID
-            - name: MCP_GATE_CLIENT_SECRET
+            - name: MCP_GATEWAY_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
                   name: coding-agent-oauth
                   key: CLIENT_SECRET
-            - name: MCP_GATE_PROXY_LOG_FORMAT
+            - name: MCP_GATEWAY_PROXY_LOG_FORMAT
               value: json
           securityContext:
             runAsNonRoot: true

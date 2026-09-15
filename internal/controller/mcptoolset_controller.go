@@ -21,9 +21,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	gatev1alpha1 "forgejo.metapatrol.local/platform/mcp-gate/api/v1alpha1"
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/discovery"
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/policy"
+	mcpv1alpha1 "forgejo.metapatrol.local/platform/mcp-gateway/api/v1alpha1"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/discovery"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/policy"
 )
 
 // requeueCatalogPending is how soon a tool set is verified again when its server
@@ -38,11 +38,11 @@ type MCPToolSetReconciler struct {
 	Registry *discovery.Registry
 }
 
-// +kubebuilder:rbac:groups=mcp.gate.metapatrol.com,resources=mcptoolsets,verbs=get;list;watch
-// +kubebuilder:rbac:groups=mcp.gate.metapatrol.com,resources=mcptoolsets/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=mcp-gateway.metapatrol.com,resources=mcptoolsets,verbs=get;list;watch
+// +kubebuilder:rbac:groups=mcp-gateway.metapatrol.com,resources=mcptoolsets/status,verbs=get;update;patch
 
 func (r *MCPToolSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	var toolSet gatev1alpha1.MCPToolSet
+	var toolSet mcpv1alpha1.MCPToolSet
 	if err := r.Get(ctx, req.NamespacedName, &toolSet); err != nil {
 		if apierrors.IsNotFound(err) {
 			observeResource("MCPToolSet", req.Name, nil)
@@ -64,19 +64,19 @@ func (r *MCPToolSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	return result, nil
 }
 
-func (r *MCPToolSetReconciler) verify(ctx context.Context, toolSet *gatev1alpha1.MCPToolSet) (ctrl.Result, error) {
+func (r *MCPToolSetReconciler) verify(ctx context.Context, toolSet *mcpv1alpha1.MCPToolSet) (ctrl.Result, error) {
 	gen := toolSet.Generation
 	status := &toolSet.Status
 	serverName := toolSet.Spec.ServerRef
 
-	var server gatev1alpha1.MCPServer
+	var server mcpv1alpha1.MCPServer
 	if err := r.Get(ctx, types.NamespacedName{Name: serverName}, &server); err != nil {
 		if !apierrors.IsNotFound(err) {
 			return ctrl.Result{}, err
 		}
 		msg := fmt.Sprintf("MCPServer %q does not exist", serverName)
-		setCondition(&status.Conditions, gen, gatev1alpha1.ConditionValid, metav1.ConditionFalse, gatev1alpha1.ReasonServerNotFound, msg)
-		setCondition(&status.Conditions, gen, gatev1alpha1.ConditionReady, metav1.ConditionFalse, gatev1alpha1.ReasonInvalid, msg)
+		setCondition(&status.Conditions, gen, mcpv1alpha1.ConditionValid, metav1.ConditionFalse, mcpv1alpha1.ReasonServerNotFound, msg)
+		setCondition(&status.Conditions, gen, mcpv1alpha1.ConditionReady, metav1.ConditionFalse, mcpv1alpha1.ReasonInvalid, msg)
 		status.CatalogRevision = ""
 		status.ResolvedTools = nil
 		status.BackendNames = nil
@@ -87,12 +87,12 @@ func (r *MCPToolSetReconciler) verify(ctx context.Context, toolSet *gatev1alpha1
 		status.ConflictingNames = nil
 		return ctrl.Result{}, nil
 	}
-	setCondition(&status.Conditions, gen, gatev1alpha1.ConditionValid, metav1.ConditionTrue, gatev1alpha1.ReasonResolved,
+	setCondition(&status.Conditions, gen, mcpv1alpha1.ConditionValid, metav1.ConditionTrue, mcpv1alpha1.ReasonResolved,
 		fmt.Sprintf("MCPServer %q exists", serverName))
 
-	if !isCurrentlyTrue(server.Status.Conditions, gatev1alpha1.ConditionReady, server.Generation) {
-		setCondition(&status.Conditions, gen, gatev1alpha1.ConditionReady, metav1.ConditionFalse, gatev1alpha1.ReasonServerUnavailable,
-			fmt.Sprintf("MCPServer %q is not ready: %s", serverName, conditionSummary(server.Status.Conditions, gatev1alpha1.ConditionReady)))
+	if !isCurrentlyTrue(server.Status.Conditions, mcpv1alpha1.ConditionReady, server.Generation) {
+		setCondition(&status.Conditions, gen, mcpv1alpha1.ConditionReady, metav1.ConditionFalse, mcpv1alpha1.ReasonServerUnavailable,
+			fmt.Sprintf("MCPServer %q is not ready: %s", serverName, conditionSummary(server.Status.Conditions, mcpv1alpha1.ConditionReady)))
 		return ctrl.Result{}, nil
 	}
 
@@ -101,8 +101,8 @@ func (r *MCPToolSetReconciler) verify(ctx context.Context, toolSet *gatev1alpha1
 		// The server reports Ready, so some earlier process read its catalog;
 		// this one has not yet. Keep what an earlier verification concluded
 		// rather than flap to Unknown on every restart.
-		if meta.FindStatusCondition(status.Conditions, gatev1alpha1.ConditionReady) == nil {
-			setCondition(&status.Conditions, gen, gatev1alpha1.ConditionReady, metav1.ConditionUnknown, gatev1alpha1.ReasonCatalogPending,
+		if meta.FindStatusCondition(status.Conditions, mcpv1alpha1.ConditionReady) == nil {
+			setCondition(&status.Conditions, gen, mcpv1alpha1.ConditionReady, metav1.ConditionUnknown, mcpv1alpha1.ReasonCatalogPending,
 				fmt.Sprintf("the catalog of MCPServer %q has not been read yet", serverName))
 		}
 		return ctrl.Result{RequeueAfter: requeueCatalogPending}, nil
@@ -136,19 +136,19 @@ func (r *MCPToolSetReconciler) verify(ctx context.Context, toolSet *gatev1alpha1
 	}
 	switch {
 	case len(sel.Conflicts) > 0:
-		setCondition(&status.Conditions, gen, gatev1alpha1.ConditionReady, metav1.ConditionFalse, gatev1alpha1.ReasonToolNameConflict,
+		setCondition(&status.Conditions, gen, mcpv1alpha1.ConditionReady, metav1.ConditionFalse, mcpv1alpha1.ReasonToolNameConflict,
 			strings.Join(problems, "; "))
 	case len(sel.Missing) > 0:
-		setCondition(&status.Conditions, gen, gatev1alpha1.ConditionReady, metav1.ConditionFalse, gatev1alpha1.ReasonMissingTools,
+		setCondition(&status.Conditions, gen, mcpv1alpha1.ConditionReady, metav1.ConditionFalse, mcpv1alpha1.ReasonMissingTools,
 			strings.Join(problems, "; "))
 	case len(sel.Unmatched) > 0:
-		setCondition(&status.Conditions, gen, gatev1alpha1.ConditionReady, metav1.ConditionFalse, gatev1alpha1.ReasonUnmatchedPatterns,
+		setCondition(&status.Conditions, gen, mcpv1alpha1.ConditionReady, metav1.ConditionFalse, mcpv1alpha1.ReasonUnmatchedPatterns,
 			strings.Join(problems, "; "))
 	case len(sel.UnusedAliases) > 0:
-		setCondition(&status.Conditions, gen, gatev1alpha1.ConditionReady, metav1.ConditionFalse, gatev1alpha1.ReasonUnusedAliases,
+		setCondition(&status.Conditions, gen, mcpv1alpha1.ConditionReady, metav1.ConditionFalse, mcpv1alpha1.ReasonUnusedAliases,
 			strings.Join(problems, "; "))
 	default:
-		setCondition(&status.Conditions, gen, gatev1alpha1.ConditionReady, metav1.ConditionTrue, gatev1alpha1.ReasonAvailable,
+		setCondition(&status.Conditions, gen, mcpv1alpha1.ConditionReady, metav1.ConditionTrue, mcpv1alpha1.ReasonAvailable,
 			fmt.Sprintf("%d %s selected from %s", len(sel.Tools), plural(len(sel.Tools), "tool", "tools"), serverName))
 	}
 	return ctrl.Result{}, nil
@@ -156,9 +156,9 @@ func (r *MCPToolSetReconciler) verify(ctx context.Context, toolSet *gatev1alpha1
 
 func (r *MCPToolSetReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&gatev1alpha1.MCPToolSet{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		For(&mcpv1alpha1.MCPToolSet{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Watches(
-			&gatev1alpha1.MCPServer{},
+			&mcpv1alpha1.MCPServer{},
 			handler.EnqueueRequestsFromMapFunc(r.toolSetsForServer),
 			builder.WithPredicates(serverStateChanged{}),
 		).
@@ -168,7 +168,7 @@ func (r *MCPToolSetReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 // toolSetsForServer enqueues the tool sets that select from a server.
 func (r *MCPToolSetReconciler) toolSetsForServer(ctx context.Context, obj client.Object) []reconcile.Request {
-	var list gatev1alpha1.MCPToolSetList
+	var list mcpv1alpha1.MCPToolSetList
 	if err := r.List(ctx, &list); err != nil {
 		return nil
 	}
@@ -189,15 +189,15 @@ type serverStateChanged struct {
 }
 
 func (serverStateChanged) Update(e event.UpdateEvent) bool {
-	oldServer, ok1 := e.ObjectOld.(*gatev1alpha1.MCPServer)
-	newServer, ok2 := e.ObjectNew.(*gatev1alpha1.MCPServer)
+	oldServer, ok1 := e.ObjectOld.(*mcpv1alpha1.MCPServer)
+	newServer, ok2 := e.ObjectNew.(*mcpv1alpha1.MCPServer)
 	if !ok1 || !ok2 {
 		return false
 	}
 	return oldServer.Generation != newServer.Generation ||
 		oldServer.Status.CatalogRevision != newServer.Status.CatalogRevision ||
 		oldServer.Status.Available != newServer.Status.Available ||
-		conditionChanged(oldServer.Status.Conditions, newServer.Status.Conditions, gatev1alpha1.ConditionReady)
+		conditionChanged(oldServer.Status.Conditions, newServer.Status.Conditions, mcpv1alpha1.ConditionReady)
 }
 
 // dependencyChanged passes updates to a dependency's spec or to its Valid or
@@ -211,8 +211,8 @@ func (dependencyChanged) Update(e event.UpdateEvent) bool {
 		return true
 	}
 	oldConditions, newConditions := conditionsOf(e.ObjectOld), conditionsOf(e.ObjectNew)
-	return conditionChanged(oldConditions, newConditions, gatev1alpha1.ConditionValid) ||
-		conditionChanged(oldConditions, newConditions, gatev1alpha1.ConditionReady)
+	return conditionChanged(oldConditions, newConditions, mcpv1alpha1.ConditionValid) ||
+		conditionChanged(oldConditions, newConditions, mcpv1alpha1.ConditionReady)
 }
 
 // toolSetSelectionChanged passes tool set updates that change what the tool set
@@ -228,8 +228,8 @@ func (toolSetSelectionChanged) Update(e event.UpdateEvent) bool {
 }
 
 func selectionChanged(e event.UpdateEvent) bool {
-	oldSet, ok1 := e.ObjectOld.(*gatev1alpha1.MCPToolSet)
-	newSet, ok2 := e.ObjectNew.(*gatev1alpha1.MCPToolSet)
+	oldSet, ok1 := e.ObjectOld.(*mcpv1alpha1.MCPToolSet)
+	newSet, ok2 := e.ObjectNew.(*mcpv1alpha1.MCPToolSet)
 	return ok1 && ok2 && (!slices.Equal(oldSet.Status.ResolvedTools, newSet.Status.ResolvedTools) ||
 		!maps.Equal(oldSet.Status.BackendNames, newSet.Status.BackendNames))
 }

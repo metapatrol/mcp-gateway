@@ -1,0 +1,16 @@
+apiVersion: v2
+name: mcp-gateway-grafana-dashboard
+description: Grafana dashboard for mcp-gateway (deployed as a ConfigMap for the Grafana sidecar)
+type: application
+version: 1.5.0
+appVersion: "1.5.0"
+keywords:
+  - mcp-gateway
+  - grafana
+  - dashboard
+home: https://forgejo.metapatrol.local/platform/mcp-gateway
+sources:
+  - https://forgejo.metapatrol.local/platform/mcp-gateway
+maintainers:
+  - name: Magnus
+    email: magnus@forge.metapatrol.com

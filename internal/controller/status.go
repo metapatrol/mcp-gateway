@@ -1,4 +1,4 @@
-// Package controller holds the reconcilers of mcp-gate-controller.
+// Package controller holds the reconcilers of mcp-gateway-controller.
 //
 // They verify and report. None of them is in the request path, and none of
 // them changes what the gateway enforces: the gateway reads the same manifests
@@ -20,10 +20,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	gatev1alpha1 "forgejo.metapatrol.local/platform/mcp-gate/api/v1alpha1"
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/discovery"
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/metrics"
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/policy"
+	mcpv1alpha1 "forgejo.metapatrol.local/platform/mcp-gateway/api/v1alpha1"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/discovery"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/metrics"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/policy"
 )
 
 // maxMessageLength keeps condition messages readable in kubectl. The API allows
@@ -79,13 +79,13 @@ func patchStatus[T client.Object](ctx context.Context, c client.Client, obj T, b
 
 func statusOf(obj client.Object) any {
 	switch o := obj.(type) {
-	case *gatev1alpha1.MCPServer:
+	case *mcpv1alpha1.MCPServer:
 		return o.Status
-	case *gatev1alpha1.MCPToolSet:
+	case *mcpv1alpha1.MCPToolSet:
 		return o.Status
-	case *gatev1alpha1.MCPCapability:
+	case *mcpv1alpha1.MCPCapability:
 		return o.Status
-	case *gatev1alpha1.MCPGrant:
+	case *mcpv1alpha1.MCPGrant:
 		return o.Status
 	}
 	return nil
@@ -94,20 +94,20 @@ func statusOf(obj client.Object) any {
 // conditionsOf returns the conditions of any of the four kinds.
 func conditionsOf(obj client.Object) []metav1.Condition {
 	switch o := obj.(type) {
-	case *gatev1alpha1.MCPServer:
+	case *mcpv1alpha1.MCPServer:
 		return o.Status.Conditions
-	case *gatev1alpha1.MCPToolSet:
+	case *mcpv1alpha1.MCPToolSet:
 		return o.Status.Conditions
-	case *gatev1alpha1.MCPCapability:
+	case *mcpv1alpha1.MCPCapability:
 		return o.Status.Conditions
-	case *gatev1alpha1.MCPGrant:
+	case *mcpv1alpha1.MCPGrant:
 		return o.Status.Conditions
 	}
 	return nil
 }
 
 // resourceTally is the Ready status of every object the reconcilers have seen,
-// by kind and name, and the source of mcp_gate_resources.
+// by kind and name, and the source of mcp_gateway_resources.
 //
 // It is kept by the reconcilers rather than counted from a list of the cache.
 // The cache has not yet seen the status a reconcile just wrote, and two
@@ -131,7 +131,7 @@ func observeResource(kind, name string, current client.Object) {
 	}
 	if current == nil {
 		delete(byName, name)
-	} else if c := meta.FindStatusCondition(conditionsOf(current), gatev1alpha1.ConditionReady); c != nil {
+	} else if c := meta.FindStatusCondition(conditionsOf(current), mcpv1alpha1.ConditionReady); c != nil {
 		byName[name] = c.Status
 	} else {
 		byName[name] = metav1.ConditionUnknown
@@ -163,19 +163,19 @@ func registryCatalogs(registry *discovery.Registry) policy.Catalogs {
 // loadSnapshot builds a policy snapshot from the cache, the same one the gateway
 // builds from its own.
 func loadSnapshot(ctx context.Context, c client.Client) (*policy.Snapshot, error) {
-	var servers gatev1alpha1.MCPServerList
+	var servers mcpv1alpha1.MCPServerList
 	if err := c.List(ctx, &servers); err != nil {
 		return nil, err
 	}
-	var toolSets gatev1alpha1.MCPToolSetList
+	var toolSets mcpv1alpha1.MCPToolSetList
 	if err := c.List(ctx, &toolSets); err != nil {
 		return nil, err
 	}
-	var capabilities gatev1alpha1.MCPCapabilityList
+	var capabilities mcpv1alpha1.MCPCapabilityList
 	if err := c.List(ctx, &capabilities); err != nil {
 		return nil, err
 	}
-	var grants gatev1alpha1.MCPGrantList
+	var grants mcpv1alpha1.MCPGrantList
 	if err := c.List(ctx, &grants); err != nil {
 		return nil, err
 	}

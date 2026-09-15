@@ -10,9 +10,9 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	gatev1alpha1 "forgejo.metapatrol.local/platform/mcp-gate/api/v1alpha1"
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/credentials"
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/metrics"
+	mcpv1alpha1 "forgejo.metapatrol.local/platform/mcp-gateway/api/v1alpha1"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/credentials"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/metrics"
 )
 
 // Options configures a Registry.
@@ -61,7 +61,7 @@ type entry struct {
 // NewRegistry creates an empty Registry.
 func NewRegistry(opts Options) *Registry {
 	if opts.Implementation == nil {
-		opts.Implementation = &mcp.Implementation{Name: "mcp-gate"}
+		opts.Implementation = &mcp.Implementation{Name: "mcp-gateway"}
 	}
 	if opts.HTTPClient == nil {
 		opts.HTTPClient = NewHTTPClient()
@@ -84,7 +84,7 @@ func NewRegistry(opts Options) *Registry {
 // discovery that follows replaces the catalog if the new credentials see
 // another; dropping it in between would make every agent's tools vanish and
 // reappear.
-func (r *Registry) Ensure(name, endpoint string, auth *gatev1alpha1.BackendAuth) *Backend {
+func (r *Registry) Ensure(name, endpoint string, auth *mcpv1alpha1.BackendAuth) *Backend {
 	built := credentials.Build(auth, r.opts.Secrets, r.opts.HTTPClient)
 
 	r.mu.Lock()

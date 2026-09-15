@@ -2,7 +2,7 @@
 # matches any run of characters, dots included, "?" exactly one.
 #
 #   kubectl get mcptoolsets -o wide     # the Resolved column shows what each selects
-apiVersion: mcp.gate.metapatrol.com/v1alpha1
+apiVersion: mcp-gateway.metapatrol.com/v1alpha1
 kind: MCPToolSet
 metadata:
   name: source-intelligence-analysis
@@ -15,7 +15,7 @@ spec:
   exclude:
     - repositories.read_file
 ---
-apiVersion: mcp.gate.metapatrol.com/v1alpha1
+apiVersion: mcp-gateway.metapatrol.com/v1alpha1
 kind: MCPToolSet
 metadata:
   name: artifact-read
@@ -27,7 +27,7 @@ spec:
 ---
 # A pattern also selects tools the backend adds later. For a set that may
 # write, exclude what should never be granted by accident.
-apiVersion: mcp.gate.metapatrol.com/v1alpha1
+apiVersion: mcp-gateway.metapatrol.com/v1alpha1
 kind: MCPToolSet
 metadata:
   name: artifact-readwrite
@@ -41,7 +41,7 @@ spec:
 # Two backends that name a tool alike cannot both be granted to one subject
 # under that name: neither would be exposed. Renaming the tools of one of them
 # resolves it. Selection still uses the backend's names.
-apiVersion: mcp.gate.metapatrol.com/v1alpha1
+apiVersion: mcp-gateway.metapatrol.com/v1alpha1
 kind: MCPToolSet
 metadata:
   name: engram-memory-read

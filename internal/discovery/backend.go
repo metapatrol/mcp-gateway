@@ -13,7 +13,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/credentials"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/credentials"
 )
 
 // Backend is a client connection to one MCP server.

@@ -1,8 +1,8 @@
-# MCP Gate
+# MCP Gateway
 
 ## 1. Purpose
 
-MCP Gate is a Kubernetes-native control and data plane for exposing multiple Model Context Protocol (MCP) backends through a single governed access layer.
+MCP Gateway is a Kubernetes-native control and data plane for exposing multiple Model Context Protocol (MCP) backends through a single governed access layer.
 
 Its primary goals are:
 
@@ -15,25 +15,25 @@ Its primary goals are:
 - remain compatible with agents that either support OAuth natively or require a local auth-less MCP endpoint
 - keep backend discovery dynamic instead of duplicating tool definitions into Kubernetes resources
 
-MCP Gate is not just an MCP reverse proxy. It is intended to act as a Kubernetes-native MCP access and capability layer.
+MCP Gateway is not just an MCP reverse proxy. It is intended to act as a Kubernetes-native MCP access and capability layer.
 
 ---
 
 ## 2. Core Architecture
 
-MCP Gate consists of three runtime components:
+MCP Gateway consists of three runtime components:
 
-- `mcp-gate-controller`
-- `mcp-gate-gateway`
-- `mcp-gate-proxy`
+- `mcp-gateway-controller`
+- `mcp-gateway`
+- `mcp-gateway-proxy`
 
-### mcp-gate-controller
+### mcp-gateway-controller
 
 The controller is the Kubernetes control-plane component.
 
 Responsibilities:
 
-- reconcile MCP Gate CRDs
+- reconcile MCP Gateway CRDs
 - discover tools exposed by registered MCP servers
 - verify declared tool selections
 - maintain resource status
@@ -43,7 +43,7 @@ Responsibilities:
 
 The controller must not become part of the request path between an agent and an MCP backend.
 
-### mcp-gate-gateway
+### mcp-gateway
 
 The gateway is the shared data-plane component.
 
@@ -64,7 +64,7 @@ Responsibilities:
 
 The gateway is the authoritative runtime enforcement point.
 
-### mcp-gate-proxy
+### mcp-gateway-proxy
 
 The proxy is an optional lightweight sidecar or local adapter.
 
@@ -75,7 +75,7 @@ Responsibilities:
 - expose an auth-less MCP endpoint to the local agent
 - obtain OAuth access tokens via Client Credentials
 - cache and refresh short-lived access tokens
-- inject the bearer token when forwarding requests to `mcp-gate-gateway`
+- inject the bearer token when forwarding requests to `mcp-gateway`
 
 The proxy must not contain authorization policy or backend-specific credentials.
 
@@ -85,7 +85,7 @@ Its purpose is convenience, not security enforcement.
 
 ## 3. Supported Access Modes
 
-MCP Gate supports two equivalent client modes.
+MCP Gateway supports two equivalent client modes.
 
 ### Direct Mode
 
@@ -94,7 +94,7 @@ Agent
   |
   | OAuth Bearer Token
   v
-mcp-gate-gateway
+mcp-gateway
   |
   v
 MCP Backend
@@ -109,11 +109,11 @@ Agent
   |
   | auth-less localhost MCP
   v
-mcp-gate-proxy
+mcp-gateway-proxy
   |
   | OAuth Bearer Token
   v
-mcp-gate-gateway
+mcp-gateway
   |
   v
 MCP Backend
@@ -121,7 +121,7 @@ MCP Backend
 
 The gateway must behave identically in both modes.
 
-It must not depend on whether the caller is an agent directly or an `mcp-gate-proxy`.
+It must not depend on whether the caller is an agent directly or an `mcp-gateway-proxy`.
 
 ---
 
@@ -143,16 +143,16 @@ OAuth token endpoint
 short-lived access token
         |
         v
-mcp-gate-gateway
+mcp-gateway
 ```
 
 The OAuth provider is an implementation detail.
 
-ORY Hydra is a likely candidate, but MCP Gate must not depend on Hydra-specific behavior.
+ORY Hydra is a likely candidate, but MCP Gateway must not depend on Hydra-specific behavior.
 
 The gateway validates the access token and derives a canonical `subject`.
 
-The exact claim mapping is implementation-specific, but MCP Gate should use one stable subject value for authorization.
+The exact claim mapping is implementation-specific, but MCP Gateway should use one stable subject value for authorization.
 
 Conceptually:
 
@@ -180,7 +180,7 @@ Preferred network path:
 Agent
   |
   v
-mcp-gate-gateway
+mcp-gateway
   |
   +--> source-intelligence MCP
   |
@@ -249,14 +249,14 @@ Each resource represents a separate concern.
 
 `MCPServer` registers an MCP backend.
 
-It describes where a backend exists and how MCP Gate can reach it.
+It describes where a backend exists and how MCP Gateway can reach it.
 
 It must not contain a manually copied list of tools.
 
 Example:
 
 ```yaml
-apiVersion: mcp.gate.example.io/v1alpha1
+apiVersion: mcp-gateway.example.io/v1alpha1
 kind: MCPServer
 metadata:
   name: source-intelligence
@@ -267,7 +267,7 @@ spec:
 Another example:
 
 ```yaml
-apiVersion: mcp.gate.example.io/v1alpha1
+apiVersion: mcp-gateway.example.io/v1alpha1
 kind: MCPServer
 metadata:
   name: artifact
@@ -339,7 +339,7 @@ Its purpose is to create reusable technical toolboxes.
 Example:
 
 ```yaml
-apiVersion: mcp.gate.example.io/v1alpha1
+apiVersion: mcp-gateway.example.io/v1alpha1
 kind: MCPToolSet
 metadata:
   name: source-intelligence-analysis
@@ -354,7 +354,7 @@ spec:
 Another example:
 
 ```yaml
-apiVersion: mcp.gate.example.io/v1alpha1
+apiVersion: mcp-gateway.example.io/v1alpha1
 kind: MCPToolSet
 metadata:
   name: artifact-readwrite
@@ -437,7 +437,7 @@ Unlike `MCPToolSet`, a capability may span multiple MCP backends.
 Example:
 
 ```yaml
-apiVersion: mcp.gate.example.io/v1alpha1
+apiVersion: mcp-gateway.example.io/v1alpha1
 kind: MCPCapability
 metadata:
   name: code-research
@@ -450,7 +450,7 @@ spec:
 Another example:
 
 ```yaml
-apiVersion: mcp.gate.example.io/v1alpha1
+apiVersion: mcp-gateway.example.io/v1alpha1
 kind: MCPCapability
 metadata:
   name: implementation
@@ -484,7 +484,7 @@ cluster-observation
 Example:
 
 ```yaml
-apiVersion: mcp.gate.example.io/v1alpha1
+apiVersion: mcp-gateway.example.io/v1alpha1
 kind: MCPGrant
 metadata:
   name: coding-agent
@@ -577,7 +577,7 @@ The caller must not see tools outside its grants.
 
 ## 14. Tool Identity and Name Collisions
 
-Internally, MCP Gate should maintain stable backend-qualified identities.
+Internally, MCP Gateway should maintain stable backend-qualified identities.
 
 Example:
 
@@ -680,7 +680,7 @@ The intended model is:
 Agent OAuth identity
        |
        v
-MCP Gate authorization
+MCP Gateway authorization
        |
        v
 backend-specific credential
@@ -737,7 +737,7 @@ The exact notification mechanism should follow the MCP specification version sel
 
 # 18. Failure Behavior
 
-MCP Gate should avoid turning one broken backend into a global outage.
+MCP Gateway should avoid turning one broken backend into a global outage.
 
 Examples:
 
@@ -823,28 +823,37 @@ Adding a backend should require registration and policy configuration, not gatew
 Project:
 
 ```text
-MCP Gate
+MCP Gateway
 ```
 
 Binaries:
 
 ```text
-mcp-gate-controller
-mcp-gate-gateway
-mcp-gate-proxy
+mcp-gateway
+mcp-gateway-controller
+mcp-gateway-proxy
 ```
 
 Roles:
 
 ```text
-mcp-gate-controller
-  Kubernetes control plane
-
-mcp-gate-gateway
+mcp-gateway
   shared MCP data plane and enforcement point
 
-mcp-gate-proxy
+mcp-gateway-controller
+  Kubernetes control plane
+
+mcp-gateway-proxy
   optional local OAuth adapter / sidecar
+```
+
+The gateway is what agents talk to and what the project is named after, so it
+takes the plain name; the other two carry their role as a suffix.
+
+API group:
+
+```text
+mcp-gateway.metapatrol.com
 ```
 
 CRDs:
@@ -866,7 +875,7 @@ The implementation should preserve the following principles:
    Tool definitions come from MCP backends themselves.
 
 2. **Discovery over duplication**
-   MCP Gate discovers tool catalogs instead of copying them manually into CRDs.
+   MCP Gateway discovers tool catalogs instead of copying them manually into CRDs.
 
 3. **Authentication is not authorization**
    OAuth authenticates a subject. `MCPGrant` authorizes that subject.
@@ -890,7 +899,7 @@ The implementation should preserve the following principles:
    Invalid or unresolved authorization must never result in broader access.
 
 10. **Backends remain autonomous**
-    MCP Gate routes to existing MCP servers rather than reimplementing their business logic.
+    MCP Gateway routes to existing MCP servers rather than reimplementing their business logic.
 
 11. **Kubernetes remains the desired-state API**
     Runtime catalogs and large schemas should not unnecessarily become persistent Kubernetes objects.
@@ -914,8 +923,8 @@ MCPGrant
 plus:
 
 ```text
-mcp-gate-controller
-mcp-gate-gateway
+mcp-gateway-controller
+mcp-gateway
 ```
 
 The first milestone should support:
@@ -932,7 +941,7 @@ The first milestone should support:
 - basic status conditions
 - basic structured logging and metrics
 
-`mcp-gate-proxy` can be implemented immediately afterward because it is largely independent of the core authorization model.
+`mcp-gateway-proxy` can be implemented immediately afterward because it is largely independent of the core authorization model.
 
 The first two real integration targets should be:
 

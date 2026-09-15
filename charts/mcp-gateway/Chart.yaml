@@ -1,0 +1,17 @@
+apiVersion: v2
+name: mcp-gateway
+description: Kubernetes-native access layer for MCP backends — one governed MCP endpoint, tools granted per subject.
+type: application
+version: 1.5.0
+appVersion: "1.5.0"
+keywords:
+  - platform
+  - mcp
+  - gateway
+  - oauth
+home: https://forgejo.metapatrol.local/platform/mcp-gateway
+sources:
+  - https://forgejo.metapatrol.local/platform/mcp-gateway
+maintainers:
+  - name: Magnus
+    email: magnus@forge.metapatrol.com

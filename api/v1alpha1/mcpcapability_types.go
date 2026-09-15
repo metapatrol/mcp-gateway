@@ -36,7 +36,7 @@ type MCPCapabilityStatus struct {
 }
 
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:scope=Cluster,shortName=mcpcap,categories=mcp-gate
+// +kubebuilder:resource:scope=Cluster,shortName=mcpcap,categories=mcp-gateway
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="ToolSets",type=string,JSONPath=`.spec.toolSets`
 // +kubebuilder:printcolumn:name="Valid",type=string,JSONPath=`.status.conditions[?(@.type=="Valid")].status`

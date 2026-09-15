@@ -19,9 +19,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/utils/ptr"
 
-	gatev1alpha1 "forgejo.metapatrol.local/platform/mcp-gate/api/v1alpha1"
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/credentials"
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/mcptest"
+	mcpv1alpha1 "forgejo.metapatrol.local/platform/mcp-gateway/api/v1alpha1"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/credentials"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/mcptest"
 )
 
 // fakeSecrets holds Secrets in memory: name, then key, then value.
@@ -41,7 +41,7 @@ func (s *fakeSecrets) Set(name, key, value string) {
 	s.data[name][key] = value
 }
 
-func (s *fakeSecrets) Value(_ context.Context, ref gatev1alpha1.SecretKeyRef) (string, error) {
+func (s *fakeSecrets) Value(_ context.Context, ref mcpv1alpha1.SecretKeyRef) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	secret, ok := s.data[ref.Name]
@@ -55,7 +55,7 @@ func (s *fakeSecrets) Value(_ context.Context, ref gatev1alpha1.SecretKeyRef) (s
 	return value, nil
 }
 
-func (s *fakeSecrets) Invalidate(gatev1alpha1.SecretKeyRef) bool { return true }
+func (s *fakeSecrets) Invalidate(mcpv1alpha1.SecretKeyRef) bool { return true }
 
 // tokenServer is an OAuth token endpoint for the client credentials grant.
 type tokenServer struct {
@@ -164,10 +164,10 @@ func TestAuth_APIKeyInAHeaderOfItsOwn(t *testing.T) {
 	secrets := newFakeSecrets()
 	secrets.Set("memory-credentials", "API_KEY", "k-123")
 	r := newTestRegistry(t, Options{Secrets: secrets})
-	b := r.Ensure("memory", backend.URL, &gatev1alpha1.BackendAuth{
-		Type: gatev1alpha1.BackendAuthAPIKey,
-		APIKey: &gatev1alpha1.APIKeyAuth{
-			SecretRef: gatev1alpha1.SecretKeyRef{Name: "memory-credentials", Key: "API_KEY"},
+	b := r.Ensure("memory", backend.URL, &mcpv1alpha1.BackendAuth{
+		Type: mcpv1alpha1.BackendAuthAPIKey,
+		APIKey: &mcpv1alpha1.APIKeyAuth{
+			SecretRef: mcpv1alpha1.SecretKeyRef{Name: "memory-credentials", Key: "API_KEY"},
 			Header:    "X-API-Key",
 		},
 	})
@@ -186,9 +186,9 @@ func TestAuth_APIKeyDefaultsToABearerToken(t *testing.T) {
 	secrets := newFakeSecrets()
 	secrets.Set("memory-credentials", "token", "k-123")
 	r := newTestRegistry(t, Options{Secrets: secrets})
-	b := r.Ensure("memory", backend.URL, &gatev1alpha1.BackendAuth{
-		Type:   gatev1alpha1.BackendAuthAPIKey,
-		APIKey: &gatev1alpha1.APIKeyAuth{SecretRef: gatev1alpha1.SecretKeyRef{Name: "memory-credentials", Key: "token"}},
+	b := r.Ensure("memory", backend.URL, &mcpv1alpha1.BackendAuth{
+		Type:   mcpv1alpha1.BackendAuthAPIKey,
+		APIKey: &mcpv1alpha1.APIKeyAuth{SecretRef: mcpv1alpha1.SecretKeyRef{Name: "memory-credentials", Key: "token"}},
 	})
 
 	res, err := b.CallTool(context.Background(), &mcp.CallToolParams{Name: "memory_search"})
@@ -196,13 +196,13 @@ func TestAuth_APIKeyDefaultsToABearerToken(t *testing.T) {
 	assert.Equal(t, "memory/memory_search {} as gateway", callText(t, res))
 }
 
-func clientCredentialsAuth(tokenURL string) *gatev1alpha1.BackendAuth {
-	return &gatev1alpha1.BackendAuth{
-		Type: gatev1alpha1.BackendAuthClientCredentials,
-		ClientCredentials: &gatev1alpha1.ClientCredentialsAuth{
+func clientCredentialsAuth(tokenURL string) *mcpv1alpha1.BackendAuth {
+	return &mcpv1alpha1.BackendAuth{
+		Type: mcpv1alpha1.BackendAuthClientCredentials,
+		ClientCredentials: &mcpv1alpha1.ClientCredentialsAuth{
 			TokenURL:        tokenURL,
-			ClientIDRef:     &gatev1alpha1.SecretKeyRef{Name: "memory-client", Key: "CLIENT_ID"},
-			ClientSecretRef: gatev1alpha1.SecretKeyRef{Name: "memory-client", Key: "CLIENT_SECRET"},
+			ClientIDRef:     &mcpv1alpha1.SecretKeyRef{Name: "memory-client", Key: "CLIENT_ID"},
+			ClientSecretRef: mcpv1alpha1.SecretKeyRef{Name: "memory-client", Key: "CLIENT_SECRET"},
 			Scopes:          []string{"memory.read", "memory.write"},
 			Audience:        []string{"memory", "memory-admin"},
 		},
@@ -315,9 +315,9 @@ func TestAuth_AMissingSecretIsNamed(t *testing.T) {
 	var seen requests
 	backend.Guard(func(r *http.Request) int { seen.record(r); return 0 })
 	r := newTestRegistry(t, Options{Secrets: newFakeSecrets()})
-	r.Ensure("memory", backend.URL, &gatev1alpha1.BackendAuth{
-		Type:   gatev1alpha1.BackendAuthAPIKey,
-		APIKey: &gatev1alpha1.APIKeyAuth{SecretRef: gatev1alpha1.SecretKeyRef{Name: "memory-credentials", Key: "token"}},
+	r.Ensure("memory", backend.URL, &mcpv1alpha1.BackendAuth{
+		Type:   mcpv1alpha1.BackendAuthAPIKey,
+		APIKey: &mcpv1alpha1.APIKeyAuth{SecretRef: mcpv1alpha1.SecretKeyRef{Name: "memory-credentials", Key: "token"}},
 	})
 
 	_, _, err := r.Discover(context.Background(), "memory")
@@ -330,9 +330,9 @@ func TestAuth_AMissingSecretIsNamed(t *testing.T) {
 func TestAuth_WithoutSecretsAccessTheSpecFails(t *testing.T) {
 	backend := mcptest.NewBackend(t, "memory", "memory_search")
 	r := newTestRegistry(t, Options{})
-	r.Ensure("memory", backend.URL, &gatev1alpha1.BackendAuth{
-		Type:   gatev1alpha1.BackendAuthAPIKey,
-		APIKey: &gatev1alpha1.APIKeyAuth{SecretRef: gatev1alpha1.SecretKeyRef{Name: "memory-credentials", Key: "token"}},
+	r.Ensure("memory", backend.URL, &mcpv1alpha1.BackendAuth{
+		Type:   mcpv1alpha1.BackendAuthAPIKey,
+		APIKey: &mcpv1alpha1.APIKeyAuth{SecretRef: mcpv1alpha1.SecretKeyRef{Name: "memory-credentials", Key: "token"}},
 	})
 
 	_, _, err := r.Discover(context.Background(), "memory")
@@ -353,12 +353,12 @@ func passthroughBackend(t *testing.T) (*mcptest.Backend, *requests) {
 	return backend, seen
 }
 
-func passthroughAuth() *gatev1alpha1.BackendAuth {
-	return &gatev1alpha1.BackendAuth{
-		Type: gatev1alpha1.BackendAuthPassthrough,
-		Passthrough: &gatev1alpha1.PassthroughAuth{
-			Discovery: &gatev1alpha1.DiscoveryAuth{
-				APIKey: &gatev1alpha1.APIKeyAuth{SecretRef: gatev1alpha1.SecretKeyRef{Name: "memory-discovery", Key: "key"}},
+func passthroughAuth() *mcpv1alpha1.BackendAuth {
+	return &mcpv1alpha1.BackendAuth{
+		Type: mcpv1alpha1.BackendAuthPassthrough,
+		Passthrough: &mcpv1alpha1.PassthroughAuth{
+			Discovery: &mcpv1alpha1.DiscoveryAuth{
+				APIKey: &mcpv1alpha1.APIKeyAuth{SecretRef: mcpv1alpha1.SecretKeyRef{Name: "memory-discovery", Key: "key"}},
 			},
 		},
 	}
@@ -449,7 +449,7 @@ func TestAuth_PassthroughWithOpenDiscovery(t *testing.T) {
 		return 0
 	})
 	r := newTestRegistry(t, Options{})
-	b := r.Ensure("memory", backend.URL, &gatev1alpha1.BackendAuth{Type: gatev1alpha1.BackendAuthPassthrough})
+	b := r.Ensure("memory", backend.URL, &mcpv1alpha1.BackendAuth{Type: mcpv1alpha1.BackendAuthPassthrough})
 
 	_, _, err := r.Discover(context.Background(), "memory")
 	require.NoError(t, err)
@@ -464,7 +464,7 @@ func TestAuth_PassthroughWithOpenDiscovery(t *testing.T) {
 func TestBackend_IdleCallerSessionsAreClosed(t *testing.T) {
 	backend := mcptest.NewBackend(t, "memory", "memory_search")
 	r := newTestRegistry(t, Options{})
-	b := r.Ensure("memory", backend.URL, &gatev1alpha1.BackendAuth{Type: gatev1alpha1.BackendAuthPassthrough})
+	b := r.Ensure("memory", backend.URL, &mcpv1alpha1.BackendAuth{Type: mcpv1alpha1.BackendAuthPassthrough})
 	for _, token := range []string{"a", "b"} {
 		_, err := b.CallTool(credentials.WithCaller(context.Background(), "Bearer "+token), &mcp.CallToolParams{Name: "memory_search"})
 		require.NoError(t, err)
@@ -496,9 +496,9 @@ func TestRegistry_AuthChangeKeepsTheCatalog(t *testing.T) {
 	_, _, err := r.Discover(context.Background(), "memory")
 	require.NoError(t, err)
 
-	auth := &gatev1alpha1.BackendAuth{
-		Type:   gatev1alpha1.BackendAuthAPIKey,
-		APIKey: &gatev1alpha1.APIKeyAuth{SecretRef: gatev1alpha1.SecretKeyRef{Name: "memory-credentials", Key: "token"}, Prefix: ptr.To("")},
+	auth := &mcpv1alpha1.BackendAuth{
+		Type:   mcpv1alpha1.BackendAuthAPIKey,
+		APIKey: &mcpv1alpha1.APIKeyAuth{SecretRef: mcpv1alpha1.SecretKeyRef{Name: "memory-credentials", Key: "token"}, Prefix: ptr.To("")},
 	}
 	after := r.Ensure("memory", backend.URL, auth)
 	assert.NotSame(t, before, after)
@@ -597,7 +597,7 @@ func TestAuth_PassthroughWhenTheSharedConnectionCannotOpen(t *testing.T) {
 	backend := mcptest.NewStatelessBackend(t, "memory", "memory_search")
 	backend.RequireBearer(map[string]string{"alice-token": "alice"})
 	r := newTestRegistry(t, Options{})
-	b := r.Ensure("memory", backend.URL, &gatev1alpha1.BackendAuth{Type: gatev1alpha1.BackendAuthPassthrough})
+	b := r.Ensure("memory", backend.URL, &mcpv1alpha1.BackendAuth{Type: mcpv1alpha1.BackendAuthPassthrough})
 
 	for range 3 {
 		res, err := b.CallTool(credentials.WithCaller(context.Background(), "Bearer alice-token"), &mcp.CallToolParams{Name: "memory_search"})

@@ -1,0 +1,20 @@
+mcp-gateway {{ .Chart.AppVersion }} is deployed in {{ .Release.Namespace }} as {{ .Release.Name }}.
+
+Agents connect to one endpoint:
+
+  http://{{ include "mcp-gateway.gateway.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.gateway.service.port }}{{ .Values.gateway.mcpPath }}
+
+with an OAuth access token whose {{ .Values.gateway.oauth.subjectClaim }} claim names the subject an MCPGrant grants to.
+
+Nothing is exposed until backends are registered and granted. All four kinds are
+cluster-scoped:
+
+  kubectl get mcp-gateway                    # servers, tool sets, capabilities, grants
+  kubectl get mcpservers                     # discovery: available, tools, revision
+  kubectl get mcptoolsets -o wide            # verification against the catalog
+  kubectl explain mcpgrant.spec
+
+Status and logs:
+
+  kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
+  kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/component=gateway -f

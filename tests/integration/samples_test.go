@@ -16,7 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// The samples are documentation people copy. Each mcp-gate resource in them is
+// The samples are documentation people copy. Each mcp-gateway resource in them is
 // sent to the API server as a dry run, so a sample the schema refuses — or one
 // with a field the schema would silently drop — fails here rather than for
 // whoever applies it.
@@ -37,7 +37,7 @@ func TestSamplesAreAccepted(t *testing.T) {
 				}
 				require.NoError(t, err, file)
 			}
-			if obj.Object == nil || !strings.HasPrefix(obj.GetAPIVersion(), "mcp.gate.metapatrol.com/") {
+			if obj.Object == nil || !strings.HasPrefix(obj.GetAPIVersion(), "mcp-gateway.metapatrol.com/") {
 				continue
 			}
 			err := k8sClient.Create(context.Background(), &obj, client.DryRunAll, client.FieldValidation("Strict"))

@@ -15,21 +15,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	gatev1alpha1 "forgejo.metapatrol.local/platform/mcp-gate/api/v1alpha1"
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/credentials"
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/discovery"
+	mcpv1alpha1 "forgejo.metapatrol.local/platform/mcp-gateway/api/v1alpha1"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/credentials"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/discovery"
 )
 
-// newFakeClient builds an API client that knows the mcp-gate kinds and serves
+// newFakeClient builds an API client that knows the mcp-gateway kinds and serves
 // their status subresource, as the real one does.
 func newFakeClient(objs ...client.Object) client.Client {
 	scheme := runtime.NewScheme()
 	_ = clientgoscheme.AddToScheme(scheme)
-	_ = gatev1alpha1.AddToScheme(scheme)
+	_ = mcpv1alpha1.AddToScheme(scheme)
 	return fake.NewClientBuilder().
 		WithScheme(scheme).
 		WithObjects(objs...).
-		WithStatusSubresource(&gatev1alpha1.MCPServer{}, &gatev1alpha1.MCPToolSet{}, &gatev1alpha1.MCPCapability{}, &gatev1alpha1.MCPGrant{}).
+		WithStatusSubresource(&mcpv1alpha1.MCPServer{}, &mcpv1alpha1.MCPToolSet{}, &mcpv1alpha1.MCPCapability{}, &mcpv1alpha1.MCPGrant{}).
 		Build()
 }
 
@@ -67,27 +67,27 @@ func condition(t *testing.T, conditions []metav1.Condition, conditionType string
 	return *c
 }
 
-func mcpServer(name, endpoint string) *gatev1alpha1.MCPServer {
-	return &gatev1alpha1.MCPServer{
+func mcpServer(name, endpoint string) *mcpv1alpha1.MCPServer {
+	return &mcpv1alpha1.MCPServer{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Generation: 1},
-		Spec:       gatev1alpha1.MCPServerSpec{Endpoint: endpoint},
+		Spec:       mcpv1alpha1.MCPServerSpec{Endpoint: endpoint},
 	}
 }
 
 // readyServer is a server whose status says discovery works.
-func readyServer(name string) *gatev1alpha1.MCPServer {
+func readyServer(name string) *mcpv1alpha1.MCPServer {
 	s := mcpServer(name, "http://"+name+".invalid/mcp")
 	s.Status.Available = true
 	meta.SetStatusCondition(&s.Status.Conditions, metav1.Condition{
-		Type: gatev1alpha1.ConditionReady, Status: metav1.ConditionTrue, Reason: gatev1alpha1.ReasonDiscovered, ObservedGeneration: 1,
+		Type: mcpv1alpha1.ConditionReady, Status: metav1.ConditionTrue, Reason: mcpv1alpha1.ReasonDiscovered, ObservedGeneration: 1,
 	})
 	return s
 }
 
-func mcpToolSet(name, server string, tools ...string) *gatev1alpha1.MCPToolSet {
-	return &gatev1alpha1.MCPToolSet{
+func mcpToolSet(name, server string, tools ...string) *mcpv1alpha1.MCPToolSet {
+	return &mcpv1alpha1.MCPToolSet{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Generation: 1},
-		Spec:       gatev1alpha1.MCPToolSetSpec{ServerRef: server, Tools: tools},
+		Spec:       mcpv1alpha1.MCPToolSetSpec{ServerRef: server, Tools: tools},
 	}
 }
 
@@ -97,28 +97,28 @@ func withReady[T client.Object](obj T, ready bool) T {
 	status := metav1.ConditionFalse
 	reason := "SomethingIsWrong"
 	if ready {
-		status, reason = metav1.ConditionTrue, gatev1alpha1.ReasonAvailable
+		status, reason = metav1.ConditionTrue, mcpv1alpha1.ReasonAvailable
 	}
-	c := metav1.Condition{Type: gatev1alpha1.ConditionReady, Status: status, Reason: reason, ObservedGeneration: obj.GetGeneration()}
+	c := metav1.Condition{Type: mcpv1alpha1.ConditionReady, Status: status, Reason: reason, ObservedGeneration: obj.GetGeneration()}
 	switch o := any(obj).(type) {
-	case *gatev1alpha1.MCPToolSet:
+	case *mcpv1alpha1.MCPToolSet:
 		meta.SetStatusCondition(&o.Status.Conditions, c)
-	case *gatev1alpha1.MCPCapability:
+	case *mcpv1alpha1.MCPCapability:
 		meta.SetStatusCondition(&o.Status.Conditions, c)
 	}
 	return obj
 }
 
-func mcpCapability(name string, toolSets ...string) *gatev1alpha1.MCPCapability {
-	return &gatev1alpha1.MCPCapability{
+func mcpCapability(name string, toolSets ...string) *mcpv1alpha1.MCPCapability {
+	return &mcpv1alpha1.MCPCapability{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Generation: 1},
-		Spec:       gatev1alpha1.MCPCapabilitySpec{ToolSets: toolSets},
+		Spec:       mcpv1alpha1.MCPCapabilitySpec{ToolSets: toolSets},
 	}
 }
 
-func mcpGrant(name, subject string, capabilities ...string) *gatev1alpha1.MCPGrant {
-	return &gatev1alpha1.MCPGrant{
+func mcpGrant(name, subject string, capabilities ...string) *mcpv1alpha1.MCPGrant {
+	return &mcpv1alpha1.MCPGrant{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Generation: 1},
-		Spec:       gatev1alpha1.MCPGrantSpec{Subject: subject, Capabilities: capabilities},
+		Spec:       mcpv1alpha1.MCPGrantSpec{Subject: subject, Capabilities: capabilities},
 	}
 }

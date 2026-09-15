@@ -1,0 +1,19 @@
+{{- if and .Values.gateway.podDisruptionBudget.enabled (gt (int .Values.gateway.replicaCount) 1) }}
+{{/*
+  The gateway is every agent's only way to its tools. A node drain that takes
+  all replicas at once is an outage for all of them.
+*/}}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "mcp-gateway.gateway.fullname" . }}
+  labels:
+    {{- include "mcp-gateway.labels" . | nindent 4 }}
+    app.kubernetes.io/component: gateway
+spec:
+  maxUnavailable: {{ .Values.gateway.podDisruptionBudget.maxUnavailable }}
+  selector:
+    matchLabels:
+      {{- include "mcp-gateway.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: gateway
+{{- end }}

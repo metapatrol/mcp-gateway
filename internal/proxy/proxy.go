@@ -1,4 +1,4 @@
-// Package proxy is mcp-gate-proxy: an auth-less local MCP endpoint that forwards
+// Package proxy is mcp-gateway-proxy: an auth-less local MCP endpoint that forwards
 // to the gateway with a bearer token it obtains itself.
 //
 // It exists for agents that cannot, or should not, be configured with OAuth.
@@ -34,7 +34,7 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
 
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/oauth"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/oauth"
 )
 
 // Config configures a Proxy.
@@ -146,7 +146,7 @@ func (p *Proxy) guard(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !p.hostAllowed(r.Host) {
 			p.cfg.Logger.Warn("refused a request for a foreign host name", "host", r.Host, "remote", r.RemoteAddr)
-			http.Error(w, "mcp-gate-proxy: host not allowed", http.StatusForbidden)
+			http.Error(w, "mcp-gateway-proxy: host not allowed", http.StatusForbidden)
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -191,7 +191,7 @@ func (p *Proxy) modifyResponse(resp *http.Response) error {
 	if resp.StatusCode == http.StatusUnauthorized {
 		p.cfg.Logger.Error("the gateway refused this proxy's token", "clientID", p.cfg.ClientID)
 		_ = resp.Body.Close()
-		msg := "mcp-gate-proxy: the gateway refused this proxy's credentials\n"
+		msg := "mcp-gateway-proxy: the gateway refused this proxy's credentials\n"
 		resp.StatusCode = http.StatusBadGateway
 		resp.Status = http.StatusText(http.StatusBadGateway)
 		resp.Header = http.Header{"Content-Type": {"text/plain; charset=utf-8"}}
@@ -207,12 +207,12 @@ func (p *Proxy) errorHandler(w http.ResponseWriter, r *http.Request, err error) 
 	switch {
 	case errors.As(err, &tokenErr):
 		p.cfg.Logger.Error("obtaining an access token failed", "tokenURL", p.cfg.TokenURL, "error", tokenErr.err)
-		http.Error(w, "mcp-gate-proxy: obtaining an access token failed", http.StatusBadGateway)
+		http.Error(w, "mcp-gateway-proxy: obtaining an access token failed", http.StatusBadGateway)
 	case errors.Is(err, context.Canceled):
 		// The agent went away; nobody is left to answer.
 	default:
 		p.cfg.Logger.Error("forwarding to the gateway failed", "method", r.Method, "error", err)
-		http.Error(w, "mcp-gate-proxy: the gateway is unreachable", http.StatusBadGateway)
+		http.Error(w, "mcp-gateway-proxy: the gateway is unreachable", http.StatusBadGateway)
 	}
 }
 

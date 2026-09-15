@@ -44,10 +44,10 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/credentials"
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/discovery"
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/metrics"
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/policy"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/credentials"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/discovery"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/metrics"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/policy"
 )
 
 // Options configures a Gateway.
@@ -81,7 +81,7 @@ type Options struct {
 
 func (o Options) withDefaults() Options {
 	if o.Implementation == nil {
-		o.Implementation = &mcp.Implementation{Name: "mcp-gate"}
+		o.Implementation = &mcp.Implementation{Name: "mcp-gateway"}
 	}
 	if o.CatalogMaxAge <= 0 {
 		o.CatalogMaxAge = 5 * time.Minute
@@ -565,7 +565,7 @@ func refusedResult(status int) *mcp.CallToolResult {
 	return &mcp.CallToolResult{
 		IsError: true,
 		Content: []mcp.Content{&mcp.TextContent{Text: fmt.Sprintf(
-			"mcp-gate: the backend serving this tool refused the caller's credentials (HTTP %d %s)", status, http.StatusText(status))}},
+			"mcp-gateway: the backend serving this tool refused the caller's credentials (HTTP %d %s)", status, http.StatusText(status))}},
 	}
 }
 
@@ -575,6 +575,6 @@ func refusedResult(status int) *mcp.CallToolResult {
 func unavailableResult() *mcp.CallToolResult {
 	return &mcp.CallToolResult{
 		IsError: true,
-		Content: []mcp.Content{&mcp.TextContent{Text: "mcp-gate: the backend serving this tool is currently unavailable"}},
+		Content: []mcp.Content{&mcp.TextContent{Text: "mcp-gateway: the backend serving this tool is currently unavailable"}},
 	}
 }

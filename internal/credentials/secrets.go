@@ -14,7 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	gatev1alpha1 "forgejo.metapatrol.local/platform/mcp-gate/api/v1alpha1"
+	mcpv1alpha1 "forgejo.metapatrol.local/platform/mcp-gateway/api/v1alpha1"
 )
 
 // Secrets reads credential values out of Secrets.
@@ -22,13 +22,13 @@ type Secrets interface {
 	// Value returns the value under ref's key, with surrounding whitespace
 	// removed: a key written from a file usually ends in a newline no
 	// provider expects.
-	Value(ctx context.Context, ref gatev1alpha1.SecretKeyRef) (string, error)
+	Value(ctx context.Context, ref mcpv1alpha1.SecretKeyRef) (string, error)
 
 	// Invalidate tells the reader a value it returned was refused, so the next
 	// Value reads the Secret again. It reports whether it will: a Secret read
 	// only moments ago is not read again, since what came back then is what
 	// would come back now.
-	Invalidate(ref gatev1alpha1.SecretKeyRef) bool
+	Invalidate(ref mcpv1alpha1.SecretKeyRef) bool
 }
 
 // SecretReader reads Secrets of one namespace through the API server and keeps
@@ -84,7 +84,7 @@ func NewSecretReader(reader client.Reader, namespace string) *SecretReader {
 func (r *SecretReader) Namespace() string { return r.namespace }
 
 // Value implements Secrets.
-func (r *SecretReader) Value(ctx context.Context, ref gatev1alpha1.SecretKeyRef) (string, error) {
+func (r *SecretReader) Value(ctx context.Context, ref mcpv1alpha1.SecretKeyRef) (string, error) {
 	secret, err := r.secret(ctx, ref.Name)
 	if err != nil {
 		return "", err
@@ -152,7 +152,7 @@ func (r *SecretReader) secret(ctx context.Context, name string) (cachedSecret, e
 }
 
 // Invalidate implements Secrets.
-func (r *SecretReader) Invalidate(ref gatev1alpha1.SecretKeyRef) bool {
+func (r *SecretReader) Invalidate(ref mcpv1alpha1.SecretKeyRef) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	cached, ok := r.secrets[ref.Name]

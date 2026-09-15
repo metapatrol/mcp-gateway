@@ -29,7 +29,7 @@ import (
 
 	sdkauth "github.com/modelcontextprotocol/go-sdk/auth"
 
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/metrics"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/metrics"
 )
 
 // Config configures a Verifier.
@@ -126,7 +126,7 @@ func NewVerifier(cfg Config) (*Verifier, error) {
 	return v, nil
 }
 
-// Failure reasons, as they appear in mcp_gate_auth_failures_total.
+// Failure reasons, as they appear in mcp_gateway_auth_failures_total.
 const (
 	ReasonMissingToken = "missing_token"
 	ReasonMalformed    = "malformed"

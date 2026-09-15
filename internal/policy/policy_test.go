@@ -6,31 +6,31 @@ import (
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	gatev1alpha1 "forgejo.metapatrol.local/platform/mcp-gate/api/v1alpha1"
+	mcpv1alpha1 "forgejo.metapatrol.local/platform/mcp-gateway/api/v1alpha1"
 )
 
-func server(name string) gatev1alpha1.MCPServer {
-	return gatev1alpha1.MCPServer{ObjectMeta: metav1.ObjectMeta{Name: name}}
+func server(name string) mcpv1alpha1.MCPServer {
+	return mcpv1alpha1.MCPServer{ObjectMeta: metav1.ObjectMeta{Name: name}}
 }
 
-func toolSet(name, serverRef string, tools ...string) gatev1alpha1.MCPToolSet {
-	return gatev1alpha1.MCPToolSet{
+func toolSet(name, serverRef string, tools ...string) mcpv1alpha1.MCPToolSet {
+	return mcpv1alpha1.MCPToolSet{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
-		Spec:       gatev1alpha1.MCPToolSetSpec{ServerRef: serverRef, Tools: tools},
+		Spec:       mcpv1alpha1.MCPToolSetSpec{ServerRef: serverRef, Tools: tools},
 	}
 }
 
-func capability(name string, toolSets ...string) gatev1alpha1.MCPCapability {
-	return gatev1alpha1.MCPCapability{
+func capability(name string, toolSets ...string) mcpv1alpha1.MCPCapability {
+	return mcpv1alpha1.MCPCapability{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
-		Spec:       gatev1alpha1.MCPCapabilitySpec{ToolSets: toolSets},
+		Spec:       mcpv1alpha1.MCPCapabilitySpec{ToolSets: toolSets},
 	}
 }
 
-func grantFor(name, subject string, capabilities ...string) gatev1alpha1.MCPGrant {
-	return gatev1alpha1.MCPGrant{
+func grantFor(name, subject string, capabilities ...string) mcpv1alpha1.MCPGrant {
+	return mcpv1alpha1.MCPGrant{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
-		Spec:       gatev1alpha1.MCPGrantSpec{Subject: subject, Capabilities: capabilities},
+		Spec:       mcpv1alpha1.MCPGrantSpec{Subject: subject, Capabilities: capabilities},
 	}
 }
 
@@ -38,17 +38,17 @@ func grantFor(name, subject string, capabilities ...string) gatev1alpha1.MCPGran
 // holding a subset of each.
 func concept() *Snapshot {
 	return NewSnapshot(
-		[]gatev1alpha1.MCPServer{server("source-intelligence"), server("artifact")},
-		[]gatev1alpha1.MCPToolSet{
+		[]mcpv1alpha1.MCPServer{server("source-intelligence"), server("artifact")},
+		[]mcpv1alpha1.MCPToolSet{
 			toolSet("source-intelligence-analysis", "source-intelligence", "source_search", "source_get", "symbol_search"),
 			toolSet("artifact-read", "artifact", "artifact_search", "artifact_get"),
 			toolSet("artifact-readwrite", "artifact", "artifact_search", "artifact_get", "artifact_publish"),
 		},
-		[]gatev1alpha1.MCPCapability{
+		[]mcpv1alpha1.MCPCapability{
 			capability("code-research", "source-intelligence-analysis", "artifact-read"),
 			capability("artifact-authoring", "artifact-readwrite"),
 		},
-		[]gatev1alpha1.MCPGrant{
+		[]mcpv1alpha1.MCPGrant{
 			grantFor("coding-agent", "coding-agent", "code-research"),
 		},
 	)
@@ -77,16 +77,16 @@ func TestResolve_UnknownSubjectGetsNothing(t *testing.T) {
 // as a conflict would take away a tool the subject holds twice over.
 func TestResolve_SameToolThroughTwoToolSetsIsNoConflict(t *testing.T) {
 	s := NewSnapshot(
-		[]gatev1alpha1.MCPServer{server("artifact")},
-		[]gatev1alpha1.MCPToolSet{
+		[]mcpv1alpha1.MCPServer{server("artifact")},
+		[]mcpv1alpha1.MCPToolSet{
 			toolSet("artifact-read", "artifact", "artifact_get"),
 			toolSet("artifact-readwrite", "artifact", "artifact_get", "artifact_publish"),
 		},
-		[]gatev1alpha1.MCPCapability{
+		[]mcpv1alpha1.MCPCapability{
 			capability("read", "artifact-read"),
 			capability("write", "artifact-readwrite"),
 		},
-		[]gatev1alpha1.MCPGrant{grantFor("g", "agent", "read", "write")},
+		[]mcpv1alpha1.MCPGrant{grantFor("g", "agent", "read", "write")},
 	)
 
 	res := s.Resolve("agent", nil)
@@ -99,13 +99,13 @@ func TestResolve_SameToolThroughTwoToolSetsIsNoConflict(t *testing.T) {
 // the rest is unaffected.
 func TestResolve_ConflictExposesNeither(t *testing.T) {
 	s := NewSnapshot(
-		[]gatev1alpha1.MCPServer{server("engram"), server("source-intelligence")},
-		[]gatev1alpha1.MCPToolSet{
+		[]mcpv1alpha1.MCPServer{server("engram"), server("source-intelligence")},
+		[]mcpv1alpha1.MCPToolSet{
 			toolSet("memory", "engram", "search", "remember"),
 			toolSet("code", "source-intelligence", "search", "source_get"),
 		},
-		[]gatev1alpha1.MCPCapability{capability("both", "memory", "code")},
-		[]gatev1alpha1.MCPGrant{grantFor("g", "agent", "both")},
+		[]mcpv1alpha1.MCPCapability{capability("both", "memory", "code")},
+		[]mcpv1alpha1.MCPGrant{grantFor("g", "agent", "both")},
 	)
 
 	res := s.Resolve("agent", nil)
@@ -123,13 +123,13 @@ func TestResolve_ConflictExposesNeither(t *testing.T) {
 // are each fine on their own.
 func TestResolve_GrantsForOneSubjectAddUp(t *testing.T) {
 	s := NewSnapshot(
-		[]gatev1alpha1.MCPServer{server("a"), server("b")},
-		[]gatev1alpha1.MCPToolSet{
+		[]mcpv1alpha1.MCPServer{server("a"), server("b")},
+		[]mcpv1alpha1.MCPToolSet{
 			toolSet("a-tools", "a", "one", "shared"),
 			toolSet("b-tools", "b", "two", "shared"),
 		},
-		[]gatev1alpha1.MCPCapability{capability("ca", "a-tools"), capability("cb", "b-tools")},
-		[]gatev1alpha1.MCPGrant{grantFor("first", "agent", "ca"), grantFor("second", "agent", "cb")},
+		[]mcpv1alpha1.MCPCapability{capability("ca", "a-tools"), capability("cb", "b-tools")},
+		[]mcpv1alpha1.MCPGrant{grantFor("first", "agent", "ca"), grantFor("second", "agent", "cb")},
 	)
 
 	res := s.Resolve("agent", nil)
@@ -142,13 +142,13 @@ func TestResolve_GrantsForOneSubjectAddUp(t *testing.T) {
 // takes nothing away from what does resolve.
 func TestResolve_UnresolvedReferencesNarrowNeverWiden(t *testing.T) {
 	s := NewSnapshot(
-		[]gatev1alpha1.MCPServer{server("artifact")},
-		[]gatev1alpha1.MCPToolSet{
+		[]mcpv1alpha1.MCPServer{server("artifact")},
+		[]mcpv1alpha1.MCPToolSet{
 			toolSet("artifact-read", "artifact", "artifact_get"),
 			toolSet("orphan", "gone", "anything"),
 		},
-		[]gatev1alpha1.MCPCapability{capability("research", "artifact-read", "orphan", "never-created")},
-		[]gatev1alpha1.MCPGrant{grantFor("g", "agent", "research", "typo")},
+		[]mcpv1alpha1.MCPCapability{capability("research", "artifact-read", "orphan", "never-created")},
+		[]mcpv1alpha1.MCPGrant{grantFor("g", "agent", "research", "typo")},
 	)
 
 	res := s.Resolve("agent", nil)
@@ -164,10 +164,10 @@ func TestResolve_ObjectsBeingDeletedGrantNothing(t *testing.T) {
 	g.DeletionTimestamp = &now
 
 	s := NewSnapshot(
-		[]gatev1alpha1.MCPServer{server("artifact")},
-		[]gatev1alpha1.MCPToolSet{toolSet("artifact-read", "artifact", "artifact_get")},
-		[]gatev1alpha1.MCPCapability{capability("code-research", "artifact-read")},
-		[]gatev1alpha1.MCPGrant{g},
+		[]mcpv1alpha1.MCPServer{server("artifact")},
+		[]mcpv1alpha1.MCPToolSet{toolSet("artifact-read", "artifact", "artifact_get")},
+		[]mcpv1alpha1.MCPCapability{capability("code-research", "artifact-read")},
+		[]mcpv1alpha1.MCPGrant{g},
 	)
 	assert.Empty(t, s.Resolve("agent", nil).Tools)
 }

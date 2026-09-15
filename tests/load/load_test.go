@@ -4,10 +4,10 @@
 //
 // It runs only when asked to:
 //
-//	MCP_GATE_LOAD=1 go test ./tests/load -run TestLoad -v -timeout 30m
+//	MCP_GATEWAY_LOAD=1 go test ./tests/load -run TestLoad -v -timeout 30m
 //
-// MCP_GATE_LOAD_DURATION sets how long each measurement runs (default 8s),
-// MCP_GATE_LOAD_PROFILE names a directory for CPU and mutex profiles of the
+// MCP_GATEWAY_LOAD_DURATION sets how long each measurement runs (default 8s),
+// MCP_GATEWAY_LOAD_PROFILE names a directory for CPU and mutex profiles of the
 // gateway under load.
 //
 // Clients, gateway and backends share the machine, so requests per second say
@@ -45,16 +45,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	crzap "sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	gatev1alpha1 "forgejo.metapatrol.local/platform/mcp-gate/api/v1alpha1"
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/auth"
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/discovery"
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/gateway"
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/mcptest"
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/policy"
+	mcpv1alpha1 "forgejo.metapatrol.local/platform/mcp-gateway/api/v1alpha1"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/auth"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/discovery"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/gateway"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/mcptest"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/policy"
 )
 
 func TestMain(m *testing.M) {
-	if os.Getenv("MCP_GATE_LOAD") == "" {
+	if os.Getenv("MCP_GATEWAY_LOAD") == "" {
 		os.Exit(0)
 	}
 	os.Exit(m.Run())
@@ -120,7 +120,7 @@ func (b bearer) RoundTrip(r *http.Request) (*http.Response, error) {
 	return b.base.RoundTrip(r)
 }
 
-type gateSetup struct {
+type targetSetup struct {
 	// subjects is how many subjects hold a grant: subject-0 … subject-n-1.
 	subjects int
 	// passthrough registers the backend with auth type Passthrough.
@@ -132,15 +132,15 @@ type gateSetup struct {
 	stateless bool
 }
 
-type gate struct {
+type target struct {
 	url      string
 	gateway  *gateway.Gateway
 	snapshot func() *policy.Snapshot
 	issuer   *issuer
 }
 
-// newGate starts a backend and the gateway in front of it.
-func newGate(t *testing.T, setup gateSetup) (*gate, *mcptest.Backend) {
+// newTarget starts a backend and the gateway in front of it.
+func newTarget(t *testing.T, setup targetSetup) (*target, *mcptest.Backend) {
 	tools := make([]string, setup.tools)
 	for i := range tools {
 		tools[i] = fmt.Sprintf("tool_%d", i)
@@ -157,9 +157,9 @@ func newGate(t *testing.T, setup gateSetup) (*gate, *mcptest.Backend) {
 		ConnectTimeout: 10 * time.Second,
 	})
 	t.Cleanup(registry.Close)
-	var backendAuth *gatev1alpha1.BackendAuth
+	var backendAuth *mcpv1alpha1.BackendAuth
 	if setup.passthrough {
-		backendAuth = &gatev1alpha1.BackendAuth{Type: gatev1alpha1.BackendAuthPassthrough}
+		backendAuth = &mcpv1alpha1.BackendAuth{Type: mcpv1alpha1.BackendAuthPassthrough}
 	}
 	registry.Ensure("backend", backend.URL, backendAuth)
 	_, _, err := registry.Discover(context.Background(), "backend")
@@ -180,26 +180,26 @@ func newGate(t *testing.T, setup gateSetup) (*gate, *mcptest.Backend) {
 	t.Cleanup(cancel)
 	go func() { _ = gw.Start(ctx) }()
 
-	servers := []gatev1alpha1.MCPServer{{ObjectMeta: metav1.ObjectMeta{Name: "backend"}}}
-	toolSets := []gatev1alpha1.MCPToolSet{{
+	servers := []mcpv1alpha1.MCPServer{{ObjectMeta: metav1.ObjectMeta{Name: "backend"}}}
+	toolSets := []mcpv1alpha1.MCPToolSet{{
 		ObjectMeta: metav1.ObjectMeta{Name: "all"},
-		Spec:       gatev1alpha1.MCPToolSetSpec{ServerRef: "backend", Tools: []string{"tool_*"}},
+		Spec:       mcpv1alpha1.MCPToolSetSpec{ServerRef: "backend", Tools: []string{"tool_*"}},
 	}}
-	capabilities := []gatev1alpha1.MCPCapability{{
+	capabilities := []mcpv1alpha1.MCPCapability{{
 		ObjectMeta: metav1.ObjectMeta{Name: "all"},
-		Spec:       gatev1alpha1.MCPCapabilitySpec{ToolSets: []string{"all"}},
+		Spec:       mcpv1alpha1.MCPCapabilitySpec{ToolSets: []string{"all"}},
 	}}
-	grants := make([]gatev1alpha1.MCPGrant, setup.subjects)
+	grants := make([]mcpv1alpha1.MCPGrant, setup.subjects)
 	for i := range grants {
 		subject := fmt.Sprintf("subject-%d", i)
-		grants[i] = gatev1alpha1.MCPGrant{
+		grants[i] = mcpv1alpha1.MCPGrant{
 			ObjectMeta: metav1.ObjectMeta{Name: subject},
-			Spec:       gatev1alpha1.MCPGrantSpec{Subject: subject, Capabilities: []string{"all"}},
+			Spec:       mcpv1alpha1.MCPGrantSpec{Subject: subject, Capabilities: []string{"all"}},
 		}
 	}
 	snapshot := func() *policy.Snapshot { return policy.NewSnapshot(servers, toolSets, capabilities, grants) }
 	gw.SetPolicy(snapshot())
-	return &gate{url: srv.URL + "/mcp", gateway: gw, snapshot: snapshot, issuer: iss}, backend
+	return &target{url: srv.URL + "/mcp", gateway: gw, snapshot: snapshot, issuer: iss}, backend
 }
 
 func connect(url, token string, tr http.RoundTripper) (*mcp.ClientSession, error) {
@@ -240,7 +240,7 @@ func cpuTime() time.Duration {
 }
 
 func duration() time.Duration {
-	if d, err := time.ParseDuration(os.Getenv("MCP_GATE_LOAD_DURATION")); err == nil {
+	if d, err := time.ParseDuration(os.Getenv("MCP_GATEWAY_LOAD_DURATION")); err == nil {
 		return d
 	}
 	return 8 * time.Second
@@ -356,7 +356,7 @@ func sessionCall(t *testing.T, url string, token func(i int) string, tr http.Rou
 }
 
 func profile(t *testing.T, name string, fn func()) {
-	dir := os.Getenv("MCP_GATE_LOAD_PROFILE")
+	dir := os.Getenv("MCP_GATEWAY_LOAD_PROFILE")
 	if dir == "" {
 		fn()
 		return
@@ -383,7 +383,7 @@ func TestLoad(t *testing.T) {
 	concurrencies := []int{1, 16, 64, 256}
 
 	t.Run("call", func(t *testing.T) {
-		g, backend := newGate(t, gateSetup{subjects: 1, tools: 20})
+		g, backend := newTarget(t, targetSetup{subjects: 1, tools: 20})
 		token := g.issuer.token(t, "subject-0")
 		for _, c := range concurrencies {
 			rep.add(t, measure(t, "tools/call direct to the backend", c, sessionCall(t, backend.URL, func(int) string { return "" }, tr)))
@@ -399,7 +399,7 @@ func TestLoad(t *testing.T) {
 	})
 
 	t.Run("many subjects", func(t *testing.T) {
-		g, _ := newGate(t, gateSetup{subjects: 256, tools: 20})
+		g, _ := newTarget(t, targetSetup{subjects: 256, tools: 20})
 		tokens := make([]string, 256)
 		for i := range tokens {
 			tokens[i] = g.issuer.token(t, fmt.Sprintf("subject-%d", i))
@@ -435,7 +435,7 @@ func TestLoad(t *testing.T) {
 			stateless bool
 		}{{"session-based backend", false}, {"MCP 2026-07-28 backend", true}} {
 			for _, passthrough := range []bool{false, true} {
-				g, _ := newGate(t, gateSetup{subjects: 256, tools: 20, passthrough: passthrough, stateless: backend.stateless})
+				g, _ := newTarget(t, targetSetup{subjects: 256, tools: 20, passthrough: passthrough, stateless: backend.stateless})
 				tokens := make([]string, 256)
 				for i := range tokens {
 					tokens[i] = g.issuer.token(t, fmt.Sprintf("subject-%d", i))
@@ -451,7 +451,7 @@ func TestLoad(t *testing.T) {
 	})
 
 	t.Run("list", func(t *testing.T) {
-		g, backend := newGate(t, gateSetup{subjects: 1, tools: 50})
+		g, backend := newTarget(t, targetSetup{subjects: 1, tools: 50})
 		token := g.issuer.token(t, "subject-0")
 		list := func(url string, tok string) func(i int) op {
 			return func(int) op {
@@ -475,7 +475,7 @@ func TestLoad(t *testing.T) {
 	// stream, by a subject of its own, which gets a server of its own.
 	t.Run("idle sessions", func(t *testing.T) {
 		const n = 1000
-		g, backend := newGate(t, gateSetup{subjects: n, tools: 20})
+		g, backend := newTarget(t, targetSetup{subjects: n, tools: 20})
 		tokens := make([]string, n)
 		for i := range tokens {
 			tokens[i] = g.issuer.token(t, fmt.Sprintf("subject-%d", i))
@@ -512,7 +512,7 @@ func TestLoad(t *testing.T) {
 	})
 
 	t.Run("a session per call", func(t *testing.T) {
-		g, backend := newGate(t, gateSetup{subjects: 1, tools: 20})
+		g, backend := newTarget(t, targetSetup{subjects: 1, tools: 20})
 		token := g.issuer.token(t, "subject-0")
 		once := func(url, tok string) func(int) op {
 			return func(int) op {

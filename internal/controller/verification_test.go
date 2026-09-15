@@ -9,8 +9,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	gatev1alpha1 "forgejo.metapatrol.local/platform/mcp-gate/api/v1alpha1"
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/mcptest"
+	mcpv1alpha1 "forgejo.metapatrol.local/platform/mcp-gateway/api/v1alpha1"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/mcptest"
 )
 
 // discovered registers a real backend and reads its catalog, so the tool set
@@ -31,9 +31,9 @@ func TestMCPToolSetReconciler_AllToolsPresent(t *testing.T) {
 
 	reconcileNamed(t, r, "analysis")
 
-	ts := get(t, c, "analysis", &gatev1alpha1.MCPToolSet{})
-	assert.Equal(t, metav1.ConditionTrue, condition(t, ts.Status.Conditions, gatev1alpha1.ConditionValid).Status)
-	assert.Equal(t, metav1.ConditionTrue, condition(t, ts.Status.Conditions, gatev1alpha1.ConditionReady).Status)
+	ts := get(t, c, "analysis", &mcpv1alpha1.MCPToolSet{})
+	assert.Equal(t, metav1.ConditionTrue, condition(t, ts.Status.Conditions, mcpv1alpha1.ConditionValid).Status)
+	assert.Equal(t, metav1.ConditionTrue, condition(t, ts.Status.Conditions, mcpv1alpha1.ConditionReady).Status)
 	assert.Empty(t, ts.Status.MissingTools)
 	assert.NotEmpty(t, ts.Status.CatalogRevision)
 }
@@ -48,11 +48,11 @@ func TestMCPToolSetReconciler_MissingTool(t *testing.T) {
 
 	reconcileNamed(t, r, "analysis")
 
-	ts := get(t, c, "analysis", &gatev1alpha1.MCPToolSet{})
-	assert.Equal(t, metav1.ConditionTrue, condition(t, ts.Status.Conditions, gatev1alpha1.ConditionValid).Status)
-	ready := condition(t, ts.Status.Conditions, gatev1alpha1.ConditionReady)
+	ts := get(t, c, "analysis", &mcpv1alpha1.MCPToolSet{})
+	assert.Equal(t, metav1.ConditionTrue, condition(t, ts.Status.Conditions, mcpv1alpha1.ConditionValid).Status)
+	ready := condition(t, ts.Status.Conditions, mcpv1alpha1.ConditionReady)
 	assert.Equal(t, metav1.ConditionFalse, ready.Status)
-	assert.Equal(t, gatev1alpha1.ReasonMissingTools, ready.Reason)
+	assert.Equal(t, mcpv1alpha1.ReasonMissingTools, ready.Reason)
 	assert.Equal(t, `"symbol_search" is not currently exposed by source-intelligence`, ready.Message)
 	assert.Equal(t, []string{"symbol_search"}, ts.Status.MissingTools)
 }
@@ -64,18 +64,18 @@ func TestMCPToolSetReconciler_ServerDoesNotExist(t *testing.T) {
 
 	reconcileNamed(t, r, "analysis")
 
-	ts := get(t, c, "analysis", &gatev1alpha1.MCPToolSet{})
-	valid := condition(t, ts.Status.Conditions, gatev1alpha1.ConditionValid)
+	ts := get(t, c, "analysis", &mcpv1alpha1.MCPToolSet{})
+	valid := condition(t, ts.Status.Conditions, mcpv1alpha1.ConditionValid)
 	assert.Equal(t, metav1.ConditionFalse, valid.Status)
-	assert.Equal(t, gatev1alpha1.ReasonServerNotFound, valid.Reason)
-	assert.Equal(t, metav1.ConditionFalse, condition(t, ts.Status.Conditions, gatev1alpha1.ConditionReady).Status)
+	assert.Equal(t, mcpv1alpha1.ReasonServerNotFound, valid.Reason)
+	assert.Equal(t, metav1.ConditionFalse, condition(t, ts.Status.Conditions, mcpv1alpha1.ConditionReady).Status)
 }
 
 // backend unavailable -> Valid=True, Ready=False
 func TestMCPToolSetReconciler_ServerUnavailable(t *testing.T) {
 	server := mcpServer("source-intelligence", "http://x/mcp")
 	server.Status.Conditions = []metav1.Condition{{
-		Type: gatev1alpha1.ConditionReady, Status: metav1.ConditionFalse, Reason: gatev1alpha1.ReasonDiscoveryFailed,
+		Type: mcpv1alpha1.ConditionReady, Status: metav1.ConditionFalse, Reason: mcpv1alpha1.ReasonDiscoveryFailed,
 		Message: "connection refused", ObservedGeneration: 1,
 	}}
 	c := newFakeClient(server, mcpToolSet("analysis", "source-intelligence", "source_search"))
@@ -83,11 +83,11 @@ func TestMCPToolSetReconciler_ServerUnavailable(t *testing.T) {
 
 	reconcileNamed(t, r, "analysis")
 
-	ts := get(t, c, "analysis", &gatev1alpha1.MCPToolSet{})
-	assert.Equal(t, metav1.ConditionTrue, condition(t, ts.Status.Conditions, gatev1alpha1.ConditionValid).Status)
-	ready := condition(t, ts.Status.Conditions, gatev1alpha1.ConditionReady)
+	ts := get(t, c, "analysis", &mcpv1alpha1.MCPToolSet{})
+	assert.Equal(t, metav1.ConditionTrue, condition(t, ts.Status.Conditions, mcpv1alpha1.ConditionValid).Status)
+	ready := condition(t, ts.Status.Conditions, mcpv1alpha1.ConditionReady)
 	assert.Equal(t, metav1.ConditionFalse, ready.Status)
-	assert.Equal(t, gatev1alpha1.ReasonServerUnavailable, ready.Reason)
+	assert.Equal(t, mcpv1alpha1.ReasonServerUnavailable, ready.Reason)
 	assert.Contains(t, ready.Message, "connection refused")
 }
 
@@ -100,14 +100,14 @@ func TestMCPToolSetReconciler_CatalogPendingKeepsThePreviousVerdict(t *testing.T
 
 	res := reconcileNamed(t, r, "analysis")
 	assert.Equal(t, requeueCatalogPending, res.RequeueAfter)
-	got := get(t, c, "analysis", &gatev1alpha1.MCPToolSet{})
-	assert.Equal(t, metav1.ConditionTrue, condition(t, got.Status.Conditions, gatev1alpha1.ConditionReady).Status)
+	got := get(t, c, "analysis", &mcpv1alpha1.MCPToolSet{})
+	assert.Equal(t, metav1.ConditionTrue, condition(t, got.Status.Conditions, mcpv1alpha1.ConditionReady).Status)
 
 	fresh := mcpToolSet("fresh", "source-intelligence", "source_search")
 	require.NoError(t, c.Create(context.Background(), fresh))
 	reconcileNamed(t, r, "fresh")
-	got = get(t, c, "fresh", &gatev1alpha1.MCPToolSet{})
-	assert.Equal(t, metav1.ConditionUnknown, condition(t, got.Status.Conditions, gatev1alpha1.ConditionReady).Status)
+	got = get(t, c, "fresh", &mcpv1alpha1.MCPToolSet{})
+	assert.Equal(t, metav1.ConditionUnknown, condition(t, got.Status.Conditions, mcpv1alpha1.ConditionReady).Status)
 }
 
 func TestMCPCapabilityReconciler(t *testing.T) {
@@ -118,9 +118,9 @@ func TestMCPCapabilityReconciler(t *testing.T) {
 			mcpCapability("both", "a-tools", "b-tools"))
 		reconcileNamed(t, &MCPCapabilityReconciler{Client: c, Scheme: c.Scheme()}, "both")
 
-		cp := get(t, c, "both", &gatev1alpha1.MCPCapability{})
-		assert.Equal(t, metav1.ConditionTrue, condition(t, cp.Status.Conditions, gatev1alpha1.ConditionValid).Status)
-		assert.Equal(t, metav1.ConditionTrue, condition(t, cp.Status.Conditions, gatev1alpha1.ConditionReady).Status)
+		cp := get(t, c, "both", &mcpv1alpha1.MCPCapability{})
+		assert.Equal(t, metav1.ConditionTrue, condition(t, cp.Status.Conditions, mcpv1alpha1.ConditionValid).Status)
+		assert.Equal(t, metav1.ConditionTrue, condition(t, cp.Status.Conditions, mcpv1alpha1.ConditionReady).Status)
 	})
 
 	t.Run("a tool set does not exist", func(t *testing.T) {
@@ -128,12 +128,12 @@ func TestMCPCapabilityReconciler(t *testing.T) {
 			mcpCapability("both", "a-tools", "missing"))
 		reconcileNamed(t, &MCPCapabilityReconciler{Client: c, Scheme: c.Scheme()}, "both")
 
-		cp := get(t, c, "both", &gatev1alpha1.MCPCapability{})
-		valid := condition(t, cp.Status.Conditions, gatev1alpha1.ConditionValid)
+		cp := get(t, c, "both", &mcpv1alpha1.MCPCapability{})
+		valid := condition(t, cp.Status.Conditions, mcpv1alpha1.ConditionValid)
 		assert.Equal(t, metav1.ConditionFalse, valid.Status)
-		assert.Equal(t, gatev1alpha1.ReasonToolSetNotFound, valid.Reason)
+		assert.Equal(t, mcpv1alpha1.ReasonToolSetNotFound, valid.Reason)
 		assert.Contains(t, valid.Message, `"missing"`)
-		assert.Equal(t, gatev1alpha1.ReasonInvalid, condition(t, cp.Status.Conditions, gatev1alpha1.ConditionReady).Reason)
+		assert.Equal(t, mcpv1alpha1.ReasonInvalid, condition(t, cp.Status.Conditions, mcpv1alpha1.ConditionReady).Reason)
 	})
 
 	t.Run("a tool set is not ready", func(t *testing.T) {
@@ -143,10 +143,10 @@ func TestMCPCapabilityReconciler(t *testing.T) {
 			mcpCapability("both", "a-tools", "b-tools"))
 		reconcileNamed(t, &MCPCapabilityReconciler{Client: c, Scheme: c.Scheme()}, "both")
 
-		cp := get(t, c, "both", &gatev1alpha1.MCPCapability{})
-		assert.Equal(t, metav1.ConditionTrue, condition(t, cp.Status.Conditions, gatev1alpha1.ConditionValid).Status)
-		ready := condition(t, cp.Status.Conditions, gatev1alpha1.ConditionReady)
-		assert.Equal(t, gatev1alpha1.ReasonToolSetNotReady, ready.Reason)
+		cp := get(t, c, "both", &mcpv1alpha1.MCPCapability{})
+		assert.Equal(t, metav1.ConditionTrue, condition(t, cp.Status.Conditions, mcpv1alpha1.ConditionValid).Status)
+		ready := condition(t, cp.Status.Conditions, mcpv1alpha1.ConditionReady)
+		assert.Equal(t, mcpv1alpha1.ReasonToolSetNotReady, ready.Reason)
 		assert.Contains(t, ready.Message, `"b-tools"`)
 		assert.NotContains(t, ready.Message, `"a-tools"`)
 	})
@@ -158,9 +158,9 @@ func TestMCPCapabilityReconciler(t *testing.T) {
 			mcpCapability("both", "memory", "code"))
 		reconcileNamed(t, &MCPCapabilityReconciler{Client: c, Scheme: c.Scheme()}, "both")
 
-		cp := get(t, c, "both", &gatev1alpha1.MCPCapability{})
-		valid := condition(t, cp.Status.Conditions, gatev1alpha1.ConditionValid)
-		assert.Equal(t, gatev1alpha1.ReasonToolNameConflict, valid.Reason)
+		cp := get(t, c, "both", &mcpv1alpha1.MCPCapability{})
+		valid := condition(t, cp.Status.Conditions, mcpv1alpha1.ConditionValid)
+		assert.Equal(t, mcpv1alpha1.ReasonToolNameConflict, valid.Reason)
 		assert.Equal(t, `"search" is exposed by engram/search and source-intelligence/search; the gateway exposes none of them`, valid.Message)
 	})
 
@@ -171,8 +171,8 @@ func TestMCPCapabilityReconciler(t *testing.T) {
 		c := newFakeClient(readyServer("a"), ts, mcpCapability("cap", "a-tools"))
 		reconcileNamed(t, &MCPCapabilityReconciler{Client: c, Scheme: c.Scheme()}, "cap")
 
-		cp := get(t, c, "cap", &gatev1alpha1.MCPCapability{})
-		assert.Equal(t, metav1.ConditionFalse, condition(t, cp.Status.Conditions, gatev1alpha1.ConditionReady).Status)
+		cp := get(t, c, "cap", &mcpv1alpha1.MCPCapability{})
+		assert.Equal(t, metav1.ConditionFalse, condition(t, cp.Status.Conditions, mcpv1alpha1.ConditionReady).Status)
 	})
 }
 
@@ -191,9 +191,9 @@ func TestMCPGrantReconciler(t *testing.T) {
 		c := newFakeClient(objects(base(), mcpGrant("g", "agent", "ca"))...)
 		reconcileNamed(t, &MCPGrantReconciler{Client: c, Scheme: c.Scheme()}, "g")
 
-		g := get(t, c, "g", &gatev1alpha1.MCPGrant{})
-		assert.Equal(t, metav1.ConditionTrue, condition(t, g.Status.Conditions, gatev1alpha1.ConditionValid).Status)
-		assert.Equal(t, metav1.ConditionTrue, condition(t, g.Status.Conditions, gatev1alpha1.ConditionReady).Status)
+		g := get(t, c, "g", &mcpv1alpha1.MCPGrant{})
+		assert.Equal(t, metav1.ConditionTrue, condition(t, g.Status.Conditions, mcpv1alpha1.ConditionValid).Status)
+		assert.Equal(t, metav1.ConditionTrue, condition(t, g.Status.Conditions, mcpv1alpha1.ConditionReady).Status)
 	})
 
 	// Invalid grant: a grant referencing a missing capability must report
@@ -202,20 +202,20 @@ func TestMCPGrantReconciler(t *testing.T) {
 		c := newFakeClient(objects(base(), mcpGrant("g", "agent", "ca", "typo"))...)
 		reconcileNamed(t, &MCPGrantReconciler{Client: c, Scheme: c.Scheme()}, "g")
 
-		g := get(t, c, "g", &gatev1alpha1.MCPGrant{})
-		valid := condition(t, g.Status.Conditions, gatev1alpha1.ConditionValid)
+		g := get(t, c, "g", &mcpv1alpha1.MCPGrant{})
+		valid := condition(t, g.Status.Conditions, mcpv1alpha1.ConditionValid)
 		assert.Equal(t, metav1.ConditionFalse, valid.Status)
-		assert.Equal(t, gatev1alpha1.ReasonCapabilityNotFound, valid.Reason)
+		assert.Equal(t, mcpv1alpha1.ReasonCapabilityNotFound, valid.Reason)
 		assert.Equal(t, `MCPCapability "typo" does not exist and grants nothing`, valid.Message)
-		assert.Equal(t, metav1.ConditionFalse, condition(t, g.Status.Conditions, gatev1alpha1.ConditionReady).Status)
+		assert.Equal(t, metav1.ConditionFalse, condition(t, g.Status.Conditions, mcpv1alpha1.ConditionReady).Status)
 	})
 
 	t.Run("its own capabilities conflict", func(t *testing.T) {
 		c := newFakeClient(objects(base(), mcpGrant("g", "agent", "ca", "cb"))...)
 		reconcileNamed(t, &MCPGrantReconciler{Client: c, Scheme: c.Scheme()}, "g")
 
-		g := get(t, c, "g", &gatev1alpha1.MCPGrant{})
-		assert.Equal(t, gatev1alpha1.ReasonToolNameConflict, condition(t, g.Status.Conditions, gatev1alpha1.ConditionValid).Reason)
+		g := get(t, c, "g", &mcpv1alpha1.MCPGrant{})
+		assert.Equal(t, mcpv1alpha1.ReasonToolNameConflict, condition(t, g.Status.Conditions, mcpv1alpha1.ConditionValid).Reason)
 	})
 
 	// Two grants, each valid on its own, give one subject two tools under one
@@ -228,14 +228,14 @@ func TestMCPGrantReconciler(t *testing.T) {
 		}
 
 		for _, name := range []string{"first", "second"} {
-			g := get(t, c, name, &gatev1alpha1.MCPGrant{})
-			assert.Equal(t, metav1.ConditionTrue, condition(t, g.Status.Conditions, gatev1alpha1.ConditionValid).Status, name)
-			ready := condition(t, g.Status.Conditions, gatev1alpha1.ConditionReady)
-			assert.Equal(t, gatev1alpha1.ReasonToolNameConflict, ready.Reason, name)
+			g := get(t, c, name, &mcpv1alpha1.MCPGrant{})
+			assert.Equal(t, metav1.ConditionTrue, condition(t, g.Status.Conditions, mcpv1alpha1.ConditionValid).Status, name)
+			ready := condition(t, g.Status.Conditions, mcpv1alpha1.ConditionReady)
+			assert.Equal(t, mcpv1alpha1.ReasonToolNameConflict, ready.Reason, name)
 			assert.Contains(t, ready.Message, `"shared"`)
 		}
-		other := get(t, c, "other", &gatev1alpha1.MCPGrant{})
-		assert.Equal(t, metav1.ConditionTrue, condition(t, other.Status.Conditions, gatev1alpha1.ConditionReady).Status)
+		other := get(t, c, "other", &mcpv1alpha1.MCPGrant{})
+		assert.Equal(t, metav1.ConditionTrue, condition(t, other.Status.Conditions, mcpv1alpha1.ConditionReady).Status)
 	})
 
 	t.Run("a capability is not ready", func(t *testing.T) {
@@ -244,8 +244,8 @@ func TestMCPGrantReconciler(t *testing.T) {
 		c := newFakeClient(objects(objs, mcpGrant("g", "agent", "cb"))...)
 		reconcileNamed(t, &MCPGrantReconciler{Client: c, Scheme: c.Scheme()}, "g")
 
-		g := get(t, c, "g", &gatev1alpha1.MCPGrant{})
-		assert.Equal(t, gatev1alpha1.ReasonCapabilityNotReady, condition(t, g.Status.Conditions, gatev1alpha1.ConditionReady).Reason)
+		g := get(t, c, "g", &mcpv1alpha1.MCPGrant{})
+		assert.Equal(t, mcpv1alpha1.ReasonCapabilityNotReady, condition(t, g.Status.Conditions, mcpv1alpha1.ConditionReady).Reason)
 	})
 }
 
@@ -253,10 +253,10 @@ func TestStatusIsNotRewrittenWhenNothingChanged(t *testing.T) {
 	c := newFakeClient(readyServer("a"), withReady(mcpToolSet("a-tools", "a", "one"), true), mcpCapability("cap", "a-tools"))
 	r := &MCPCapabilityReconciler{Client: c, Scheme: c.Scheme()}
 	reconcileNamed(t, r, "cap")
-	first := get(t, c, "cap", &gatev1alpha1.MCPCapability{})
+	first := get(t, c, "cap", &mcpv1alpha1.MCPCapability{})
 
 	reconcileNamed(t, r, "cap")
-	second := get(t, c, "cap", &gatev1alpha1.MCPCapability{})
+	second := get(t, c, "cap", &mcpv1alpha1.MCPCapability{})
 	assert.Equal(t, first.ResourceVersion, second.ResourceVersion)
 }
 

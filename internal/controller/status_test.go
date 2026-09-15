@@ -7,7 +7,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 
-	"forgejo.metapatrol.local/platform/mcp-gate/internal/metrics"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/metrics"
 )
 
 func tally(kind, ready string) float64 {

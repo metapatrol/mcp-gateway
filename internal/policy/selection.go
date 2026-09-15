@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	gatev1alpha1 "forgejo.metapatrol.local/platform/mcp-gate/api/v1alpha1"
+	mcpv1alpha1 "forgejo.metapatrol.local/platform/mcp-gateway/api/v1alpha1"
 )
 
 // A tool set selects tools with names and glob patterns.
@@ -54,7 +54,7 @@ func Match(pattern, name string) bool {
 // alias if it has one, the prefix and the backend's name otherwise. It is the
 // one place a tool set renames anything; resolution and authorisation both go
 // through it.
-func Exposed(spec gatev1alpha1.MCPToolSetSpec, tool string) string {
+func Exposed(spec mcpv1alpha1.MCPToolSetSpec, tool string) string {
 	if alias, ok := spec.Aliases[tool]; ok {
 		return string(alias)
 	}
@@ -64,7 +64,7 @@ func Exposed(spec gatev1alpha1.MCPToolSetSpec, tool string) string {
 // backendNames returns the backend tools a tool set would expose under name,
 // if it selected them: Exposed inverted. There are at most a few — an alias,
 // and the name without the prefix unless that tool has an alias of its own.
-func backendNames(spec gatev1alpha1.MCPToolSetSpec, name string) []string {
+func backendNames(spec mcpv1alpha1.MCPToolSetSpec, name string) []string {
 	var out []string
 	for tool, alias := range spec.Aliases {
 		if string(alias) == name {
@@ -109,7 +109,7 @@ type Selection struct {
 }
 
 // Select resolves a tool set against the tool names a catalog holds.
-func Select(spec gatev1alpha1.MCPToolSetSpec, available []string) Selection {
+func Select(spec mcpv1alpha1.MCPToolSetSpec, available []string) Selection {
 	var sel Selection
 	selected := map[string]bool{}
 	named := map[string]bool{}
@@ -183,7 +183,7 @@ type claim struct {
 // it does not appear the moment the second backend happens to come up. Patterns
 // can only be expanded against what a backend offers, so a conflict they cause
 // appears when the backend offers the tool.
-func claims(spec gatev1alpha1.MCPToolSetSpec, available []string) []claim {
+func claims(spec mcpv1alpha1.MCPToolSetSpec, available []string) []claim {
 	var tools []string
 	for _, entry := range spec.Tools {
 		if !IsPattern(entry) {
@@ -209,7 +209,7 @@ func claims(spec gatev1alpha1.MCPToolSetSpec, available []string) []claim {
 // claimsTool reports whether a tool set lays claim to one backend tool, by the
 // same rules as claims. available is only consulted for a tool a pattern
 // matches, which is the one case the catalog decides.
-func claimsTool(spec gatev1alpha1.MCPToolSetSpec, tool string, available func() []string) bool {
+func claimsTool(spec mcpv1alpha1.MCPToolSetSpec, tool string, available func() []string) bool {
 	if excluded(spec, tool) {
 		return false
 	}
@@ -228,7 +228,7 @@ func claimsTool(spec gatev1alpha1.MCPToolSetSpec, tool string, available func() 
 	return patternMatches && slices.Contains(available(), tool)
 }
 
-func excluded(spec gatev1alpha1.MCPToolSetSpec, name string) bool {
+func excluded(spec mcpv1alpha1.MCPToolSetSpec, name string) bool {
 	for _, pattern := range spec.Exclude {
 		if Match(pattern, name) {
 			return true
