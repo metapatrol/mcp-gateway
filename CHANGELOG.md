@@ -1,3 +1,16 @@
+# [1.4.0](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gate/compare/v1.3.2...v1.4.0) (2026-09-15)
+
+
+* feat(gateway)!: speak MCP 2026-07-28 to agents, and nothing older ([28ad4d2](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gate/commit/28ad4d291d60cd579f565c164ccc8e20d9bd3e99))
+
+
+### BREAKING CHANGES
+
+* agents must speak MCP 2026-07-28; clients of the session-based
+protocol versions are refused. The --stateless and --session-timeout flags and
+the chart values gateway.stateless and gateway.sessionTimeout are removed: the
+gateway is always stateless.
+
 ## [1.3.2](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gate/compare/v1.3.1...v1.3.2) (2026-09-14)
 
 
