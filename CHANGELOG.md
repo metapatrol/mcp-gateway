@@ -1,3 +1,21 @@
+# [1.5.0](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gate/compare/v1.4.1...v1.5.0) (2026-09-15)
+
+
+### Bug Fixes
+
+* **deps:** update github.com/lestrrat-go/jwx to v4, on Go 1.27 ([4e4c1cc](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gate/commit/4e4c1cc3f1c798dab9e0a25bc7b0b847eaa6b7a4))
+
+
+### Features
+
+* **gateway:** relay a backend's progress to the agent that asked for it ([196e187](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gate/commit/196e1874e053ba36dcbf3b44f0e8c401b4a4464c))
+* **toolset:** offer tools under a prefix or aliases ([89647e4](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gate/commit/89647e437f115c71210846cb3c7e864ca5573402)), closes [#6](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gate/issues/6)
+
+
+### Performance Improvements
+
+* **discovery:** send Passthrough calls to MCP 2026-07-28 backends on the shared connection ([54a7389](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gate/commit/54a7389e87107bb30719f997213bb51d8d93c0a5)), closes [#8](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gate/issues/8)
+
 ## [1.4.1](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gate/compare/v1.4.0...v1.4.1) (2026-09-15)
 
 

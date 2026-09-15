@@ -2,8 +2,8 @@ apiVersion: v2
 name: mcp-gate-grafana-dashboard
 description: Grafana dashboard for mcp-gate (deployed as a ConfigMap for the Grafana sidecar)
 type: application
-version: 1.4.1
-appVersion: "1.4.1"
+version: 1.5.0
+appVersion: "1.5.0"
 keywords:
   - mcp-gate
   - grafana
