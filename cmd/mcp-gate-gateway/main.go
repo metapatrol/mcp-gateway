@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -130,7 +129,7 @@ func main() {
 	var catalogs *gateway.CatalogReconciler
 	registry := discovery.NewRegistry(discovery.Options{
 		Implementation: &mcp.Implementation{Name: "mcp-gate-gateway", Version: version},
-		HTTPClient:     &http.Client{Transport: http.DefaultTransport.(*http.Transport).Clone()},
+		HTTPClient:     discovery.NewHTTPClient(),
 		ConnectTimeout: connectTimeout,
 		OnToolsChanged: func(server string) { catalogs.Announce(server) },
 		Secrets:        secrets,

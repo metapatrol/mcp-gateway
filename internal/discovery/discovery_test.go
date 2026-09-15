@@ -10,6 +10,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"slices"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -399,4 +400,37 @@ func requireAnnounced(t *testing.T, backend *mcptest.Backend, announced chan str
 			}
 		}
 	}, 20*time.Second, 10*time.Millisecond)
+}
+
+// Every tool call is a request of its own, so a burst of concurrent calls opens
+// as many connections as it has calls. The next burst must find them open
+// rather than open them again.
+func TestRegistry_ReusesConnectionsToABackend(t *testing.T) {
+	backend := mcptest.NewBackend(t, "artifact", "artifact_get")
+	backend.Guard(func(r *http.Request) int {
+		if mcptest.RPCMethod(r) == "tools/call" {
+			time.Sleep(20 * time.Millisecond) // long enough for the calls to overlap
+		}
+		return 0
+	})
+	r := newTestRegistry(t, Options{})
+	b := r.Ensure("artifact", backend.URL, nil)
+
+	burst := func() {
+		var wg sync.WaitGroup
+		for range 32 {
+			wg.Go(func() {
+				_, err := b.CallTool(context.Background(), &mcp.CallToolParams{Name: "artifact_get"})
+				assert.NoError(t, err)
+			})
+		}
+		wg.Wait()
+	}
+	burst()
+	opened := backend.Connections.Load()
+	require.Greater(t, opened, int64(8), "the calls of a burst run at once")
+	for range 3 {
+		burst()
+	}
+	assert.LessOrEqual(t, backend.Connections.Load()-opened, int64(4), "later bursts reuse the connections of the first")
 }

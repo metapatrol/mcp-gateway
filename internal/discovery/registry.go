@@ -21,8 +21,8 @@ type Options struct {
 	Implementation *mcp.Implementation
 
 	// HTTPClient carries the traffic to backends. It must not set a Timeout:
-	// a Streamable HTTP session keeps a GET open for server notifications,
-	// and a client-wide timeout would cut it. Deadlines come from contexts.
+	// notification streams stay open, and a client-wide timeout would cut
+	// them. Deadlines come from contexts. Defaults to NewHTTPClient.
 	HTTPClient *http.Client
 
 	// ConnectTimeout bounds the handshake with a backend. Defaults to 10s.
@@ -63,7 +63,7 @@ func NewRegistry(opts Options) *Registry {
 		opts.Implementation = &mcp.Implementation{Name: "mcp-gate"}
 	}
 	if opts.HTTPClient == nil {
-		opts.HTTPClient = &http.Client{}
+		opts.HTTPClient = NewHTTPClient()
 	}
 	if opts.ConnectTimeout <= 0 {
 		opts.ConnectTimeout = 10 * time.Second

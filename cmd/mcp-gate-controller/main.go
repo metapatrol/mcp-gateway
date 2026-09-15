@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"os"
 	"time"
 
@@ -91,7 +90,7 @@ func main() {
 	var servers *controller.MCPServerReconciler
 	registry := discovery.NewRegistry(discovery.Options{
 		Implementation: &mcp.Implementation{Name: "mcp-gate-controller", Version: version},
-		HTTPClient:     &http.Client{Transport: http.DefaultTransport.(*http.Transport).Clone()},
+		HTTPClient:     discovery.NewHTTPClient(),
 		ConnectTimeout: connectTimeout,
 		OnToolsChanged: func(server string) { servers.Announce(server) },
 		Secrets:        secrets,

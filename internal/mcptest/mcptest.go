@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -29,6 +30,9 @@ type Backend struct {
 
 	// Calls counts tool calls that reached this backend.
 	Calls atomic.Int64
+
+	// Connections counts the TCP connections clients opened to this backend.
+	Connections atomic.Int64
 
 	// instructions are what the server returns on initialize. They are fixed
 	// when a server is installed, so a change takes a Restart — as it does for
@@ -76,7 +80,13 @@ func NewBackendWithInstructions(t testing.TB, name, instructions string, tools .
 func newBackend(t testing.TB, b *Backend, tools []string) *Backend {
 	t.Helper()
 	b.install(tools)
-	b.http = httptest.NewServer(http.HandlerFunc(b.serve))
+	b.http = httptest.NewUnstartedServer(http.HandlerFunc(b.serve))
+	b.http.Config.ConnState = func(_ net.Conn, state http.ConnState) {
+		if state == http.StateNew {
+			b.Connections.Add(1)
+		}
+	}
+	b.http.Start()
 	b.URL = b.http.URL
 	t.Cleanup(b.Close)
 	return b

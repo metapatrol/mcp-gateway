@@ -147,7 +147,7 @@ func newGate(t *testing.T, setup gateSetup) (*gate, *mcptest.Backend) {
 	// The gateway's own client to the backend is built as its main builds it,
 	// so connection reuse towards backends is measured as it is in production.
 	registry := discovery.NewRegistry(discovery.Options{
-		HTTPClient:     &http.Client{Transport: http.DefaultTransport.(*http.Transport).Clone()},
+		HTTPClient:     discovery.NewHTTPClient(),
 		ConnectTimeout: 10 * time.Second,
 	})
 	t.Cleanup(registry.Close)
@@ -511,4 +511,3 @@ func TestLoad(t *testing.T) {
 		rep.add(t, measure(t, "connect + call + close, through the gateway", 16, once(g.url, token)))
 	})
 }
-
