@@ -389,13 +389,18 @@ func TestAuth_PassthroughCallsAsTheCaller(t *testing.T) {
 	assert.Equal(t, "memory/memory_search {} as alice", callText(t, res))
 
 	assert.Equal(t, 2, b.callerSessions(), "one session per caller token, reused")
-	assert.Equal(t, 3, seen.count("initialize"), "the shared session and one per caller")
+	for _, authorization := range seen.authorizations("initialize") {
+		assert.NotEmpty(t, authorization)
+	}
+	assert.Equal(t, 1, count(seen.authorizations("initialize"), "Bearer alice-token"), "alice's session is reused")
+	assert.Equal(t, 1, count(seen.authorizations("initialize"), "Bearer bob-token"))
 	for _, authorization := range seen.authorizations("tools/call") {
 		assert.NotEqual(t, "Bearer discovery-key", authorization, "tool calls never carry the discovery credential")
 	}
 
-	// The shared session opens the notification stream; caller sessions do
-	// not, since one stream per backend is all it takes to hear about changes.
+	// The listener opens the notification stream, with the discovery
+	// credential; the connections that make requests do not, since one stream
+	// per backend is all it takes to hear about changes.
 	require.Eventually(t, func() bool { return seen.count(http.MethodGet) > 0 }, 5*time.Second, 20*time.Millisecond)
 	time.Sleep(100 * time.Millisecond)
 	for _, authorization := range seen.authorizations(http.MethodGet) {
@@ -532,4 +537,14 @@ func TestAuthFailuresAreNotSessionLoss(t *testing.T) {
 	assert.False(t, sessionGone(fmt.Errorf("sending: %w: %w", errRejected, &RefusedError{StatusCode: 401})))
 	assert.False(t, sessionGone(fmt.Errorf("sending: %w: %w", errRejected, &CredentialError{Err: errors.New("no secret")})))
 	assert.True(t, sessionGone(fmt.Errorf("sending: %w", errRejected)))
+}
+
+func count(values []string, want string) int {
+	n := 0
+	for _, v := range values {
+		if v == want {
+			n++
+		}
+	}
+	return n
 }

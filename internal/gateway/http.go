@@ -40,14 +40,6 @@ type HandlerOptions struct {
 	// the gateway authorises by MCPGrant, not by scope.
 	ScopesSupported []string
 
-	// Stateless serves every request without a session. Any replica can then
-	// answer any request, at the price of change notifications, which need a
-	// session to be delivered on.
-	Stateless bool
-
-	// SessionTimeout closes sessions that saw no request for this long.
-	SessionTimeout time.Duration
-
 	// Logger receives the SDK's transport logging. Nil discards it.
 	Logger *slog.Logger
 }
@@ -85,9 +77,14 @@ func (g *Gateway) Handler(opts HandlerOptions) (http.Handler, error) {
 	}
 
 	streamable := mcp.NewStreamableHTTPHandler(g.serverForRequest, &mcp.StreamableHTTPOptions{
-		Stateless:      opts.Stateless,
-		SessionTimeout: opts.SessionTimeout,
-		Logger:         opts.Logger,
+		// MCP 2026-07-28 has no sessions: every request stands on its own, and
+		// a client that wants to hear about changes holds a subscriptions/listen
+		// stream open. Any replica answers any request, and every replica
+		// keeps each subject's tools in step with the API on its own, so a
+		// listen stream on one replica learns what a grant change on any of
+		// them means. The SDK serves that protocol only on a stateless handler.
+		Stateless: true,
+		Logger:    opts.Logger,
 		// The SDK refuses requests that arrive over loopback with a foreign
 		// Host header, against DNS rebinding. That defends an endpoint a
 		// browser could use unauthenticated, which this one is not — every

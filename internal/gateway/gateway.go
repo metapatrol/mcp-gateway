@@ -1,15 +1,23 @@
 // Package gateway is the data plane: one MCP endpoint in front of every
 // registered backend, serving each caller exactly the tools its grants allow.
 //
+// # Protocol
+//
+// Agents speak MCP 2026-07-28 to the gateway, and nothing older. That version
+// has no sessions: each request carries its own identity and is answered on its
+// own, which is what lets any number of replicas stand behind one Service
+// without pinning a client to one of them. Clients of the session-based
+// versions are refused; the gateway keeps no compatibility layer for a
+// superseded specification.
+//
 // # Shape
 //
-// The gateway keeps one MCP server per subject, not per session. All sessions
-// of a subject see the same tools, so they share a server; the server's tool
-// list is kept equal to what the subject's grants resolve to against the
-// catalogs currently usable. When either side changes — a grant is edited, a
-// backend publishes a new catalog, a backend has been down too long — the list
-// is recomputed, and the SDK tells every connected session of that subject that
-// its tools changed.
+// The gateway keeps one MCP server per subject. Every request of a subject is
+// served by it, and its tool list is kept equal to what the subject's grants
+// resolve to against the catalogs currently usable. When either side changes —
+// a grant is edited, a backend publishes a new catalog, a backend has been down
+// too long — the list is recomputed, and the SDK tells every subscriptions/listen
+// stream the subject holds open that its tools changed.
 //
 // # Enforcement
 //
@@ -63,8 +71,8 @@ type Options struct {
 	// CallTimeout bounds a forwarded tool call. Defaults to 5m.
 	CallTimeout time.Duration
 
-	// IdleServerTTL is how long the per-subject server of a subject with no
-	// open session is kept. Defaults to 10m.
+	// IdleServerTTL is how long the per-subject server of a subject that sends
+	// no requests, and holds no listen stream open, is kept. Defaults to 10m.
 	IdleServerTTL time.Duration
 
 	// Logger receives audit records and the gateway's own logging.
@@ -194,11 +202,16 @@ func (g *Gateway) idle(ss *subjectServer, now time.Time) bool {
 	if now.Sub(ss.lastUsed) < g.opts.IdleServerTTL {
 		return false
 	}
+	// A request in flight, a listen stream above all, is a session to the
+	// SDK for as long as it lasts.
 	for range ss.server.Sessions() {
 		return false
 	}
 	return true
 }
+
+// ProtocolVersion is the one MCP version the gateway speaks to agents.
+const ProtocolVersion = "2026-07-28"
 
 // serverFor returns the MCP server of a subject, creating and populating it on
 // first use. It is the getServer function of the Streamable HTTP handler.
@@ -210,8 +223,8 @@ func (g *Gateway) serverFor(subject string) *mcp.Server {
 		ss = &subjectServer{
 			server: mcp.NewServer(g.opts.Implementation, &mcp.ServerOptions{
 				// No Instructions here: they depend on what the subject may use
-				// at the moment a session starts, and forwardInstructions writes
-				// them into each answer instead.
+				// at the moment it asks, and forwardInstructions writes them into
+				// each answer instead.
 				//
 				// Tools, with change notifications — and nothing else. The
 				// SDK advertises logging by default, which the gateway does
@@ -223,6 +236,7 @@ func (g *Gateway) serverFor(subject string) *mcp.Server {
 				SetCacheable: func(_ context.Context, _ mcp.Request, c *mcp.Cacheable) {
 					c.CacheScope = "private"
 				},
+				SupportedProtocolVersions: []string{ProtocolVersion},
 			}),
 			tools: map[string]exposed{},
 		}
@@ -251,8 +265,7 @@ func (g *Gateway) auditRefusals(subject string) mcp.Middleware {
 }
 
 // forwardInstructions puts the backends' instructions into the answer a client
-// gets when it starts: initialize, or server/discover under the stateless
-// protocol.
+// gets when it starts: server/discover.
 //
 // A backend's instructions tell a model how to use its tools — which one to
 // reach for first, what an argument means, what a partial answer looks like.
@@ -267,10 +280,7 @@ func (g *Gateway) forwardInstructions(subject string) mcp.Middleware {
 			if err != nil {
 				return res, err
 			}
-			switch r := res.(type) {
-			case *mcp.InitializeResult:
-				r.Instructions = g.instructionsFor(subject)
-			case *mcp.DiscoverResult:
+			if r, ok := res.(*mcp.DiscoverResult); ok {
 				r.Instructions = g.instructionsFor(subject)
 			}
 			return res, nil
@@ -373,7 +383,7 @@ func (g *Gateway) usableCatalog(server string) (*discovery.Catalog, bool) {
 
 // syncLocked brings one subject's registered tools in line with desired. Only
 // actual differences touch the server, because every AddTool and RemoveTools
-// sends connected sessions a list_changed notification.
+// sends the subject's listen streams a list_changed notification.
 func (g *Gateway) syncLocked(subject string, ss *subjectServer) {
 	want := g.desired(subject)
 
@@ -440,8 +450,8 @@ func (g *Gateway) callTool(ctx context.Context, serverSubject string, req *mcp.C
 	name := req.Params.Name
 
 	// The subject is taken from the token on this very request, not from the
-	// server it arrived at. The SDK already refuses to continue a session
-	// under a different token subject; this does not rely on it.
+	// server it arrived at: the server is picked by the same token, and this
+	// does not rely on that.
 	var info *sdkauth.TokenInfo
 	if req.Extra != nil {
 		info = req.Extra.TokenInfo

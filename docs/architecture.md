@@ -15,7 +15,7 @@ graph TB
         S["per-subject MCP servers"]
         PR["PolicyReconciler<br/>(read-only)"]
         CR["CatalogReconciler<br/>(read-only)"]
-        REG1["discovery.Registry<br/>one session per backend"]
+        REG1["discovery.Registry<br/>one connection per backend"]
     end
 
     subgraph "mcp-gate-controller (leader)"
@@ -48,7 +48,7 @@ graph TB
 |---|---|
 | `api/v1alpha1` | The four kinds, their conditions and reasons |
 | `internal/policy` | Resolution: grant → capability → tool set → backend tool. Pure, shared by both components |
-| `internal/discovery` | MCP client side: one session per backend, catalogs, forwarding |
+| `internal/discovery` | MCP client side: one connection per backend, a listener for its notifications, catalogs, forwarding |
 | `internal/auth` | Token verification: JWT against a JWKS, opaque tokens by RFC 7662 introspection |
 | `internal/gateway` | The data plane: HTTP handler, per-subject servers, authorisation, the gateway's reconcilers |
 | `internal/controller` | The control plane: verification and status |
@@ -127,7 +127,8 @@ for each tool claimed by exactly one (server, tool):
 
 When the policy or a catalog changes, every subject's list is recomputed and only
 the differences are applied. The SDK then sends
-`notifications/tools/list_changed` to that subject's open sessions. A catalog
+`notifications/tools/list_changed` on every `subscriptions/listen` stream the
+subject holds open. A catalog
 change alone can therefore change what a subject gets: a pattern like `code.*`
 picks up a tool the backend adds, with no manifest touched.
 
@@ -138,10 +139,10 @@ reports describe what the gateway enforces.
 
 ### Instructions
 
-Backends tell clients how to use their tools in the `instructions` of their
-initialize result. The gateway reads them at discovery and passes them on in its
-own `initialize` (and `server/discover`, under the stateless protocol) — assembled
-per request, from the backends the subject holds at least one tool from:
+Backends tell clients how to use their tools in their `instructions`. The
+gateway reads them at discovery and passes them on in its own `server/discover`
+answer — assembled per request, from the backends the subject holds at least one
+tool from:
 
 ```text
 ## artifact
@@ -164,9 +165,9 @@ refers to. A backend's text is passed on as written, including anything it says
 about tools the subject was not granted.
 
 Instructions are part of the catalog revision. A backend redeployed with a new
-note and the same tools is a changed catalog, and sessions started afterwards get
-the new text. A session keeps what it was given at initialize — the protocol has
-no notification for changed instructions.
+note and the same tools is a changed catalog, and the next `server/discover`
+answers with the new text. A client that does not ask again keeps what it was
+told — the protocol has no notification for changed instructions.
 
 ### tools/call
 
@@ -187,9 +188,9 @@ sequenceDiagram
         G->>G: policy.Authorize(subject, name) against the current snapshot
         G->>R: backend for the resolved server
         alt spec.auth.type Passthrough
-            R->>B: tools/call (the caller's session, the caller's token)
+            R->>B: tools/call (the caller's connection, the caller's token)
         else
-            R->>B: tools/call (shared session, the gateway's credentials if any)
+            R->>B: tools/call (shared connection, the gateway's credentials if any)
         end
         B-->>Agent: result, passed through
     end
@@ -206,29 +207,48 @@ A backend failure comes back as a tool result with `isError: true` — something
 the model can see and work around — and the cause is logged rather than returned,
 since it carries backend addresses.
 
-### Sessions
+### Protocol and replicas
 
-By default the gateway keeps sessions: needed for change notifications. A session
-is bound to the subject that opened it; continuing it with another subject's token
-is refused by the SDK. With several replicas, sessions need an ingress that pins
-a client to a replica — or `--stateless`, which lets any replica answer any
-request and gives up notifications.
+Agents speak **MCP 2026-07-28** to the gateway, and nothing older. That version has
+no sessions: every request carries its own identity and is answered on its own,
+and a client that wants to hear about changes keeps a `subscriptions/listen`
+stream open. A client of a session-based version is refused; the gateway keeps
+no compatibility layer for a superseded specification.
 
-Towards backends, the gateway holds **one session per backend** shared by every
-caller. When a backend restarts and no longer knows the session, the request is
-retried once on a new one — only for failures where the backend provably did not
-receive the request; a tool call is never repeated on a guess.
+That is what makes replicas plain. Any replica answers any request, nothing pins
+an agent to one, and every replica keeps each subject's tools in step with the
+API on its own — so a listen stream held by one replica hears about a grant
+change as soon as that replica has applied it. Scale the Deployment; no ingress
+affinity is needed.
 
-A `Passthrough` backend is the exception. A session is bound to the identity that
-opened it, so each caller token gets a session of its own for its tool calls,
-without the notification stream; the shared session reads the catalog and hears
-about changes. Caller sessions are keyed by a hash of the token rather than by
-the gateway's subject — the backend decides who a token is, and two tokens the
-gateway maps to one subject can be two identities to it. They close after five
-minutes without calls.
+Towards backends the protocol is the SDK's to negotiate: 2026-07-28 with a
+backend that speaks it, the backend's newest session-based version with one
+that does not. Backends are not the gateway's to choose, and talking to an older
+one takes no code of the gateway's own.
 
-Credentials are added by a per-session HTTP transport, which also turns a 401 or
-403 into a transport error. The SDK ends a session on an HTTP error it cannot
+Requests go out on **one client connection per backend**, shared by every
+caller. When a session-based backend restarts and no longer knows the session,
+the request is retried once on a new one — only for failures where the backend
+provably did not receive the request; a tool call is never repeated on a guess.
+
+A `Passthrough` backend is the exception. Each caller token gets a connection of
+its own for its tool calls — a session-based backend binds a session to the
+identity that opened it — and the shared connection reads the catalog. Caller
+connections are keyed by a hash of the token rather than by the gateway's subject
+— the backend decides who a token is, and two tokens the gateway maps to one
+subject can be two identities to it. They close after five minutes without calls.
+
+Change notifications from a backend arrive on a connection of its own, the
+**listener**, kept open in the background: a `subscriptions/listen` stream, or
+the notification stream of a session-based backend. Opening a listen stream can
+hang on a backend that accepts the request and never answers, and the SDK waits
+for that answer without a deadline; on its own connection, bounded by the
+connect timeout and retried with backoff, that costs neither a catalog read nor
+a tool call anything. The listener also notices a listen stream that ends —
+which the SDK does not report — and connects again.
+
+Credentials are added by a per-connection HTTP transport, which also turns a 401
+or 403 into a transport error. The SDK ends a session on an HTTP error it cannot
 decode; a refused request must not end one that other callers share.
 See [Authentication](./authentication.md#towards-backends).
 

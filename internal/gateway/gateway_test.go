@@ -3,12 +3,12 @@ package gateway
 import (
 	"context"
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"slices"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -438,29 +438,16 @@ func TestUnauthenticatedRequestsGetAChallenge(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// A session belongs to the subject that opened it. Continuing it with another
-// subject's token is refused, so a leaked session ID is not a way into someone
-// else's grants.
-func TestSessionCannotBeContinuedByAnotherSubject(t *testing.T) {
+// MCP 2026-07-28 is the only version spoken. A client of the session-based
+// protocol does not get as far as a tool list.
+func TestTheSessionBasedProtocolIsRefused(t *testing.T) {
 	e := newEnv(t, Options{})
-	session := e.connect("token-reviewer")
-
-	req, err := http.NewRequest(http.MethodPost, e.url, strings.NewReader(
-		`{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"artifact_publish","arguments":{}}}`))
-	require.NoError(t, err)
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json, text/event-stream")
-	req.Header.Set("Mcp-Session-Id", session.ID())
-	req.Header.Set("Mcp-Protocol-Version", session.InitializeResult().ProtocolVersion)
-	req.Header.Set("Authorization", "Bearer token-coding-agent")
-	resp, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-	body, _ := io.ReadAll(resp.Body)
-	_ = resp.Body.Close()
-
-	if session.ID() != "" {
-		assert.Equal(t, http.StatusForbidden, resp.StatusCode, string(body))
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_, err := mcp.NewClient(&mcp.Implementation{Name: "old-agent", Version: "test"}, nil).Connect(ctx,
+		&mcp.StreamableClientTransport{Endpoint: e.url, HTTPClient: &http.Client{Transport: bearer("token-reviewer")}},
+		&mcp.ClientSessionOptions{ProtocolVersion: "2025-11-25"})
+	require.Error(t, err)
 	assert.Zero(t, e.artifact.Calls.Load())
 }
 
@@ -479,26 +466,81 @@ func TestProtectedResourceMetadata(t *testing.T) {
 	}
 }
 
-func TestStatelessMode(t *testing.T) {
+func TestSpeaksTheStatelessProtocol(t *testing.T) {
 	e := newEnv(t, Options{})
-	handler, err := e.gateway.Handler(HandlerOptions{Verifier: fakeVerifier, Stateless: true})
-	require.NoError(t, err)
-	srv := httptest.NewServer(handler)
-	t.Cleanup(srv.Close)
-	e.url = srv.URL + "/mcp"
-
 	session := e.connect("token-reviewer")
-	assert.Equal(t, []string{"artifact_get", "artifact_publish", "artifact_search"}, toolNames(t, session))
-	// Without sessions the client speaks the stateless protocol, where the
-	// instructions arrive in server/discover rather than initialize — so this
-	// is the test of that path.
-	assert.Equal(t, "2026-07-28", session.InitializeResult().ProtocolVersion)
+
+	assert.Equal(t, ProtocolVersion, session.InitializeResult().ProtocolVersion)
+	assert.Empty(t, session.ID(), "there is no session to identify")
+	// The instructions arrive in server/discover.
 	assert.Contains(t, session.InitializeResult().Instructions, "Publish with a title.")
+	assert.Equal(t, []string{"artifact_get", "artifact_publish", "artifact_search"}, toolNames(t, session))
 	res, err := call(session, "artifact_publish")
 	require.NoError(t, err)
 	assert.Equal(t, `artifact/artifact_publish {"q":"x"}`, text(res))
 	_, err = call(session, "source_search")
 	assert.Error(t, err)
+}
+
+// roundRobin spreads requests over handlers in turn, the way a Service spreads
+// them over replicas.
+type roundRobin struct {
+	next     atomic.Int64
+	handlers []http.Handler
+}
+
+func (rr *roundRobin) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	rr.handlers[int(rr.next.Add(1))%len(rr.handlers)].ServeHTTP(w, r)
+}
+
+// Two replicas behind one address: each request lands on whichever is next,
+// nothing pins a client to either, and a grant change reaches the client over
+// its listen stream whichever replica holds it.
+func TestAnyReplicaAnswersAnyRequest(t *testing.T) {
+	e := newEnv(t, Options{})
+	second := New(Options{Registry: e.registry, Logger: logr.Discard()})
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go func() { _ = second.Start(ctx) }()
+
+	var handlers []http.Handler
+	for _, gw := range []*Gateway{e.gateway, second} {
+		h, err := gw.Handler(HandlerOptions{Verifier: fakeVerifier})
+		require.NoError(t, err)
+		handlers = append(handlers, h)
+	}
+	srv := httptest.NewServer(&roundRobin{handlers: handlers})
+	t.Cleanup(srv.Close)
+	e.url = srv.URL + "/mcp"
+	apply := func() {
+		snapshot := policy.NewSnapshot(e.servers, e.toolSets, e.capabilities, e.grants)
+		e.gateway.SetPolicy(snapshot)
+		second.SetPolicy(snapshot)
+	}
+	apply()
+
+	changed := make(chan struct{}, 8)
+	session, err := e.connectWith("token-nobody", &mcp.ClientOptions{
+		ToolListChangedHandler: func(context.Context, *mcp.ToolListChangedRequest) { changed <- struct{}{} },
+	})
+	require.NoError(t, err)
+	for range 4 {
+		assert.Empty(t, toolNames(t, session))
+	}
+
+	e.grants = append(e.grants, grant("nobody", "nobody", "artifact-authoring"))
+	apply()
+	select {
+	case <-changed:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the listen stream was not told that the tools changed")
+	}
+	for range 4 {
+		assert.Equal(t, []string{"artifact_get", "artifact_publish", "artifact_search"}, toolNames(t, session))
+		res, err := call(session, "artifact_get")
+		require.NoError(t, err)
+		assert.False(t, res.IsError)
+	}
 }
 
 // A tool set with patterns exposes what the catalog matches, minus what it
@@ -599,7 +641,7 @@ func TestInstructions_GatewayPrefaceComesFirst(t *testing.T) {
 
 // A backend redeployed with new instructions and the same tools has changed:
 // the revision moves, and sessions started afterwards get the new text.
-func TestInstructions_ChangedInstructionsReachNewSessions(t *testing.T) {
+func TestInstructions_ChangedInstructionsReachTheNextDiscover(t *testing.T) {
 	e := newEnv(t, Options{})
 	before, _, _ := e.registry.Catalog("artifact")
 

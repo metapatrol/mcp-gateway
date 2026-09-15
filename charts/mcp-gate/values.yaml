@@ -49,9 +49,9 @@ controller:
   affinity: {}
 
 gateway:
-  # Every replica serves traffic; there is no leader. With more than one, keep
-  # gateway.stateless off only if the ingress pins a client to a replica —
-  # a session lives in the replica that opened it.
+  # Every replica serves traffic; there is no leader, and nothing pins an agent
+  # to a replica. Agents speak MCP 2026-07-28, which has no sessions: any
+  # replica answers any request.
   replicaCount: 2
   image:
     repository: zot.metapatrol.local/images/platform/mcp-gate-gateway
@@ -100,10 +100,6 @@ gateway:
   authorizationServers: []
   scopesSupported: []
 
-  # Serve without sessions: any replica answers any request, and agents are not
-  # notified when their tool list changes.
-  stateless: false
-  sessionTimeout: 30m
   # How long the tools of a backend whose discovery keeps failing are still
   # offered before they disappear from tool lists.
   catalogMaxAge: 5m

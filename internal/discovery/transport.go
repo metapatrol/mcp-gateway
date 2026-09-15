@@ -1,11 +1,13 @@
 package discovery
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"time"
 
 	"forgejo.metapatrol.local/platform/mcp-gate/internal/credentials"
 )
@@ -110,4 +112,79 @@ func closeBody(req *http.Request) {
 	if req.Body != nil {
 		_ = req.Body.Close()
 	}
+}
+
+// headerTimeout fails a request that sees no response headers within timeout.
+// Unlike a client-wide timeout it leaves the response body alone, so a stream
+// that started in time may run as long as it runs.
+type headerTimeout struct {
+	base    http.RoundTripper
+	timeout time.Duration
+}
+
+func (t *headerTimeout) RoundTrip(req *http.Request) (*http.Response, error) {
+	ctx, cancel := context.WithCancel(req.Context())
+	timer := time.AfterFunc(t.timeout, cancel)
+	resp, err := t.base.RoundTrip(req.WithContext(ctx))
+	if !timer.Stop() {
+		if err == nil {
+			_ = resp.Body.Close()
+		}
+		cancel()
+		return nil, fmt.Errorf("no response from %s within %s", req.URL.Host, t.timeout)
+	}
+	if err != nil {
+		cancel()
+		return nil, err
+	}
+	resp.Body = &cancelOnClose{ReadCloser: resp.Body, cancel: cancel}
+	return resp, nil
+}
+
+// cancelOnClose releases a request's context once its body is closed.
+type cancelOnClose struct {
+	io.ReadCloser
+	cancel context.CancelFunc
+}
+
+func (b *cancelOnClose) Close() error {
+	err := b.ReadCloser.Close()
+	b.cancel()
+	return err
+}
+
+// listenWatch reports the end of a subscriptions/listen response stream, which
+// the SDK notices only as far as to stop delivering notifications.
+type listenWatch struct {
+	base  http.RoundTripper
+	ended func()
+}
+
+func (w *listenWatch) RoundTrip(req *http.Request) (*http.Response, error) {
+	resp, err := w.base.RoundTrip(req)
+	if err != nil || req.Header.Get("Mcp-Method") != "subscriptions/listen" {
+		return resp, err
+	}
+	resp.Body = &streamEnd{ReadCloser: resp.Body, ended: w.ended}
+	return resp, nil
+}
+
+// streamEnd calls ended once the body fails, runs out or is closed.
+type streamEnd struct {
+	io.ReadCloser
+	ended func()
+}
+
+func (b *streamEnd) Read(p []byte) (int, error) {
+	n, err := b.ReadCloser.Read(p)
+	if err != nil {
+		b.ended()
+	}
+	return n, err
+}
+
+func (b *streamEnd) Close() error {
+	err := b.ReadCloser.Close()
+	b.ended()
+	return err
 }

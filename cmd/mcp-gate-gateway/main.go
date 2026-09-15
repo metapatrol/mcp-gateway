@@ -53,8 +53,6 @@ func main() {
 	var authorizationServers string
 	var scopesSupported string
 
-	var stateless bool
-	var sessionTimeout time.Duration
 	var catalogMaxAge time.Duration
 	var callTimeout time.Duration
 	var connectTimeout time.Duration
@@ -78,8 +76,6 @@ func main() {
 	flag.StringVar(&authorizationServers, "authorization-servers", "", "Comma-separated issuer URLs published in the protected resource metadata.")
 	flag.StringVar(&scopesSupported, "scopes-supported", "", "Comma-separated scopes published in the protected resource metadata.")
 
-	flag.BoolVar(&stateless, "stateless", false, "Serve without sessions: any replica answers any request, and tool list change notifications are not sent.")
-	flag.DurationVar(&sessionTimeout, "session-timeout", 30*time.Minute, "Close sessions idle for this long. 0 keeps them forever.")
 	flag.DurationVar(&catalogMaxAge, "catalog-max-age", 5*time.Minute, "How long the tools of a backend whose discovery keeps failing are still offered.")
 	flag.DurationVar(&callTimeout, "call-timeout", 5*time.Minute, "Upper bound on a forwarded tool call.")
 	flag.DurationVar(&connectTimeout, "backend-connect-timeout", 10*time.Second, "How long the MCP handshake with a backend may take.")
@@ -170,8 +166,6 @@ func main() {
 		ResourceURL:          resourceURL,
 		AuthorizationServers: splitList(authorizationServers),
 		ScopesSupported:      splitList(scopesSupported),
-		Stateless:            stateless,
-		SessionTimeout:       sessionTimeout,
 		Logger:               sdkLogger(ctrl.Log.WithName("mcp-server")),
 	})
 	if err != nil {

@@ -35,6 +35,10 @@ type Backend struct {
 	// a real backend.
 	instructions string
 
+	// stateless serves MCP 2026-07-28, which has no sessions, in addition to
+	// the session-based versions a stateful handler speaks.
+	stateless bool
+
 	server  atomic.Pointer[mcp.Server]
 	handler atomic.Pointer[mcp.StreamableHTTPHandler]
 	http    *httptest.Server
@@ -54,11 +58,23 @@ func NewBackend(t testing.TB, name string, tools ...string) *Backend {
 	return NewBackendWithInstructions(t, name, "", tools...)
 }
 
+// NewStatelessBackend starts a backend that speaks MCP 2026-07-28: no sessions,
+// notifications over subscriptions/listen. A session-based client still gets
+// through, statelessly.
+func NewStatelessBackend(t testing.TB, name string, tools ...string) *Backend {
+	t.Helper()
+	return newBackend(t, &Backend{Name: name, stateless: true}, tools)
+}
+
 // NewBackendWithInstructions starts a backend that gives clients the given
 // instructions on initialize.
 func NewBackendWithInstructions(t testing.TB, name, instructions string, tools ...string) *Backend {
 	t.Helper()
-	b := &Backend{Name: name, instructions: instructions}
+	return newBackend(t, &Backend{Name: name, instructions: instructions}, tools)
+}
+
+func newBackend(t testing.TB, b *Backend, tools []string) *Backend {
+	t.Helper()
 	b.install(tools)
 	b.http = httptest.NewServer(http.HandlerFunc(b.serve))
 	b.URL = b.http.URL
@@ -121,7 +137,7 @@ func (b *Backend) install(tools []string) {
 	for _, tool := range tools {
 		b.AddTool(tool)
 	}
-	b.handler.Store(mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return server }, nil))
+	b.handler.Store(mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return server }, &mcp.StreamableHTTPOptions{Stateless: b.stateless}))
 }
 
 // Server is the SDK server currently answering.

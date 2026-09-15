@@ -92,7 +92,7 @@ func (r *Registry) Ensure(name, endpoint string, auth *gatev1alpha1.BackendAuth)
 	if ok && e.backend.Endpoint() == endpoint && e.backend.auth.Fingerprint == built.Fingerprint {
 		return e.backend
 	}
-	b := newBackend(name, endpoint, built, r.newClient(name), r.opts.HTTPClient, r.opts.ConnectTimeout)
+	b := newBackend(name, endpoint, built, r.newClient(nil), r.listenClient(name), r.opts.HTTPClient, r.opts.ConnectTimeout)
 	switch {
 	case !ok:
 		r.entries[name] = &entry{backend: b}
@@ -106,18 +106,30 @@ func (r *Registry) Ensure(name, endpoint string, auth *gatev1alpha1.BackendAuth)
 	return b
 }
 
-func (r *Registry) newClient(name string) *mcp.Client {
+// newClient builds an MCP client. With onToolsChanged it listens for
+// notifications/tools/list_changed; without, connecting never opens a stream
+// for them, which is what the clients that make requests want.
+func (r *Registry) newClient(onToolsChanged func()) *mcp.Client {
 	opts := &mcp.ClientOptions{
 		Logger: r.opts.Logger,
 		// The gateway offers backends nothing: no roots, no sampling, no
 		// elicitation. The SDK advertises roots unless told otherwise.
 		Capabilities: &mcp.ClientCapabilities{},
 	}
-	if r.opts.OnToolsChanged != nil {
-		onChanged := r.opts.OnToolsChanged
-		opts.ToolListChangedHandler = func(context.Context, *mcp.ToolListChangedRequest) { onChanged(name) }
+	if onToolsChanged != nil {
+		opts.ToolListChangedHandler = func(context.Context, *mcp.ToolListChangedRequest) { onToolsChanged() }
 	}
 	return mcp.NewClient(r.opts.Implementation, opts)
+}
+
+// listenClient builds the client a backend's listener connects with, or nil
+// when nobody wants to hear about changes.
+func (r *Registry) listenClient(name string) *mcp.Client {
+	if r.opts.OnToolsChanged == nil {
+		return nil
+	}
+	onChanged := r.opts.OnToolsChanged
+	return r.newClient(func() { onChanged(name) })
 }
 
 // Forget unregisters a backend and closes its session.

@@ -72,10 +72,6 @@ spec:
             {{- with .Values.gateway.scopesSupported }}
             - --scopes-supported={{ join "," . }}
             {{- end }}
-            {{- if .Values.gateway.stateless }}
-            - --stateless
-            {{- end }}
-            - --session-timeout={{ .Values.gateway.sessionTimeout }}
             - --catalog-max-age={{ .Values.gateway.catalogMaxAge }}
             - --call-timeout={{ .Values.gateway.callTimeout }}
           {{- if or $oauth.introspection.clientSecretRef.name .Values.gateway.env }}

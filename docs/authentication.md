@@ -141,12 +141,13 @@ WWW-Authenticate: Bearer resource_metadata="https://mcp-gate.example.com/.well-k
 
 so an OAuth-capable MCP client can find the authorization server on its own.
 
-## Session binding
+## Every request on its own
 
-A session belongs to the subject whose token opened it. A request carrying the
-session ID with a different subject's token is refused with 403. On top of that,
-every `tools/call` is authorised against the subject of the token on that very
-request.
+MCP 2026-07-28 has no sessions, so there is nothing to bind a subject to beyond the
+request. Every request is authenticated with the token it carries, and every
+`tools/call` is authorised against the subject of that token, at the moment it
+arrives. A `subscriptions/listen` stream is authenticated when it is opened, and
+tells its holder only about the tools of the subject it was opened for.
 
 ## Towards backends
 
@@ -176,10 +177,10 @@ backend that should only accept tokens meant for it has to say so itself.
 
 - **Explicit, per backend.** A token is never forwarded to a backend whose type
   is not `Passthrough`.
-- **One backend session per token.** A backend binds a session to the identity
-  that opened it, so each distinct token gets a session of its own for its calls.
-  A replaced token starts a new one; sessions without calls for five minutes are
-  closed.
+- **One backend connection per token.** A session-based backend binds a session to
+  the identity that opened it, so each distinct token gets a connection of its own
+  for its calls. A replaced token starts a new one; connections without calls for
+  five minutes are closed.
 - **Catalog reads have no agent.** The controller and the gateway read the
   catalog in the background, with `passthrough.discovery` — an API key or a
   client of their own — or with no credentials at all. A backend like engram,
@@ -266,8 +267,8 @@ mcp-gate-proxy \
 
 What it does:
 
-- **Forwards HTTP, not MCP.** Sessions, streamed responses and notifications pass
-  through untouched; it does not care which protocol version the two ends speak.
+- **Forwards HTTP, not MCP.** Streamed responses and `subscriptions/listen` streams
+  pass through untouched.
 - **Caches the token** and replaces it 30 seconds before it expires.
 - **Retries a refused token once.** On a 401 from the gateway — a token revoked
   before its `exp` — it fetches a new token and replays the request.

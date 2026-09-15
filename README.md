@@ -142,6 +142,9 @@ More in [`samples/`](./samples).
 
 ### 3. Connect an agent
 
+Agents speak **MCP 2026-07-28**; clients of the older, session-based versions are
+refused. Without sessions, any gateway replica answers any request.
+
 **Direct mode** — the agent does OAuth client credentials itself and connects to
 `http://mcp-gate-gateway.mcp-system.svc/mcp` with `Authorization: Bearer <token>`.
 
@@ -199,8 +202,9 @@ make helm-docs              # regenerate the chart READMEs
 ```
 
 The tests talk real MCP: backends in [`internal/mcptest`](./internal/mcptest)
-are the SDK's own server behind a local listener, so sessions, notifications and
-reconnects are exercised as they happen in production.
+are the SDK's own server behind a local listener — session-based and MCP
+2026-07-28 — so notifications and reconnects are exercised as they happen in
+production.
 
 ## License
 

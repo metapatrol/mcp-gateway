@@ -17,18 +17,29 @@ import (
 
 // Backend is a client connection to one MCP server.
 //
-// There is one session per backend, shared by every caller. The SDK multiplexes
-// concurrent requests over it, so a hundred agents calling the same backend do
-// not mean a hundred handshakes — and the backend sees one well-behaved client
-// instead of a connection per request.
+// The protocol version is the SDK's to negotiate: MCP 2026-07-28 with a backend
+// that speaks it, the backend's newest session-based version otherwise. The
+// gateway serves agents in 2026-07-28 alone, but backends are not the gateway's
+// to choose, and talking to an older one takes no code of its own here.
 //
-// The exception is a backend with Passthrough auth. A session is bound to the
-// identity that opened it, so there each caller token gets a session of its own
-// for its tool calls, and the shared session only reads the catalog.
+// Requests go out on one client connection per backend, shared by every caller.
+// The SDK multiplexes concurrent requests over it, so a hundred agents calling
+// the same backend do not mean a hundred handshakes.
 //
-// Sessions are opened on first use and reopened when lost: a backend that
-// restarted answers the old session ID with 404, and the next call starts a new
-// one.
+// The exception is a backend with Passthrough auth. Each caller token gets a
+// connection of its own for its tool calls — a session-based backend binds a
+// session to the identity that opened it — and the shared connection only reads
+// the catalog.
+//
+// Connections are opened on first use and reopened when lost: a session-based
+// backend that restarted answers the old session ID with 404, and the next call
+// starts a new one.
+//
+// Change notifications arrive on a connection of their own, the listener, kept
+// open in the background. Connecting to listen can hang on a backend that
+// accepts subscriptions/listen and never answers, and the SDK waits for that
+// answer without a deadline; on its own connection that costs a retry now and
+// then, and never a catalog read or a tool call.
 type Backend struct {
 	name       string
 	endpoint   string
@@ -40,6 +51,10 @@ type Backend struct {
 	// shared reads the catalog, and carries the tool calls of every auth type
 	// but Passthrough.
 	shared *conn
+
+	// stopListening ends the listener; nil when nobody listens.
+	stopListening context.CancelFunc
+	listening     chan struct{}
 
 	mu        sync.Mutex
 	closed    bool
@@ -59,10 +74,6 @@ type callerConn struct {
 type conn struct {
 	backend    *Backend
 	httpClient *http.Client
-	// standaloneSSE opens the GET stream that carries notifications. Only the
-	// shared session needs it; the backend announces a changed tool list
-	// once, not once per caller.
-	standaloneSSE bool
 
 	mu      sync.Mutex
 	session *mcp.ClientSession
@@ -80,18 +91,6 @@ type handshake struct {
 	err     error
 }
 
-// backendProtocolVersion is the protocol the gateway and the controller speak to
-// backends: the newest version of the session-based protocol.
-//
-// Not 2026-07-28, which the SDK would otherwise try first. Under it, a client
-// with a list_changed handler opens the subscriptions/listen stream inside
-// Connect — synchronously, and on a context with no deadline — so a backend that
-// accepts that request and never answers it holds the handshake forever. The
-// artifacts backend does exactly that, and it wedged a reconcile worker per
-// discovery in both components. The session-based protocol delivers the same
-// notifications over a GET stream the SDK runs in the background.
-const backendProtocolVersion = "2025-11-25"
-
 const (
 	// callerIdleTimeout is how long the session of a caller token that makes
 	// no calls is kept. Tokens are replaced every so often, and the session of
@@ -101,7 +100,9 @@ const (
 	callerSweepInterval = time.Minute
 )
 
-func newBackend(name, endpoint string, auth credentials.Auth, client *mcp.Client, httpClient *http.Client, connectTimeout time.Duration) *Backend {
+// newBackend builds a backend. client makes its requests; listenClient, when not
+// nil, is the client its listener connects with.
+func newBackend(name, endpoint string, auth credentials.Auth, client, listenClient *mcp.Client, httpClient *http.Client, connectTimeout time.Duration) *Backend {
 	b := &Backend{
 		name:       name,
 		endpoint:   endpoint,
@@ -111,19 +112,110 @@ func newBackend(name, endpoint string, auth credentials.Auth, client *mcp.Client
 		auth:       auth,
 		callers:    map[[sha256.Size]byte]*callerConn{},
 	}
-	b.shared = b.newConn(auth.Credential, true)
+	b.shared = b.newConn(auth.Credential)
+	if listenClient != nil {
+		ctx, cancel := context.WithCancel(context.Background())
+		b.stopListening = cancel
+		b.listening = make(chan struct{})
+		go func() {
+			defer close(b.listening)
+			b.listen(ctx, listenClient)
+		}()
+	}
 	return b
 }
 
-func (b *Backend) newConn(credential credentials.Credential, standaloneSSE bool) *conn {
+func (b *Backend) newConn(credential credentials.Credential) *conn {
 	return &conn{
-		backend: b,
-		httpClient: &http.Client{
-			Transport:     newAuthTransport(b.httpClient.Transport, b.endpoint, credential),
-			CheckRedirect: b.httpClient.CheckRedirect,
-			Jar:           b.httpClient.Jar,
-		},
-		standaloneSSE: standaloneSSE,
+		backend:    b,
+		httpClient: b.authenticatedClient(credential, nil),
+	}
+}
+
+// authenticatedClient builds the HTTP client of one connection. wrap, if not
+// nil, sits between the credentials and the registry's transport.
+func (b *Backend) authenticatedClient(credential credentials.Credential, wrap func(http.RoundTripper) http.RoundTripper) *http.Client {
+	base := b.httpClient.Transport
+	if base == nil {
+		base = http.DefaultTransport
+	}
+	if wrap != nil {
+		base = wrap(base)
+	}
+	return &http.Client{
+		Transport:     newAuthTransport(base, b.endpoint, credential),
+		CheckRedirect: b.httpClient.CheckRedirect,
+		Jar:           b.httpClient.Jar,
+	}
+}
+
+const (
+	// listenRetryMin and listenRetryMax bound the wait before the listener
+	// connects again after failing to.
+	listenRetryMin = 5 * time.Second
+	listenRetryMax = 5 * time.Minute
+	// listenReconnectDelay is the pause before reconnecting after a listen
+	// connection that worked has ended, so a backend that drops streams at
+	// once is not reconnected to in a tight loop.
+	listenReconnectDelay = time.Second
+)
+
+// listen keeps a connection open that hears the backend's change
+// notifications, until ctx ends.
+//
+// Every request of the listener must see response headers within the connect
+// timeout. A backend answers a working subscriptions/listen with its headers at
+// once and streams from there, so the bound only cuts off the one that never
+// answers — which the SDK would otherwise wait on for ever. The stream itself
+// has no deadline.
+//
+// A connection ends when its session does, which is how a session-based
+// backend's notification stream failing shows, and when a subscriptions/listen
+// stream ends, which the SDK does not report: the session outlives its stream,
+// and without this the listener would go on waiting on a session that hears
+// nothing.
+func (b *Backend) listen(ctx context.Context, client *mcp.Client) {
+	retry := listenRetryMin
+	for {
+		streamEnded := make(chan struct{})
+		var once sync.Once
+		httpClient := b.authenticatedClient(b.auth.Credential, func(base http.RoundTripper) http.RoundTripper {
+			return &headerTimeout{timeout: b.timeout, base: &listenWatch{
+				base:  base,
+				ended: func() { once.Do(func() { close(streamEnded) }) },
+			}}
+		})
+		connectCtx, cancel := context.WithTimeout(ctx, b.timeout)
+		session, err := client.Connect(connectCtx, &mcp.StreamableClientTransport{
+			Endpoint:   b.endpoint,
+			HTTPClient: httpClient,
+		}, nil)
+		cancel()
+
+		wait := retry
+		if err == nil {
+			retry, wait = listenRetryMin, listenReconnectDelay
+			sessionEnded := make(chan struct{})
+			go func() {
+				_ = session.Wait()
+				close(sessionEnded)
+			}()
+			select {
+			case <-sessionEnded:
+			case <-streamEnded:
+			case <-ctx.Done():
+			}
+			_ = session.Close()
+			<-sessionEnded
+		} else {
+			retry = min(retry*2, listenRetryMax)
+		}
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(wait):
+		}
 	}
 }
 
@@ -196,10 +288,12 @@ func (c *conn) shake(h *handshake) {
 	ctx, cancel := context.WithTimeout(context.Background(), b.timeout)
 	defer cancel()
 	session, err := b.client.Connect(ctx, &mcp.StreamableClientTransport{
-		Endpoint:             b.endpoint,
-		HTTPClient:           c.httpClient,
-		DisableStandaloneSSE: !c.standaloneSSE,
-	}, &mcp.ClientSessionOptions{ProtocolVersion: backendProtocolVersion})
+		Endpoint:   b.endpoint,
+		HTTPClient: c.httpClient,
+		// Notifications are the listener's. A session-based backend
+		// would otherwise be held to a GET stream per connection.
+		DisableStandaloneSSE: true,
+	}, nil)
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -368,7 +462,7 @@ func (b *Backend) connFor(ctx context.Context) (*conn, func(), error) {
 	}
 	c, ok := b.callers[key]
 	if !ok {
-		c = &callerConn{conn: b.newConn(credentials.Forward(authorization), false)}
+		c = &callerConn{conn: b.newConn(credentials.Forward(authorization))}
 		b.callers[key] = c
 	}
 	c.inflight++
@@ -410,13 +504,16 @@ func (b *Backend) callerSessions() int {
 	return len(b.callers)
 }
 
-// Close ends every session and refuses further use.
+// Close ends every session and the listener, and refuses further use.
 func (b *Backend) Close() error {
 	b.mu.Lock()
 	b.closed = true
 	callers := b.callers
 	b.callers = map[[sha256.Size]byte]*callerConn{}
 	b.mu.Unlock()
+	if b.stopListening != nil {
+		b.stopListening()
+	}
 	for _, c := range callers {
 		_ = c.close()
 	}

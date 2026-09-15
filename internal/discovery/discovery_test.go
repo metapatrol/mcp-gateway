@@ -224,24 +224,50 @@ func stallingBackend(t *testing.T, backend *mcptest.Backend, methods ...string) 
 	return srv
 }
 
-// The regression this guards: under protocol 2026-07-28 the SDK sends
-// server/discover, and with a list_changed handler it then opens
-// subscriptions/listen inside Connect with no deadline. A backend that accepts
-// either and never answers held discovery forever. Backends are spoken to in
-// the session-based protocol, which uses neither.
-func TestBackend_DoesNotUseTheStatelessProtocolHandshake(t *testing.T) {
-	backend := mcptest.NewBackend(t, "artifacts", "artifact_get")
-	stalling := stallingBackend(t, backend, "server/discover", "subscriptions/listen")
+// The protocol is the SDK's to negotiate: MCP 2026-07-28 with a backend that
+// speaks it, the newest session-based version with one that does not.
+func TestBackend_NegotiatesTheProtocol(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		backend *mcptest.Backend
+		want    string
+	}{
+		{"stateless", mcptest.NewStatelessBackend(t, "artifacts", "artifact_get"), "2026-07-28"},
+		{"session-based", mcptest.NewBackend(t, "memory", "memory_search"), "2025-11-25"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := newTestRegistry(t, Options{})
+			b := r.Ensure(tc.backend.Name, tc.backend.URL, nil)
+			catalog, _, err := r.Discover(context.Background(), tc.backend.Name)
+			require.NoError(t, err)
+			assert.Len(t, catalog.Names(), 1)
+			session, err := b.shared.connect(context.Background())
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, session.InitializeResult().ProtocolVersion)
+		})
+	}
+}
+
+// The regression this guards: with a list_changed handler, the SDK opens
+// subscriptions/listen inside Connect and waits for the answer with no
+// deadline, and the artifacts backend accepts that request and never answers.
+// Notifications have a connection of their own, so a backend doing that costs
+// neither a catalog read nor a tool call anything.
+func TestBackend_AListenThatNeverAnswersBlocksNothing(t *testing.T) {
+	backend := mcptest.NewStatelessBackend(t, "artifacts", "artifact_get")
+	stalling := stallingBackend(t, backend, "subscriptions/listen")
 	r := newTestRegistry(t, Options{
 		ConnectTimeout: 2 * time.Second,
 		OnToolsChanged: func(string) {},
 	})
-	r.Ensure("artifacts", stalling.URL, nil)
+	b := r.Ensure("artifacts", stalling.URL, nil)
 
 	start := time.Now()
 	catalog, _, err := r.Discover(context.Background(), "artifacts")
 	require.NoError(t, err)
 	assert.Equal(t, []string{"artifact_get"}, catalog.Names())
+	_, err = b.CallTool(context.Background(), &mcp.CallToolParams{Name: "artifact_get"})
+	require.NoError(t, err)
 	assert.Less(t, time.Since(start), time.Second)
 }
 
@@ -304,4 +330,73 @@ func TestRegistry_BackendAnnouncementsReachOnToolsChanged(t *testing.T) {
 			return false
 		}
 	}, 5*time.Second, 10*time.Millisecond)
+}
+
+// A backend speaking MCP 2026-07-28 announces changes over subscriptions/listen.
+func TestRegistry_AnnouncementsOverSubscriptionsListen(t *testing.T) {
+	backend := mcptest.NewStatelessBackend(t, "artifacts", "artifact_get")
+	announced := make(chan string, 4)
+	r := newTestRegistry(t, Options{OnToolsChanged: func(server string) { announced <- server }})
+	r.Ensure("artifacts", backend.URL, nil)
+	_, _, err := r.Discover(context.Background(), "artifacts")
+	require.NoError(t, err)
+
+	requireAnnounced(t, backend, announced, "artifacts", "artifact_publish")
+}
+
+// The listener connects again when its connection ends, so a backend that
+// restarted is heard from afterwards too.
+func TestRegistry_AnnouncementsSurviveABackendRestart(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		backend *mcptest.Backend
+	}{
+		{"stateless", mcptest.NewStatelessBackend(t, "artifacts", "artifact_get")},
+		{"session-based", mcptest.NewBackend(t, "artifacts", "artifact_get")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			announced := make(chan string, 16)
+			r := newTestRegistry(t, Options{OnToolsChanged: func(server string) { announced <- server }})
+			r.Ensure("artifacts", tc.backend.URL, nil)
+			requireAnnounced(t, tc.backend, announced, "artifacts", "artifact_publish")
+
+			tc.backend.Restart("artifact_get")
+			requireAnnounced(t, tc.backend, announced, "artifacts", "artifact_delete")
+		})
+	}
+}
+
+func TestBackend_CloseStopsTheListener(t *testing.T) {
+	backend := mcptest.NewStatelessBackend(t, "artifacts", "artifact_get")
+	r := newTestRegistry(t, Options{OnToolsChanged: func(string) {}})
+	b := r.Ensure("artifacts", backend.URL, nil)
+	time.Sleep(100 * time.Millisecond)
+
+	require.NoError(t, b.Close())
+	select {
+	case <-b.listening:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the listener is still running")
+	}
+}
+
+// requireAnnounced changes the backend's tools until the registry passes the
+// announcement on. The listener connects in the background, so the first
+// changes may happen before it hears anything.
+func requireAnnounced(t *testing.T, backend *mcptest.Backend, announced chan string, server, tool string) {
+	t.Helper()
+	require.Eventually(t, func() bool {
+		backend.AddTool(tool)
+		backend.RemoveTool(tool)
+		for {
+			select {
+			case got := <-announced:
+				if got == server {
+					return true
+				}
+			case <-time.After(200 * time.Millisecond):
+				return false
+			}
+		}
+	}, 20*time.Second, 10*time.Millisecond)
 }

@@ -12,9 +12,9 @@
 // and refuses requests whose Host header or origin says a browser was steered
 // at it.
 //
-// It forwards HTTP, not MCP. Sessions, streaming responses and notifications
-// pass through as the gateway sends them, so the proxy needs no knowledge of the
-// protocol and does not care which version the two ends speak.
+// It forwards HTTP, not MCP. Streaming responses and subscriptions/listen
+// streams pass through as the gateway sends them, so the proxy needs no knowledge
+// of the protocol.
 package proxy
 
 import (
@@ -64,8 +64,8 @@ type Config struct {
 	MaxRequestBodyBytes int64
 
 	// HTTPClient carries requests to the token endpoint and the gateway. It
-	// must not set a Timeout, which would cut the long-lived streams MCP
-	// sessions keep open.
+	// must not set a Timeout, which would cut the long-lived listen streams
+	// agents keep open.
 	HTTPClient *http.Client
 
 	Logger *slog.Logger
