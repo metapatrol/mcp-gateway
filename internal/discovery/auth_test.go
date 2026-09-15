@@ -548,3 +548,63 @@ func count(values []string, want string) int {
 	}
 	return n
 }
+
+// Over MCP 2026-07-28 there are no sessions to bind a token to: Passthrough
+// calls share the one connection, each carrying its caller's token.
+func TestAuth_PassthroughOverTheNewProtocolSharesOneConnection(t *testing.T) {
+	backend := mcptest.NewStatelessBackend(t, "memory", "memory_search")
+	backend.RequireBearer(map[string]string{
+		"discovery-key": "gateway",
+		"alice-token":   "alice",
+		"bob-token":     "bob",
+	})
+	var seen requests
+	backend.Guard(func(r *http.Request) int { seen.record(r); return 0 })
+	secrets := newFakeSecrets()
+	secrets.Set("memory-discovery", "key", "discovery-key")
+	r := newTestRegistry(t, Options{Secrets: secrets})
+	b := r.Ensure("memory", backend.URL, passthroughAuth())
+
+	for _, caller := range []string{"alice", "bob", "alice"} {
+		ctx := credentials.WithCaller(context.Background(), "Bearer "+caller+"-token")
+		res, err := b.CallTool(ctx, &mcp.CallToolParams{Name: "memory_search"})
+		require.NoError(t, err)
+		assert.Equal(t, "memory/memory_search {} as "+caller, callText(t, res))
+	}
+	assert.Zero(t, b.callerSessions(), "no connection per caller")
+	assert.Equal(t, []string{"Bearer alice-token", "Bearer bob-token", "Bearer alice-token"}, seen.authorizations("tools/call"))
+	for _, authorization := range seen.authorizations("server/discover") {
+		assert.Equal(t, "Bearer discovery-key", authorization, "the shared connection is opened with the discovery credential")
+	}
+
+	_, _, err := r.Discover(context.Background(), "memory")
+	require.NoError(t, err, "catalog reads still use the discovery credential")
+
+	ctx := credentials.WithCaller(context.Background(), "Bearer mallory-token")
+	_, err = b.CallTool(ctx, &mcp.CallToolParams{Name: "memory_search"})
+	var refused *RefusedError
+	require.ErrorAs(t, err, &refused)
+	assert.Equal(t, "the caller's token", refused.Credential)
+	res, err := b.CallTool(credentials.WithCaller(context.Background(), "Bearer bob-token"), &mcp.CallToolParams{Name: "memory_search"})
+	require.NoError(t, err, "a refused caller leaves the shared connection to the others")
+	assert.Equal(t, "memory/memory_search {} as bob", callText(t, res))
+}
+
+// A backend that wants a token even to be discovered, and no discovery
+// credential to give it: the shared connection cannot be opened, and calls get
+// in on their callers' own connections.
+func TestAuth_PassthroughWhenTheSharedConnectionCannotOpen(t *testing.T) {
+	backend := mcptest.NewStatelessBackend(t, "memory", "memory_search")
+	backend.RequireBearer(map[string]string{"alice-token": "alice"})
+	r := newTestRegistry(t, Options{})
+	b := r.Ensure("memory", backend.URL, &gatev1alpha1.BackendAuth{Type: gatev1alpha1.BackendAuthPassthrough})
+
+	for range 3 {
+		res, err := b.CallTool(credentials.WithCaller(context.Background(), "Bearer alice-token"), &mcp.CallToolParams{Name: "memory_search"})
+		require.NoError(t, err)
+		assert.Equal(t, "memory/memory_search {} as alice", callText(t, res))
+	}
+	assert.Equal(t, 1, b.callerSessions())
+	_, _, err := r.Discover(context.Background(), "memory")
+	assert.Error(t, err)
+}

@@ -55,6 +55,10 @@ type authTransport struct {
 	// a redirect to another host does not take them along.
 	host       url.URL
 	credential credentials.Credential
+	// callers sends a request made for a caller with the caller's own token
+	// instead of credential: the shared connection of a Passthrough backend
+	// that has no sessions to bind a token to.
+	callers bool
 }
 
 func newAuthTransport(base http.RoundTripper, endpoint string, credential credentials.Credential) *authTransport {
@@ -78,9 +82,15 @@ func (t *authTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			}
 			out.Body = body
 		}
-		sendsCredential := t.credential != nil && req.URL.Scheme == t.host.Scheme && req.URL.Host == t.host.Host
+		credential := t.credential
+		if t.callers {
+			if authorization, ok := credentials.Caller(req.Context()); ok {
+				credential = credentials.Forward(authorization)
+			}
+		}
+		sendsCredential := credential != nil && req.URL.Scheme == t.host.Scheme && req.URL.Host == t.host.Host
 		if sendsCredential {
-			if err := t.credential.Authorize(req.Context(), out.Header); err != nil {
+			if err := credential.Authorize(req.Context(), out.Header); err != nil {
 				closeBody(req)
 				return nil, &CredentialError{Err: err}
 			}
@@ -97,12 +107,12 @@ func (t *authTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		_ = resp.Body.Close()
 
 		replayable := req.Body == nil || req.Body == http.NoBody || req.GetBody != nil
-		if resp.StatusCode == http.StatusUnauthorized && attempt == 0 && sendsCredential && replayable && t.credential.Refused(out.Header) {
+		if resp.StatusCode == http.StatusUnauthorized && attempt == 0 && sendsCredential && replayable && credential.Refused(out.Header) {
 			continue
 		}
 		refused := &RefusedError{StatusCode: resp.StatusCode}
 		if sendsCredential {
-			refused.Credential = t.credential.String()
+			refused.Credential = credential.String()
 		}
 		return nil, refused
 	}

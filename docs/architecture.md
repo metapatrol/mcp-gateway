@@ -235,12 +235,17 @@ caller. When a session-based backend restarts and no longer knows the session,
 the request is retried once on a new one — only for failures where the backend
 provably did not receive the request; a tool call is never repeated on a guess.
 
-A `Passthrough` backend is the exception. Each caller token gets a connection of
-its own for its tool calls — a session-based backend binds a session to the
-identity that opened it — and the shared connection reads the catalog. Caller
-connections are keyed by a hash of the token rather than by the gateway's subject
-— the backend decides who a token is, and two tokens the gateway maps to one
-subject can be two identities to it. They close after five minutes without calls.
+A `Passthrough` backend that speaks MCP 2026-07-28 shares that connection too:
+without sessions there is nothing to bind a token to, and each call carries its
+caller's token on its own request. A session-based `Passthrough` backend is the
+exception. It binds a session to the identity that opened it, so each caller
+token gets a connection of its own for its tool calls, and the shared connection
+reads the catalog. Caller connections are keyed by a hash of the token rather
+than by the gateway's subject — the backend decides who a token is, and two
+tokens the gateway maps to one subject can be two identities to it. They close
+after five minutes without calls. That separation is what Passthrough costs on a
+session-based backend under load — in the load test about a quarter more CPU per
+call and a longer tail — and what it no longer costs on one that has no sessions.
 
 Change notifications from a backend arrive on a connection of its own, the
 **listener**, kept open in the background: a `subscriptions/listen` stream, or

@@ -177,10 +177,11 @@ backend that should only accept tokens meant for it has to say so itself.
 
 - **Explicit, per backend.** A token is never forwarded to a backend whose type
   is not `Passthrough`.
-- **One backend connection per token.** A session-based backend binds a session to
-  the identity that opened it, so each distinct token gets a connection of its own
-  for its calls. A replaced token starts a new one; connections without calls for
-  five minutes are closed.
+- **Each call with its own token.** A backend speaking MCP 2026-07-28 gets every
+  call on one shared connection, each request with its caller's token. A
+  session-based backend binds a session to the identity that opened it, so there
+  each distinct token gets a connection of its own for its calls; a replaced token
+  starts a new one, and connections without calls for five minutes are closed.
 - **Catalog reads have no agent.** The controller and the gateway read the
   catalog in the background, with `passthrough.discovery` — an API key or a
   client of their own — or with no credentials at all. A backend like engram,

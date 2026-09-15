@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
@@ -26,10 +27,12 @@ import (
 // The SDK multiplexes concurrent requests over it, so a hundred agents calling
 // the same backend do not mean a hundred handshakes.
 //
-// The exception is a backend with Passthrough auth. Each caller token gets a
-// connection of its own for its tool calls — a session-based backend binds a
-// session to the identity that opened it — and the shared connection only reads
-// the catalog.
+// A backend with Passthrough auth sends each tool call with the caller's own
+// token. Over MCP 2026-07-28 that is all it takes: there are no sessions, and
+// the shared connection carries the calls with the caller's token on each
+// request. A session-based backend binds a session to the identity that opened
+// it, so there each caller token gets a connection of its own for its tool
+// calls, and the shared connection only reads the catalog.
 //
 // Connections are opened on first use and reopened when lost: a session-based
 // backend that restarted answers the old session ID with 404, and the next call
@@ -48,9 +51,16 @@ type Backend struct {
 	timeout    time.Duration
 	auth       credentials.Auth
 
-	// shared reads the catalog, and carries the tool calls of every auth type
-	// but Passthrough.
+	// shared reads the catalog, and carries the tool calls — a Passthrough
+	// backend's too, once it is known to speak MCP 2026-07-28.
 	shared *conn
+
+	// protocol is what the backend was found to speak on the shared
+	// connection: protocolUnknown until that connection has been opened.
+	protocol atomic.Int32
+	// sharedFailedAt is when opening the shared connection for a Passthrough
+	// call last failed, in UnixNano; calls do not try again for a while.
+	sharedFailedAt atomic.Int64
 
 	// stopListening ends the listener; nil when nobody listens.
 	stopListening context.CancelFunc
@@ -91,6 +101,20 @@ type handshake struct {
 	err     error
 }
 
+// What a backend was found to speak.
+const (
+	protocolUnknown int32 = iota
+	protocolSessions
+	protocolStateless
+)
+
+// statelessProtocol is the first MCP version without sessions.
+const statelessProtocol = "2026-07-28"
+
+// sharedRetryInterval is how long Passthrough calls go straight to the caller's
+// own connection after the shared connection could not be opened.
+const sharedRetryInterval = 30 * time.Second
+
 const (
 	// callerIdleTimeout is how long the session of a caller token that makes
 	// no calls is kept. Tokens are replaced every so often, and the session of
@@ -113,6 +137,7 @@ func newBackend(name, endpoint string, auth credentials.Auth, client, listenClie
 		callers:    map[[sha256.Size]byte]*callerConn{},
 	}
 	b.shared = b.newConn(auth.Credential)
+	b.shared.httpClient.Transport.(*authTransport).callers = auth.Passthrough()
 	if listenClient != nil {
 		ctx, cancel := context.WithCancel(context.Background())
 		b.stopListening = cancel
@@ -314,6 +339,13 @@ func (c *conn) shake(h *handshake) {
 	}
 	h.session = session
 	c.session = session
+	if res := session.InitializeResult(); res != nil && c == b.shared {
+		if res.ProtocolVersion >= statelessProtocol {
+			b.protocol.Store(protocolStateless)
+		} else {
+			b.protocol.Store(protocolSessions)
+		}
+	}
 
 	// Forget the session once it ends, whichever side ended it, so the next
 	// call opens a fresh one instead of failing against a dead one.
@@ -444,6 +476,13 @@ func (b *Backend) CallTool(ctx context.Context, params *mcp.CallToolParams) (*mc
 // subject. The backend decides for itself who a token belongs to, and two
 // tokens the gateway maps to one subject may well be two identities to it — a
 // session opened with one would refuse the other.
+//
+// A Passthrough backend known to speak MCP 2026-07-28 needs none of that: its
+// calls go out on the shared connection, which sends the caller's token with
+// each. One whose protocol is not known yet is asked on the shared connection
+// first; if that connection cannot be opened — a backend that wants a token
+// even to be discovered, and no discovery credential — the caller's own
+// connection is the way in.
 func (b *Backend) connFor(ctx context.Context) (*conn, func(), error) {
 	if !b.auth.Passthrough() {
 		return b.shared, func() {}, nil
@@ -451,6 +490,14 @@ func (b *Backend) connFor(ctx context.Context) (*conn, func(), error) {
 	authorization, ok := credentials.Caller(ctx)
 	if !ok {
 		return nil, nil, ErrNoCaller
+	}
+	if b.protocol.Load() == protocolUnknown && time.Since(time.Unix(0, b.sharedFailedAt.Load())) > sharedRetryInterval {
+		if _, err := b.shared.connect(ctx); err != nil {
+			b.sharedFailedAt.Store(time.Now().UnixNano())
+		}
+	}
+	if b.protocol.Load() == protocolStateless {
+		return b.shared, func() {}, nil
 	}
 	key := sha256.Sum256([]byte(authorization))
 	now := time.Now()

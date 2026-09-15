@@ -127,6 +127,9 @@ type gateSetup struct {
 	passthrough bool
 	// tools is how many tools the backend offers; all are granted by pattern.
 	tools int
+	// stateless serves the backend over MCP 2026-07-28 rather than a
+	// session-based version.
+	stateless bool
 }
 
 type gate struct {
@@ -143,6 +146,9 @@ func newGate(t *testing.T, setup gateSetup) (*gate, *mcptest.Backend) {
 		tools[i] = fmt.Sprintf("tool_%d", i)
 	}
 	backend := mcptest.NewBackend(t, "backend", tools...)
+	if setup.stateless {
+		backend = mcptest.NewStatelessBackend(t, "backend", tools...)
+	}
 
 	// The gateway's own client to the backend is built as its main builds it,
 	// so connection reuse towards backends is measured as it is in production.
@@ -422,12 +428,26 @@ func TestLoad(t *testing.T) {
 	})
 
 	t.Run("passthrough", func(t *testing.T) {
-		g, _ := newGate(t, gateSetup{subjects: 256, tools: 20, passthrough: true})
-		tokens := make([]string, 256)
-		for i := range tokens {
-			tokens[i] = g.issuer.token(t, fmt.Sprintf("subject-%d", i))
+		// Each backend with and without Passthrough, so what Passthrough
+		// itself costs is the difference within one backend kind.
+		for _, backend := range []struct {
+			name      string
+			stateless bool
+		}{{"session-based backend", false}, {"MCP 2026-07-28 backend", true}} {
+			for _, passthrough := range []bool{false, true} {
+				g, _ := newGate(t, gateSetup{subjects: 256, tools: 20, passthrough: passthrough, stateless: backend.stateless})
+				tokens := make([]string, 256)
+				for i := range tokens {
+					tokens[i] = g.issuer.token(t, fmt.Sprintf("subject-%d", i))
+				}
+				auth := "no backend auth"
+				if passthrough {
+					auth = "Passthrough"
+				}
+				rep.add(t, measure(t, fmt.Sprintf("tools/call, 256 tokens, %s, %s", auth, backend.name), 256,
+					sessionCall(t, g.url, func(i int) string { return tokens[i] }, tr)))
+			}
 		}
-		rep.add(t, measure(t, "tools/call, Passthrough, 256 tokens", 256, sessionCall(t, g.url, func(i int) string { return tokens[i] }, tr)))
 	})
 
 	t.Run("list", func(t *testing.T) {
