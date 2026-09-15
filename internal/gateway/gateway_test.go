@@ -3,11 +3,13 @@ package gateway
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -735,4 +737,56 @@ func TestRenames_TwoBackendsWithTheSameToolName(t *testing.T) {
 
 	assert.Contains(t, session.InitializeResult().Instructions,
 		"Tools from this server: engram_artifact_get (artifact_get), memorize (remember)\n\nUse artifact_get to recall.")
+}
+
+// An agent that asks for progress gets what the backend reports, under its own
+// progress token.
+func TestProgress_ReachesTheAgent(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		stateless bool
+	}{{"session-based backend", false}, {"MCP 2026-07-28 backend", true}} {
+		t.Run(tc.name, func(t *testing.T) {
+			e := newEnv(t, Options{})
+			slow := mcptest.NewBackend(t, "slow")
+			if tc.stateless {
+				slow = mcptest.NewStatelessBackend(t, "slow")
+			}
+			slow.AddProgressTool("work", 3)
+			e.register("slow", slow.URL)
+			e.toolSets = append(e.toolSets, toolSet("slow", "slow", "work"))
+			e.capabilities = append(e.capabilities, capability("slow", "slow"))
+			e.grants = append(e.grants, grant("nobody-slow", "nobody", "slow"))
+			e.apply()
+
+			var mu sync.Mutex
+			var got []string
+			session, err := e.connectWith("token-nobody", &mcp.ClientOptions{
+				ProgressNotificationHandler: func(_ context.Context, req *mcp.ProgressNotificationClientRequest) {
+					mu.Lock()
+					defer mu.Unlock()
+					got = append(got, fmt.Sprintf("%v %s %v/%v", req.Params.ProgressToken, req.Params.Message, req.Params.Progress, req.Params.Total))
+				},
+			})
+			require.NoError(t, err)
+			params := &mcp.CallToolParams{Name: "work", Arguments: map[string]any{}}
+			params.SetProgressToken("agent-token-7")
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			res, err := session.CallTool(ctx, params)
+			require.NoError(t, err)
+			assert.Equal(t, "work done", text(res))
+
+			require.Eventually(t, func() bool {
+				mu.Lock()
+				defer mu.Unlock()
+				return len(got) == 3
+			}, 2*time.Second, 10*time.Millisecond)
+			assert.Equal(t, []string{
+				"agent-token-7 step 1 of 3 1/3",
+				"agent-token-7 step 2 of 3 2/3",
+				"agent-token-7 step 3 of 3 3/3",
+			}, got)
+		})
+	}
 }

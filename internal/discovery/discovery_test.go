@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -433,4 +434,48 @@ func TestRegistry_ReusesConnectionsToABackend(t *testing.T) {
 		burst()
 	}
 	assert.LessOrEqual(t, backend.Connections.Load()-opened, int64(4), "later bursts reuse the connections of the first")
+}
+
+// Progress reaches the call that asked for it, and only that call — the client
+// is shared by every caller, so the token is what tells the calls apart.
+func TestBackend_RelaysProgressToTheCallThatAskedForIt(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		backend *mcptest.Backend
+	}{
+		{"session-based", mcptest.NewBackend(t, "slow")},
+		{"stateless", mcptest.NewStatelessBackend(t, "slow")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.backend.AddProgressTool("work", 3)
+			r := newTestRegistry(t, Options{})
+			b := r.Ensure("slow", tc.backend.URL, nil)
+
+			var mu sync.Mutex
+			got := map[string][]string{}
+			var wg sync.WaitGroup
+			for _, caller := range []string{"first", "second"} {
+				wg.Go(func() {
+					ctx := WithProgress(context.Background(), func(p *mcp.ProgressNotificationParams) {
+						mu.Lock()
+						defer mu.Unlock()
+						got[caller] = append(got[caller], fmt.Sprintf("%s %v/%v", p.Message, p.Progress, p.Total))
+					})
+					res, err := b.CallTool(ctx, &mcp.CallToolParams{Name: "work"})
+					assert.NoError(t, err)
+					assert.False(t, res.IsError)
+				})
+			}
+			wg.Wait()
+			want := []string{"step 1 of 3 1/3", "step 2 of 3 2/3", "step 3 of 3 3/3"}
+			mu.Lock()
+			defer mu.Unlock()
+			assert.Equal(t, want, got["first"])
+			assert.Equal(t, want, got["second"])
+
+			res, err := b.CallTool(context.Background(), &mcp.CallToolParams{Name: "work"})
+			require.NoError(t, err, "a call that does not ask for progress gets none, and works")
+			assert.False(t, res.IsError)
+		})
+	}
 }

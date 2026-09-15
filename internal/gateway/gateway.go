@@ -501,6 +501,19 @@ func (g *Gateway) callTool(ctx context.Context, serverSubject string, req *mcp.C
 		// goes nowhere it was not explicitly meant to go.
 		callCtx = credentials.WithCaller(callCtx, req.Extra.Header.Get("Authorization"))
 	}
+	if token := req.Params.GetProgressToken(); token != nil && req.Session != nil {
+		// The agent asked for progress. The backend reports it against a
+		// token of the gateway's own, and it goes back to the agent against
+		// the agent's.
+		callCtx = discovery.WithProgress(callCtx, func(p *mcp.ProgressNotificationParams) {
+			_ = req.Session.NotifyProgress(callCtx, &mcp.ProgressNotificationParams{
+				ProgressToken: token,
+				Progress:      p.Progress,
+				Total:         p.Total,
+				Message:       p.Message,
+			})
+		})
+	}
 	start := time.Now()
 	res, err := backend.CallTool(callCtx, &mcp.CallToolParams{
 		Name:      ref.Tool,

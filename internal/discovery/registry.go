@@ -43,7 +43,8 @@ type Options struct {
 // Registry holds the backends of all registered MCPServers and the catalog
 // last read from each. It is safe for concurrent use.
 type Registry struct {
-	opts Options
+	opts     Options
+	progress *progressRoutes
 
 	mu      sync.RWMutex
 	entries map[string]*entry
@@ -68,7 +69,7 @@ func NewRegistry(opts Options) *Registry {
 	if opts.ConnectTimeout <= 0 {
 		opts.ConnectTimeout = 10 * time.Second
 	}
-	return &Registry{opts: opts, entries: map[string]*entry{}}
+	return &Registry{opts: opts, progress: newProgressRoutes(), entries: map[string]*entry{}}
 }
 
 // Ensure registers a backend, or updates it.
@@ -93,6 +94,7 @@ func (r *Registry) Ensure(name, endpoint string, auth *gatev1alpha1.BackendAuth)
 		return e.backend
 	}
 	b := newBackend(name, endpoint, built, r.newClient(nil), r.listenClient(name), r.opts.HTTPClient, r.opts.ConnectTimeout)
+	b.progress = r.progress
 	switch {
 	case !ok:
 		r.entries[name] = &entry{backend: b}
@@ -118,6 +120,10 @@ func (r *Registry) newClient(onToolsChanged func()) *mcp.Client {
 	}
 	if onToolsChanged != nil {
 		opts.ToolListChangedHandler = func(context.Context, *mcp.ToolListChangedRequest) { onToolsChanged() }
+	} else {
+		opts.ProgressNotificationHandler = func(_ context.Context, req *mcp.ProgressNotificationClientRequest) {
+			r.progress.deliver(req.Params)
+		}
 	}
 	return mcp.NewClient(r.opts.Implementation, opts)
 }

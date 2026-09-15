@@ -207,6 +207,15 @@ resolution — a few microseconds however large the policy grows.
 A refused call gets exactly the error a nonexistent tool gets, so a caller cannot
 probe for tools outside its grants.
 
+An agent that sends a `progressToken` gets the backend's progress. The call goes
+to the backend with a token of the gateway's own, unique to the call — the client
+towards a backend is shared by every caller — and each notification the backend
+sends against it goes back to the agent against the agent's token. The SDK
+delivers a response ahead of the notification queue, so the gateway waits briefly
+after the answer for notifications the backend sent before it: not at all when
+the last one reported the work complete, otherwise until none has come for 25 ms,
+at most 250 ms.
+
 A backend failure comes back as a tool result with `isError: true` — something
 the model can see and work around — and the cause is logged rather than returned,
 since it carries backend addresses.
@@ -362,4 +371,3 @@ backend report `ServerUnavailable`.
   `credentials.Credential`.
 - **Prompts, resources, sampling, elicitation.** The gateway aggregates tools
   only.
-- **Progress notifications** from backends are not relayed to agents.

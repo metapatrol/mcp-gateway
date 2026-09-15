@@ -186,6 +186,28 @@ func (b *Backend) AddFailingTool(name string) {
 	})
 }
 
+// AddProgressTool adds a tool that reports progress steps times, when the
+// caller asked for progress, before it answers.
+func (b *Backend) AddProgressTool(name string, steps int) {
+	b.Server().AddTool(&mcp.Tool{
+		Name:        name,
+		InputSchema: json.RawMessage(`{"type":"object"}`),
+	}, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		b.Calls.Add(1)
+		if token := req.Params.GetProgressToken(); token != nil {
+			for i := range steps {
+				_ = req.Session.NotifyProgress(ctx, &mcp.ProgressNotificationParams{
+					ProgressToken: token,
+					Progress:      float64(i + 1),
+					Total:         float64(steps),
+					Message:       fmt.Sprintf("step %d of %d", i+1, steps),
+				})
+			}
+		}
+		return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: name + " done"}}}, nil
+	})
+}
+
 // RemoveTool removes tools. Connected clients are notified.
 func (b *Backend) RemoveTool(names ...string) {
 	b.Server().RemoveTools(names...)

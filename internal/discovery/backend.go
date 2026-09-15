@@ -62,6 +62,9 @@ type Backend struct {
 	// call last failed, in UnixNano; calls do not try again for a while.
 	sharedFailedAt atomic.Int64
 
+	// progress routes the progress notifications of calls that asked for it.
+	progress *progressRoutes
+
 	// stopListening ends the listener; nil when nobody listens.
 	stopListening context.CancelFunc
 	listening     chan struct{}
@@ -457,13 +460,20 @@ func (b *Backend) ReadCatalog(ctx context.Context) (*Catalog, error) {
 }
 
 // CallTool forwards one tool call. For a Passthrough backend, ctx must carry the
-// caller's token; see credentials.WithCaller.
+// caller's token; see credentials.WithCaller. A ctx made by WithProgress
+// receives the progress the backend reports while the call runs.
 func (b *Backend) CallTool(ctx context.Context, params *mcp.CallToolParams) (*mcp.CallToolResult, error) {
 	c, release, err := b.connFor(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer release()
+	if progress, ok := ctx.Value(progressKey{}).(Progress); ok && progress != nil && b.progress != nil {
+		token, route := b.progress.open(progress)
+		defer b.progress.close(token)
+		defer route.settle()
+		params.SetProgressToken(token)
+	}
 	return withSession(ctx, c, func(session *mcp.ClientSession) (*mcp.CallToolResult, error) {
 		return session.CallTool(ctx, params)
 	})
