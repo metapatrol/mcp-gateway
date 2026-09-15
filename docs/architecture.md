@@ -293,7 +293,9 @@ sequenceDiagram
 
 Three things trigger a rediscovery, in both components:
 
-1. The backend sends `notifications/tools/list_changed` over the session.
+1. The backend sends `notifications/tools/list_changed`, heard by the backend's
+   listener — on its `subscriptions/listen` stream, or the notification stream of
+   a session-based backend.
 2. The server's `spec.discoveryInterval` elapses (default 1m, minimum 10s).
 3. In the gateway only: `status.catalogRevision` changes — the controller saw a
    catalog this replica may not have yet.
@@ -307,7 +309,7 @@ same catalog changes nothing and notifies no one.
 | Kind | `Valid` | `Ready` |
 |---|---|---|
 | MCPServer | — | discovery succeeded (`Discovered` / `DiscoveryFailed`, `CredentialsUnavailable`, `Unauthorized`) |
-| MCPToolSet | server exists (`ServerNotFound`) | server Ready, every name exposed, every pattern selects something (`ServerUnavailable`, `MissingTools`, `UnmatchedPatterns`, `CatalogPending`) |
+| MCPToolSet | server exists (`ServerNotFound`) | server Ready, every name exposed, every pattern selects something, every alias names a selected tool, no two tools renamed alike (`ServerUnavailable`, `ToolNameConflict`, `MissingTools`, `UnmatchedPatterns`, `UnusedAliases`, `CatalogPending`) |
 | MCPCapability | tool sets exist, no name conflict (`ToolSetNotFound`, `ToolNameConflict`) | every tool set Ready (`ToolSetNotReady`) |
 | MCPGrant | capabilities exist, no name conflict (`CapabilityNotFound`, `ToolNameConflict`) | every capability Ready, no conflict with the subject's other grants (`CapabilityNotReady`, `ToolNameConflict`) |
 

@@ -53,7 +53,7 @@ graph LR
 
 | Component | Role |
 |---|---|
-| `mcp-gate-gateway` | The enforcement point. Verifies tokens, resolves the subject's grants, serves the filtered aggregate `tools/list`, authorises and routes every `tools/call`. Reads the API, never writes it. Every replica serves traffic. |
+| `mcp-gate-gateway` | The enforcement point. Verifies tokens, resolves the subject's grants, serves the filtered aggregate `tools/list`, authorises and routes every `tools/call` — authenticating to backends as each `MCPServer` says. Reads the API, never writes it. Every replica serves traffic. |
 | `mcp-gate-controller` | Discovers backend catalogs, verifies tool sets against them, reports `Valid` and `Ready` on all four kinds. Not in the request path: the gateway keeps working when it is down. |
 | `mcp-gate-proxy` | Optional. An auth-less MCP endpoint on localhost that obtains tokens itself, for agents that cannot do OAuth. Convenience, not a security boundary. |
 
@@ -200,6 +200,18 @@ make lint                   # golangci-lint
 make helm-lint              # lint both charts
 make helm-docs              # regenerate the chart READMEs
 ```
+
+Performance is measured rather than guessed:
+
+```bash
+go test -run '^$' -bench . ./internal/policy ./internal/auth     # per-call policy and token work
+MCP_GATE_LOAD=1 go test ./tests/load -run TestLoad -v -timeout 30m
+```
+
+The load test runs MCP clients, the gateway and backends in one process over
+loopback HTTP and reports requests per second, latency percentiles and CPU per
+call, straight to a backend and through the gateway. It needs a quiet machine:
+on a busy one, differences of ten percent are noise.
 
 The tests talk real MCP: backends in [`internal/mcptest`](./internal/mcptest)
 are the SDK's own server behind a local listener — session-based and MCP
