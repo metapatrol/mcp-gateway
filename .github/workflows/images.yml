@@ -9,7 +9,7 @@
 #
 # Forgejo reads .forgejo/workflows and ignores this directory.
 #
-#   ghcr.io/<owner>/mcp-gateway{,-controller,-proxy,-ui}
+#   ghcr.io/metapatrol/mcp-gateway{,-controller,-proxy,-ui}
 #     :1.9.0 :1.9 :latest   from a release tag
 #     :main :<short sha>    from main
 name: images

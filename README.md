@@ -112,6 +112,24 @@ The chart refuses to render without `gateway.oauth.jwksURL` or
 `gateway.oauth.introspection.url`: a gateway that cannot verify tokens cannot
 serve anyone. → **[Authentication](./docs/authentication.md)**
 
+Outside the metapatrol network, the [GitHub mirror](https://github.com/metapatrol/mcp-gateway)
+publishes the images to GitHub Packages. Install the chart from a checkout of
+a release tag — the image tag defaults to the chart version — and point it at
+them:
+
+```bash
+git clone --branch v1.9.0 https://github.com/metapatrol/mcp-gateway.git
+helm install mcp-gateway ./mcp-gateway/charts/mcp-gateway \
+  --namespace mcp-system --create-namespace \
+  --set controller.image.repository=ghcr.io/metapatrol/mcp-gateway-controller \
+  --set gateway.image.repository=ghcr.io/metapatrol/mcp-gateway \
+  --set ui.image.repository=ghcr.io/metapatrol/mcp-gateway-ui \
+  --set gateway.oauth.issuer=https://hydra.example.com/ \
+  --set gateway.oauth.introspection.url=http://hydra-admin.hydra.svc:4445/admin/oauth2/introspect
+```
+
+The proxy's image is `ghcr.io/metapatrol/mcp-gateway-proxy`.
+
 ### 2. Register backends, select tools, grant them
 
 ```yaml
