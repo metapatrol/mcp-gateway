@@ -30,7 +30,6 @@
     </div>
 
     <nav aria-label="Main" class="-mx-1 flex gap-1 overflow-x-auto lg:mx-0 lg:flex-col lg:overflow-visible">
-      <span class="eyebrow hidden px-2 pt-1 pb-1 lg:block">Cluster</span>
       @for (item of cluster(); track item.path) {
         <a
           [routerLink]="item.path"
@@ -49,7 +48,6 @@
           }
         </a>
       }
-      <span class="eyebrow hidden px-2 pt-3 pb-1 lg:block">Explore</span>
       <a
         routerLink="/subjects"
         routerLinkActive="bg-surface font-semibold shadow-[inset_0_0_0_1px] shadow-line"
