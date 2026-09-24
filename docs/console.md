@@ -78,6 +78,14 @@ instructions are `?instructions=raw`, and every list's search and sort are
 (`/servers?sort=-tools`). Sorting by Ready or Valid puts what is not ready
 first.
 
+Each MCP view estimates what it costs in a model's context: in total, per
+panel, and on hover the heaviest tools. Counted is what an MCP client hands a
+model — each tool's name, description and input schema, and the instructions —
+not the JSON-RPC envelope around them. The count is `o200k_base`, an open BPE
+vocabulary the console loads with the first MCP view; Claude's tokenizer is not
+published, so it is an estimate, good for comparing tool sets and finding the
+tools that make one heavy, not for budgeting to the token.
+
 The agent's side is not a rendering. The gateway answers it itself
 (`GET /api/v1alpha1/{kind}/{name}/mcp`, `GET /api/v1alpha1/subject/mcp`): a
 server built as a subject's is, the same registration of each tool, the same
