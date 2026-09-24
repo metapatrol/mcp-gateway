@@ -1,0 +1,237 @@
+# Console — mcp-gateway-ui
+
+A read-only web console over what the gateway knows: the four kinds, the
+backends' catalogs with every tool's description and input schema, and what each
+subject is offered. It exists to answer one question without reading YAML and
+logs side by side — *does this tool set do what I configured?* — and the ones
+that follow from it: what does this subject get, and through which grant; which
+backend does an agent's `search` come from; what is an agent told when it starts.
+
+It is optional, runs as a process of its own, and changes nothing.
+
+---
+
+## Enabling it
+
+```yaml
+# values of the mcp-gateway chart
+ui:
+  enabled: true
+```
+
+That deploys `mcp-gateway-ui` with a Service and a ServiceAccount of its own,
+and turns on the gateway's inspect API, which the console reads:
+
+| What | Why |
+|---|---|
+| `--inspect-bind-address=:8095` on the gateway, and a Service `<release>-inspect` | The inspect API has a listener and a Service of its own. The MCP port and the address agents are given never lead to it |
+| `--inspect-service-accounts=<namespace>/<release>-ui` | The console's ServiceAccount is the one reader the gateway accepts; `gateway.inspect.serviceAccounts` adds more |
+| A projected ServiceAccount token for the audience `mcp-gateway-inspect` in the console pod, and no default token | The token opens the inspect API and nothing else, the Kubernetes API included |
+| `create` on `tokenreviews` for the gateway | How the gateway checks that token |
+| With `networkPolicy.enabled`: the console's pods let in on the gateway's inspect port | Nothing else reaches it |
+
+The gateway's inspect API can also be enabled alone (`gateway.inspect.enabled`,
+with `gateway.inspect.serviceAccounts`) for another reader. The chart refuses to
+render it without a reader: it is never open to whoever reaches the port.
+
+## Opening it
+
+The console has no sign-in of its own. Who may open it is decided in front of
+it:
+
+```bash
+kubectl -n agent-system port-forward svc/mcp-gateway-ui 8080:80
+# http://127.0.0.1:8080/
+```
+
+or an ingress with an authenticating proxy (oauth2-proxy, or the ingress
+controller's own authentication) in front of the `mcp-gateway-ui` Service. It
+shows every subject's grants and every backend's tool list; treat access to it
+like read access to the four kinds.
+
+## What it shows
+
+| Page | Shows |
+|---|---|
+| Overview | How many of each kind are Ready, everything that is not — the resource at fault first, the ones only passing it on after — and a map from grants through capabilities and tool sets to servers. Hovering a box follows its chain |
+| Servers | Endpoint, `spec.auth` with Secrets by name and key only, discovery as the controller reports it and as this gateway replica sees it, the backend's instructions, and its catalog with every tool's description, arguments and hints (read-only, destructive, …) |
+| Tool sets | The entries of `tools`, `exclude`, `prefix` and `aliases` beside the whole catalog, and for every tool whether it is exposed, under which name, and which entry decided it. Selecting an entry marks the tools it selected or removed |
+| Capabilities | Its tool sets, the grants that use it, the tools it comes to, and name conflicts |
+| Grants | Its subject, its capabilities, the ones that do not exist, and the other grants for the same subject |
+| Subjects | For any subject — typed in, or picked from those grants name — every tool it is offered with every path it is granted through, the tools it is not offered and why, and the instructions text it is sent at start |
+
+Small tags mark where a value comes from: `spec` as written, `status` as the
+controller reported it, `gateway` live from the replica that answered. They can
+be hidden.
+
+## Data flows
+
+Everything the console shows comes from the gateway's inspect API, and nothing
+else: the console has no Kubernetes access and no route to a backend.
+
+```mermaid
+flowchart LR
+    subgraph SRC["sources"]
+        direction TB
+        K8S[("Kubernetes API<br/>spec + status of<br/>the four kinds")]
+        B["MCP backends"]
+    end
+
+    subgraph GW["mcp-gateway (each replica)"]
+        direction TB
+        INF["informer cache"]
+        REG["discovery registry<br/>catalogs, health"]
+        POL["policy snapshot"]
+        EXP["resolution,<br/>policy.Explain"]
+        EV["event hub"]
+        INS["inspect API<br/>:8095"]
+    end
+
+    subgraph UIP["mcp-gateway-ui"]
+        direction TB
+        PX["/api proxy<br/>+ SA token"]
+        SPA["embedded web UI"]
+    end
+
+    BR["browser"]
+
+    K8S -->|"watch"| INF
+    B -->|"tools/list,<br/>list_changed"| REG
+    INF --> POL
+    POL --> EXP
+    REG --> EXP
+    INF --> INS
+    EXP --> INS
+    REG -->|"health"| INS
+    INF -->|"any change,<br/>status included"| EV
+    REG -->|"new catalog,<br/>failing / recovered"| EV
+    EV -->|"SSE: changed"| INS
+    INS -->|"JSON, SSE"| PX
+    PX --> BR
+    SPA -->|"HTML, JS"| BR
+```
+
+Arrows point the way the data goes. Requests go the other way: the browser asks
+`mcp-gateway-ui`, which asks the gateway's `<release>-inspect` Service.
+
+### Reading
+
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant U as mcp-gateway-ui
+    participant G as mcp-gateway (inspect API)
+    participant K as Kubernetes API
+
+    B->>U: GET /api/v1alpha1/toolsets/web-search
+    Note over U: GET and HEAD only.<br/>The browser's cookies and<br/>Authorization are dropped.
+    U->>G: same path, Bearer <projected SA token>
+    G->>K: TokenReview (audience mcp-gateway-inspect)
+    K-->>G: system:serviceaccount:agent-system:mcp-gateway-ui
+    Note over G: remembered for a minute
+    Note over G: informer cache + registry + policy.Explain,<br/>all in memory
+    G-->>U: ToolSet JSON, source: {replica, observedAt}
+    U-->>B: ToolSet JSON
+```
+
+The gateway answers from memory: the informer cache it watches the four kinds
+with, the catalogs it discovered, and the resolution it enforces. A request of
+the console costs no call to a backend and no read of the Kubernetes API,
+except the TokenReview of a token not seen in the last minute.
+
+### Changes
+
+```mermaid
+sequenceDiagram
+    participant F as kubectl / Flux / controller
+    participant K as Kubernetes API
+    participant G as mcp-gateway (informers, event hub)
+    participant U as mcp-gateway-ui
+    participant B as Browser
+
+    B->>U: GET /api/v1alpha1/events (EventSource)
+    U->>G: GET /api/v1alpha1/events, Bearer <SA token>
+    G-->>B: : connected
+    F->>K: update MCPToolSet web-search
+    K-->>G: watch event
+    Note over G: collected for 250ms,<br/>duplicates merged
+    G-->>B: event: changed<br/>data: {"changes":[{"kind":"toolset","name":"web-search"}]}
+    B->>U: GET /toolsets/web-search, GET /toolsets, …
+    U->>G: (as in Reading)
+    G-->>B: the new state
+```
+
+An event says what changed, never what to: the console reads again through the
+same operations it read with the first time, so there is one way the data
+reaches it. Every page reloads what it shows on every event; the pages are small
+and the gateway answers from memory, so this is cheaper than keeping track of
+which event concerns which page.
+
+What produces an event:
+
+| Source | Event |
+|---|---|
+| Any add, update or delete of one of the four kinds the replica's informers see — spec, status, labels | `{kind, name}` of that resource |
+| A backend's catalog changes on this replica (a tool added, removed, or redefined; new instructions) | `{kind: server, name}` |
+| A backend's discovery starts or stops failing on this replica | `{kind: server, name}` |
+
+What does not: the controller's routine write of `status.lastDiscoveryTime`
+after a discovery that found what the last one found. Announcing it would have
+every console read again once per discovery interval per server.
+
+When the stream is down — the gateway restarting, a proxy closing it — the
+browser reconnects by itself and reads everything again, since nothing is
+replayed. When the gateway refuses a stream (more than 100 open on a replica),
+the console polls every 30 seconds and asks again later. While the stream is up
+it still reads everything every five minutes, for what no event announces: a
+catalog that ages out of use after `--catalog-max-age` while its backend stays
+down. The sidebar says which of these is the case, and what changed last.
+
+### Replicas
+
+Each answer, and each stream, comes from one gateway replica, and says which
+(`source.replica`, shown in the sidebar). The Kubernetes side is the same on
+every replica. The catalogs are each replica's own discovery, so two replicas
+can differ for up to a discovery interval; a tool set page says so when the
+controller's status and the answering replica disagree about what it resolves
+to.
+
+## Developing it
+
+```bash
+make dev-stack
+```
+
+runs the whole chain on one machine and keeps it running until Ctrl-C: a
+Kubernetes API server with the CRDs (envtest), six MCP backends in-process,
+the controller, the gateway with its inspect API and event stream, and the
+console at http://127.0.0.1:8480/. The example resources cover every state the
+console has a way of showing: a backend whose credentials are missing, a tool
+set naming a tool its backend lacks, two tool sets exposing `search` to one
+subject, a grant naming a capability that does not exist, and a tool set with
+exclusions, a prefix and an alias. It writes a kubeconfig for its API server:
+
+```bash
+kubectl --kubeconfig /tmp/mcp-gateway-dev-stack.kubeconfig edit mcptoolset web-search
+```
+
+and the console follows the edit as it is saved. The inspect API accepts every
+caller there — there is no token to review — and the MCP endpoint takes the
+subject as its bearer token.
+
+For work on the UI itself, `npm start` in `web/ui` serves it with live reload on
+http://localhost:4200/ and passes `/api` on to the dev stack. The UI needs
+Node ≥ 22.22.3.
+
+| Command | Does |
+|---|---|
+| `make ui-build` | Generates the API client and builds the UI into `internal/ui/dist/ui`, which `mcp-gateway-ui` embeds |
+| `make ui-test` | The UI's unit tests (Vitest) |
+| `make ui-lint` | ESLint over the UI |
+| `make generate-api` | The Go side of the inspect API, from its spec |
+| `make lint-api` | Redocly over the spec |
+
+The spec, [`api/openapi/inspect.yaml`](../api/openapi/inspect.yaml), is where a
+change to the API starts. The Go server interface and the UI's client are both
+generated from it — the Go code committed and checked by a test, the UI's client
+on every build and never committed — so neither can drift from it.

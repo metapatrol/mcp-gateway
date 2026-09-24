@@ -25,7 +25,10 @@ graph LR
     subgraph "mcp-gateway chart"
         GW["mcp-gateway<br/>(data plane)"]
         CT["mcp-gateway-controller<br/>(control plane)"]
+        UI["mcp-gateway-ui<br/>(console, optional)"]
     end
+
+    OP["operator<br/>(browser)"]
 
     subgraph Backends
         SI["source-intelligence MCP"]
@@ -49,6 +52,9 @@ graph LR
     CT -->|"tools/list"| SI
     CT -->|"tools/list"| AR
     CT -.->|"watch, write status"| K8S
+
+    OP -->|"read-only"| UI
+    UI -->|"inspect API + events"| GW
 ```
 
 | Component | Role |
@@ -58,7 +64,8 @@ graph LR
 | `mcp-gateway-proxy` | Optional. An auth-less MCP endpoint on localhost that obtains tokens itself, for agents that cannot do OAuth. Convenience, not a security boundary. |
 | `mcp-gateway-ui` | Optional (`ui.enabled`). A read-only web console over the four kinds, the backends' catalogs with every tool's description, and what each subject gets — for checking that a tool set does what its manifest says. Reads the gateway's inspect API. `make dev-stack` runs it locally with example resources. |
 
-→ **[Architecture](./docs/architecture.md)** — request flow, change detection, failure behaviour
+→ **[Architecture](./docs/architecture.md)** — data flows, request flow, change detection, failure behaviour
+→ **[Console](./docs/console.md)** — what the console shows and how data and changes reach it
 
 ## CRDs
 
@@ -163,6 +170,20 @@ As a sidecar: [`samples/proxy-sidecar.yaml`](./samples/proxy-sidecar.yaml).
 
 The gateway behaves identically in both modes; it cannot tell them apart.
 
+### 4. Look at it (optional)
+
+```bash
+helm upgrade mcp-gateway oci://zot.metapatrol.local/charts/platform/mcp-gateway \
+  --namespace mcp-system --reuse-values --set ui.enabled=true
+kubectl -n mcp-system port-forward svc/mcp-gateway-ui 8080:80
+```
+
+http://127.0.0.1:8080/ shows every server with its catalog, every tool set beside
+the tools it actually exposes and why, and what any subject is offered — with
+the descriptions agents choose tools by — and follows changes as they happen.
+It has no sign-in of its own: put a port-forward or an authenticating proxy in
+front of it. → **[Console](./docs/console.md)**
+
 ## Observability
 
 Both components serve Prometheus metrics on `:8080`, and the chart creates a
@@ -193,14 +214,23 @@ ID, tool, backend, outcome and duration — and so is every refusal.
 ```bash
 make generate               # deepcopy
 make generate-crds          # CRD manifests → charts/mcp-gateway/crds/
+make generate-api           # inspect API types and server interface ← api/openapi/inspect.yaml
 make build                  # compile everything
-make build-binaries         # bin/mcp-gateway{,-controller,-proxy}
+make build-binaries         # bin/mcp-gateway{,-controller,-proxy,-ui}, the UI built first
 make test                   # unit tests, with real in-process MCP backends
 make integration-test       # controller + gateway against a real API server (envtest)
 make lint                   # golangci-lint
+make lint-api               # Redocly over the inspect API's spec
+make ui-build ui-test ui-lint   # the console's web UI (Node ≥ 22.22.3)
+make dev-stack              # everything, locally, with the console at http://127.0.0.1:8480/
 make helm-lint              # lint both charts
 make helm-docs              # regenerate the chart READMEs
 ```
+
+The inspect API is written spec first: change
+[`api/openapi/inspect.yaml`](./api/openapi/inspect.yaml), then `make
+generate-api`. A test fails while the generated Go code is stale, and the UI
+generates its client from the spec on every build.
 
 Performance is measured rather than guessed:
 

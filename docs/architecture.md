@@ -16,6 +16,12 @@ graph TB
         PR["PolicyReconciler<br/>(read-only)"]
         CR["CatalogReconciler<br/>(read-only)"]
         REG1["discovery.Registry<br/>one connection per backend"]
+        INS["inspect API<br/>(optional, own port)"]
+        EV["event hub"]
+    end
+
+    subgraph "mcp-gateway-ui (optional)"
+        UI["web UI + /api proxy"]
     end
 
     subgraph "mcp-gateway-controller (leader)"
@@ -42,6 +48,13 @@ graph TB
     REG2 --> B
     R2 -.->|"verify against"| REG2
     R1 & R2 & R3 & R4 -.->|"status"| API
+
+    PR -->|"policy snapshot"| INS
+    REG1 -->|"catalogs, health"| INS
+    API -.->|"watch, status included"| EV
+    CR -->|"catalog changed"| EV
+    EV -->|"SSE"| INS
+    UI -->|"GET, SA token"| INS
 ```
 
 | Package | Holds |
@@ -53,8 +66,61 @@ graph TB
 | `internal/gateway` | The data plane: HTTP handler, per-subject servers, authorisation, the gateway's reconcilers |
 | `internal/controller` | The control plane: verification and status |
 | `internal/proxy` | `mcp-gateway-proxy` |
-| `internal/metrics` | Prometheus metrics of all three binaries |
-| `internal/inspect` | The gateway's read-only inspect API; `internal/inspect/api` is generated from `api/openapi/inspect.yaml` |
+| `internal/metrics` | Prometheus metrics of the gateway, the controller and the proxy |
+| `internal/inspect` | The gateway's read-only inspect API and its event stream; `internal/inspect/api` is generated from `api/openapi/inspect.yaml` |
+| `internal/ui` | `mcp-gateway-ui`: serves the embedded web UI and passes `/api` on to the inspect API |
+| `web/ui` | The console's web UI (Angular); its API client is generated from the same spec |
+
+## Data flows
+
+Three flows cross the system. Declarations go from the manifests into the
+Kubernetes API and from there, by watch, into every process that needs them.
+Catalogs go from the backends into the controller and into each gateway replica,
+which discover independently. What the gateway makes of both goes out to agents
+and, optionally, to the console. Nothing flows back into a manifest, and only
+the controller writes anything — status.
+
+Arrows point the way the data goes; requests go the other way — an agent's
+`tools/call` travels from the agent through the gateway to the backend, and its
+result comes back along the arrows.
+
+```mermaid
+flowchart LR
+    GIT["manifests<br/>(GitOps)"]
+    K8S[("Kubernetes API<br/>spec + status")]
+    B["MCP backends"]
+    CT["mcp-gateway-controller<br/>discovers, verifies"]
+    GW["mcp-gateway<br/>(each replica)<br/>policy, catalogs,<br/>per-subject tool lists"]
+    AG["agents"]
+    UI["mcp-gateway-ui"]
+    BR["browser"]
+
+    GIT -->|"apply"| K8S
+    K8S -->|"watch"| CT
+    B -->|"catalogs"| CT
+    CT -.->|"status"| K8S
+    K8S -->|"watch,<br/>status included"| GW
+    B -->|"catalogs,<br/>tool results"| GW
+    GW -->|"tool lists,<br/>tool results"| AG
+    GW -->|"inspect API:<br/>JSON, SSE"| UI
+    UI --> BR
+```
+
+- **Declarations.** The four kinds are written once — by Flux, kubectl, whoever
+  — and read by watch: the controller verifies them against catalogs and writes
+  status; each gateway replica builds its policy snapshot from them. The gateway
+  never waits for status, and never writes.
+- **Catalogs.** Backends are read over MCP by the controller, for status, and
+  by each gateway replica, for serving. A backend that announces
+  `notifications/tools/list_changed` is read again at once; the others on their
+  `discoveryInterval`.
+- **Agent requests.** An agent's `tools/list` is answered from the subject's
+  tool list, kept in memory; its `tools/call` is authorised again and forwarded
+  to the backend. See [Request flow](#request-flow).
+- **Console requests.** The console reads the inspect API, which answers from
+  the same informer cache, catalogs and resolution the MCP endpoint uses, and
+  streams an event whenever one of them changes. See
+  [Console](./console.md#data-flows) for the details of that path.
 
 ## Why the controller is not in the request path
 
@@ -384,20 +450,14 @@ HEAD only, without the browser's cookies or credentials, with its own
 ServiceAccount token, projected for the audience `mcp-gateway-inspect`. There
 is one API and one spec: the console's client is generated from
 `api/openapi/inspect.yaml` on every UI build, so a change to the spec that the
-UI does not follow fails its build.
-
-It reads again whenever the event stream names a change, and polls every 30
-seconds while it cannot have the stream (every five minutes while it can, for
-what no event announces, such as a catalog ageing out of use).
+UI does not follow fails its build. It reads again whenever the event stream
+names a change, and polls while it cannot have the stream.
 
 It has no sign-in of its own and keeps nothing. Who may open it is decided in
 front of it: a port-forward, or an ingress with an authenticating proxy.
 
-`make dev-stack` runs the whole chain on one machine — an API server with the
-CRDs, MCP backends, the controller, the gateway with its inspect API, and the
-console at http://127.0.0.1:8480/ — with example resources in every state the
-console has a way of showing — and writes a kubeconfig for that API server, so
-a resource can be edited with kubectl and the console seen to follow.
+→ **[Console](./console.md)** — enabling it, what it shows, its data flows,
+`make dev-stack`
 
 ## Network model
 
