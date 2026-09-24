@@ -9,6 +9,8 @@ backend does an agent's `search` come from; what is an agent told when it starts
 
 It is optional, runs as a process of its own, and changes nothing.
 
+![The overview: what is not ready, and the map from grants to servers](./images/console-overview.png)
+
 ---
 
 ## Enabling it
@@ -40,7 +42,7 @@ The console has no sign-in of its own. Who may open it is decided in front of
 it:
 
 ```bash
-kubectl -n agent-system port-forward svc/mcp-gateway-ui 8080:80
+kubectl -n mcp-system port-forward svc/mcp-gateway-ui 8080:80
 # http://127.0.0.1:8080/
 ```
 
@@ -51,6 +53,9 @@ like read access to the four kinds.
 
 ## What it shows
 
+Every list — servers, tool sets, capabilities, grants, subjects — can be
+searched and sorted by any of its columns.
+
 | Page | Shows |
 |---|---|
 | Overview | How many of each kind are Ready, everything that is not — the resource at fault first, the ones only passing it on after — and a map from grants through capabilities and tool sets to servers. Hovering a box follows its chain |
@@ -59,6 +64,10 @@ like read access to the four kinds.
 | Capabilities | Its tool sets, the grants that use it, the tools it comes to, name conflicts, and the instructions an agent holding it would be sent |
 | Grants | Its subject, its capabilities, the ones that do not exist, the other grants for the same subject, and the instructions an agent holding it would be sent |
 | Subjects | For any subject — typed in, or picked from those grants name — every tool it is offered with every path it is granted through, the tools it is not offered and why, and the instructions text it is sent at start: the gateway's own (`gateway.instructions`) followed by those of the backends it holds tools from |
+
+![A tool set: its entries beside the server's catalog, and why each tool is in or out](./images/console-toolset.png)
+
+![A subject: every tool it is offered, and the grant, capability and tool set it comes through](./images/console-subject.png)
 
 Servers, tool sets, capabilities, grants and subjects each have a second tab,
 **MCP**, with what the resource comes to on the wire:
@@ -77,6 +86,8 @@ instructions are `?instructions=raw`, and every list's search and sort are
 `?q=` and `?sort=` — a column, `-` in front for descending
 (`/servers?sort=-tools`). Sorting by Ready or Valid puts what is not ready
 first.
+
+![The MCP view of a server: what the backend answered, and what it costs in context](./images/console-mcp.png)
 
 Each MCP view estimates what it costs in a model's context: in total, per
 panel, and on hover the heaviest tools. Counted is what an MCP client hands a

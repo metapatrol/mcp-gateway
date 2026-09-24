@@ -180,7 +180,12 @@ kubectl -n mcp-system port-forward svc/mcp-gateway-ui 8080:80
 
 http://127.0.0.1:8080/ shows every server with its catalog, every tool set beside
 the tools it actually exposes and why, and what any subject is offered — with
-the descriptions agents choose tools by — and follows changes as they happen.
+the descriptions agents choose tools by, the exact MCP payloads an agent
+receives, and an estimate of what they cost in its context — and follows
+changes as they happen.
+
+![A tool set in the console](./docs/images/console-toolset.png)
+
 It has no sign-in of its own: put a port-forward or an authenticating proxy in
 front of it. → **[Console](./docs/console.md)**
 
