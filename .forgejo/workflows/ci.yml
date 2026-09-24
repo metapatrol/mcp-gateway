@@ -205,6 +205,7 @@ jobs:
             -f "$chart/ci/default-values.yaml" \
             --set networkPolicy.enabled=true \
             --set serviceMonitor.enabled=true \
+            --set ui.enabled=true \
             --set gateway.oauth.introspection.url=http://hydra-admin:4445/admin/oauth2/introspect > /dev/null
           if helm template "$chart" > /dev/null 2>&1; then
             echo "ERROR: the chart rendered without token verification settings"
