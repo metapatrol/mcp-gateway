@@ -48,6 +48,8 @@ export class SubjectDetail {
     ];
   });
 
+  protected readonly missingTip = computed(() => this.missing().map((t) => `${t.name} · ${this.why(t)}`).join('\n'));
+
   /** Why a resolved tool is not offered, in a few words. */
   protected why(t: SubjectTool): string {
     if (t.state === 'conflict') {

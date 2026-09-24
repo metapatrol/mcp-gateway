@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { ToolAnnotations, ToolDefinition } from '../api/models';
 import { parameters } from '../core/schema';
+import { Tip } from './tip';
 
 /**
  * A tool's description and arguments: the text an agent decides by. It is
@@ -8,6 +9,7 @@ import { parameters } from '../core/schema';
  */
 @Component({
   selector: 'app-tool-doc',
+  imports: [Tip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (tool().description; as d) {
@@ -15,11 +17,11 @@ import { parameters } from '../core/schema';
     } @else {
       <p class="faint mt-1 font-sans text-[12.5px]">No description.</p>
     }
-    <div class="mt-1 flex flex-wrap items-center gap-1 font-sans text-[10.5px]" [title]="HINT_TITLE">
+    <div class="mt-1 flex flex-wrap items-center gap-1 font-sans text-[10.5px]">
       @if (hints().length) {
         <span class="faint">declared by the backend:</span>
         @for (h of hints(); track h.text) {
-          <span class="rounded px-1.5 py-0.5 font-medium" [class]="h.classes">{{ h.text }}</span>
+          <span class="rounded px-1.5 py-0.5 font-medium" [class]="h.classes" [appTip]="h.meaning + '\nDeclared by the backend, not verified by the gateway.'" [focusable]="true">{{ h.text }}</span>
         }
       } @else {
         <span class="faint">no hints declared</span>
@@ -52,9 +54,24 @@ export class ToolDoc {
   readonly tool = input.required<ToolDefinition>();
   readonly open = input(false);
   protected readonly params = computed(() => parameters(this.tool().inputSchema));
-  protected readonly HINT_TITLE = 'Not verified by the gateway';
   protected readonly hints = computed(() => declaredHints(this.tool().annotations));
 }
+
+interface Hint {
+  text: string;
+  classes: string;
+  /** What the annotation means, in MCP's words. */
+  meaning: string;
+}
+
+const MEANING: Record<string, string> = {
+  'read-only': 'Does not modify its environment.',
+  destructive: 'May perform destructive updates to its environment.',
+  'not destructive': 'Performs only additive updates to its environment.',
+  idempotent: 'Calling it again with the same arguments has no additional effect.',
+  'open world': 'Interacts with an open world of external entities, such as the web.',
+  'closed world': 'Its domain of interaction is closed.',
+};
 
 const GOOD = 'bg-ok-soft text-ok';
 const BAD = 'bg-bad-soft text-bad';
@@ -69,21 +86,26 @@ const PLAIN = 'bg-sunken text-muted';
  * false (the SDK drops the difference), so only true counts for them.
  * destructiveHint means something only for a tool that is not read-only.
  */
-export function declaredHints(a: ToolAnnotations | undefined): { text: string; classes: string }[] {
+export function declaredHints(a: ToolAnnotations | undefined): Hint[] {
   if (!a) {
     return [];
   }
-  const out: { text: string; classes: string }[] = [];
+  const out: Hint[] = [];
   if (a.readOnlyHint) {
-    out.push({ text: 'read-only', classes: GOOD });
+    out.push({ text: 'read-only', classes: GOOD, meaning: MEANING['read-only'] });
   } else if (a.destructiveHint !== undefined && a.destructiveHint !== null) {
-    out.push(a.destructiveHint ? { text: 'destructive', classes: BAD } : { text: 'not destructive', classes: PLAIN });
+    out.push(
+      a.destructiveHint
+        ? { text: 'destructive', classes: BAD, meaning: MEANING['destructive'] }
+        : { text: 'not destructive', classes: PLAIN, meaning: MEANING['not destructive'] },
+    );
   }
   if (a.idempotentHint) {
-    out.push({ text: 'idempotent', classes: PLAIN });
+    out.push({ text: 'idempotent', classes: PLAIN, meaning: MEANING['idempotent'] });
   }
   if (a.openWorldHint !== undefined && a.openWorldHint !== null) {
-    out.push({ text: a.openWorldHint ? 'open world' : 'closed world', classes: PLAIN });
+    const text = a.openWorldHint ? 'open world' : 'closed world';
+    out.push({ text, classes: PLAIN, meaning: MEANING[text] });
   }
   return out;
 }

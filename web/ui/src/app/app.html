@@ -41,7 +41,7 @@
             <span
               class="rounded-full px-1.5 font-mono text-[11px] leading-[18px] font-semibold tabular-nums"
               [class]="item.tone === 'bad' ? 'bg-bad-soft text-bad' : 'bg-warn-soft text-warn'"
-              [title]="item.problems + ' not ready'"
+              [appTip]="item.tip"
               >{{ item.problems }}<span class="sr-only"> not ready</span></span
             >
           }

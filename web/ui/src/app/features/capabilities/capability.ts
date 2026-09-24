@@ -91,7 +91,7 @@ import { DetailView, ViewSwitch } from '../../shared/view-switch';
                       }
                     </td>
                     <td>
-                      <app-pill [tone]="t.available ? 'ok' : 'warn'">{{ t.available ? 'offered' : 'not offered' }}</app-pill>
+                      <app-pill [tone]="t.available ? 'ok' : 'warn'" [tip]="t.available ? undefined : whyNot(t.ref.server)">{{ t.available ? 'offered' : 'not offered' }}</app-pill>
                     </td>
                   </tr>
                 } @empty {
@@ -155,6 +155,11 @@ export class CapabilityDetail {
   protected readonly c = computed(() => (this.capability.hasValue() ? this.capability.value() : undefined));
   protected readonly servers = computed(() => new Set(this.c()?.tools.map((t) => t.ref.server)).size);
   protected readonly cond = condition;
+
+  /** Why a resolved tool is not offered: its catalog is not served, or lacks it. */
+  protected whyNot(server: string): string {
+    return this.lists.server(server)?.discovery.usable ? `${server} does not offer it` : `${server} is not served right now`;
+  }
 
   protected toolSetReady(name: string) {
     return condition(this.lists.toolSet(name)?.status.conditions, 'Ready');

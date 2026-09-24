@@ -103,9 +103,9 @@
             <tbody>
               <tr>
                 <td class="muted">Available</td>
-                <td><app-pill [tone]="s.status.available ? 'ok' : 'bad'">{{ s.status.available ? 'yes' : 'no' }}</app-pill></td>
+                <td><app-pill [tone]="s.status.available ? 'ok' : 'bad'" [tip]="'last success ' + since(s.status.lastDiscoveryTime)">{{ s.status.available ? 'yes' : 'no' }}</app-pill></td>
                 <td>
-                  <app-pill [tone]="s.discovery.usable ? 'ok' : 'bad'">{{ s.discovery.usable ? 'served' : s.discovery.discovered ? 'no longer served' : 'never discovered' }}</app-pill>
+                  <app-pill [tone]="s.discovery.usable ? 'ok' : 'bad'" [tip]="s.discovery.lastError ?? 'last success ' + since(s.discovery.lastSuccess)">{{ s.discovery.usable ? 'served' : s.discovery.discovered ? 'no longer served' : 'never discovered' }}</app-pill>
                 </td>
               </tr>
               <tr>

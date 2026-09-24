@@ -18,7 +18,7 @@
     <div class="flex flex-wrap gap-1.5">
       <app-pill tone="ok">{{ offered() }} offered</app-pill>
       @if (missing().length) {
-        <app-pill tone="warn">{{ missing().length }} not offered</app-pill>
+        <app-pill tone="warn" [tip]="missingTip()">{{ missing().length }} not offered</app-pill>
       }
     </div>
   }

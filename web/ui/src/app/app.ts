@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { Tip } from './shared/tip';
 import { Condition } from './api/models';
 import { CONDITIONS, firstProblem, SERVER_CONDITIONS, tone } from './core/conditions';
 import { Inspect } from './core/inspect';
@@ -13,17 +14,25 @@ interface NavItem {
   problems?: number;
   /** bad when one of them is at fault itself, warn when all only pass trouble on. */
   tone?: 'bad' | 'warn';
+  /** Which ones, and why, one per line. */
+  tip?: string;
 }
 
 /** The not-ready count of a list and its worst tone, as the overview ranks them. */
-function problems(conditionLists: Condition[][], types: Condition['type'][]): Pick<NavItem, 'problems' | 'tone'> {
-  const found = conditionLists.map((c) => firstProblem(c, types)).filter((c): c is Condition => !!c);
-  return { problems: found.length, tone: found.some((c) => tone(c) === 'bad') ? 'bad' : 'warn' };
+function problems(items: { name: string; conditions: Condition[] }[], types: Condition['type'][]): Pick<NavItem, 'problems' | 'tone' | 'tip'> {
+  const found = items
+    .map((i) => ({ name: i.name, c: firstProblem(i.conditions, types) }))
+    .filter((x): x is { name: string; c: Condition } => !!x.c);
+  return {
+    problems: found.length,
+    tone: found.some((x) => tone(x.c) === 'bad') ? 'bad' : 'warn',
+    tip: found.map((x) => `${x.name} · ${x.c.reason}`).join('\n'),
+  };
 }
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, Tip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './app.html',
 })
@@ -36,8 +45,8 @@ export class App {
   protected readonly cluster = computed<NavItem[]>(() => {
     // Counted only once a list has arrived: nothing is known before that.
     const l = this.lists;
-    const count = (loaded: boolean, items: { status: { conditions: Condition[] } }[], types: Condition['type'][]) =>
-      loaded ? problems(items.map((i) => i.status.conditions), types) : {};
+    const count = (loaded: boolean, items: { meta: { name: string }; status: { conditions: Condition[] } }[], types: Condition['type'][]) =>
+      loaded ? problems(items.map((i) => ({ name: i.meta.name, conditions: i.status.conditions })), types) : {};
     return [
       { path: '/overview', label: 'Overview' },
       { path: '/servers', label: 'Servers', ...count(l.servers.hasValue(), l.serverItems(), SERVER_CONDITIONS) },
