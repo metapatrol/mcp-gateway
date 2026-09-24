@@ -56,7 +56,11 @@ func Handler(opts Options) http.Handler {
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	})
-	mux.Handle(APIPrefix, apiProxy(opts, log))
+	proxy := apiProxy(opts, log)
+	mux.Handle(APIPrefix, proxy)
+	// The API catalog, so a tool pointed at the console finds the API's
+	// description as it would at the gateway.
+	mux.Handle("/.well-known/api-catalog", proxy)
 	mux.Handle("/", spa(opts.UI))
 	return securityHeaders(mux)
 }

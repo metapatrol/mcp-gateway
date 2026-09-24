@@ -270,4 +270,6 @@ Node ≥ 22.22.3.
 The spec, [`api/openapi/inspect.yaml`](../api/openapi/inspect.yaml), is where a
 change to the API starts. The Go server interface and the UI's client are both
 generated from it — the Go code committed and checked by a test, the UI's client
-on every build and never committed — so neither can drift from it.
+on every build and never committed — so neither can drift from it. The gateway serves
+it too, without a token, at `/api/v1alpha1/openapi.yaml` and `openapi.json`,
+and names both in `/.well-known/api-catalog`; the console passes all three on.

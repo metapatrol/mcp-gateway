@@ -5,3 +5,8 @@
 api/openapi/inspect.yaml:
   no-unused-components:
     - '#/components/schemas/ChangeBatch'
+  # The description itself is public and takes no parameters: there is no
+  # request to refuse.
+  operation-4xx-response:
+    - '#/paths/~1openapi.yaml/get/responses'
+    - '#/paths/~1openapi.json/get/responses'

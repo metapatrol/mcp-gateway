@@ -906,6 +906,12 @@ type ServerInterface interface {
 	// GetGrantMCP What an agent holding the grant receives
 	// (GET /grants/{name}/mcp)
 	GetGrantMCP(w http.ResponseWriter, r *http.Request, name Name)
+	// GetOpenAPIJSON This description, as JSON
+	// (GET /openapi.json)
+	GetOpenAPIJSON(w http.ResponseWriter, r *http.Request)
+	// GetOpenAPIYAML This description, as YAML
+	// (GET /openapi.yaml)
+	GetOpenAPIYAML(w http.ResponseWriter, r *http.Request)
 	// ListServers List the MCPServers
 	// (GET /servers)
 	ListServers(w http.ResponseWriter, r *http.Request)
@@ -1081,6 +1087,34 @@ func (siw *ServerInterfaceWrapper) GetGrantMCP(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetGrantMCP(w, r, name)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetOpenAPIJSON operation middleware
+func (siw *ServerInterfaceWrapper) GetOpenAPIJSON(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOpenAPIJSON(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetOpenAPIYAML operation middleware
+func (siw *ServerInterfaceWrapper) GetOpenAPIYAML(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOpenAPIYAML(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1437,6 +1471,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/subjects", wrapper.ListSubjects)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/subject", wrapper.GetSubject)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/subject/mcp", wrapper.GetSubjectMCP)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/openapi.yaml", wrapper.GetOpenAPIYAML)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/openapi.json", wrapper.GetOpenAPIJSON)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/events", wrapper.WatchEvents)
 
 	return m
@@ -1934,6 +1970,54 @@ func (response GetGrantMCPdefaultApplicationProblemPlusJSONResponse) VisitGetGra
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(response.StatusCode)
 	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetOpenAPIJSONRequestObject struct {
+}
+
+type GetOpenAPIJSONResponseObject interface {
+	VisitGetOpenAPIJSONResponse(w http.ResponseWriter) error
+}
+
+type GetOpenAPIJSON200JSONResponse json.RawMessage
+
+func (response GetOpenAPIJSON200JSONResponse) VisitGetOpenAPIJSONResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetOpenAPIYAMLRequestObject struct {
+}
+
+type GetOpenAPIYAMLResponseObject interface {
+	VisitGetOpenAPIYAMLResponse(w http.ResponseWriter) error
+}
+
+type GetOpenAPIYAML200ApplicationyamlResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response GetOpenAPIYAML200ApplicationyamlResponse) VisitGetOpenAPIYAMLResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "application/yaml")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
 	return err
 }
 
@@ -2516,6 +2600,12 @@ type StrictServerInterface interface {
 	// GetGrantMCP What an agent holding the grant receives
 	// (GET /grants/{name}/mcp)
 	GetGrantMCP(ctx context.Context, request GetGrantMCPRequestObject) (GetGrantMCPResponseObject, error)
+	// GetOpenAPIJSON This description, as JSON
+	// (GET /openapi.json)
+	GetOpenAPIJSON(ctx context.Context, request GetOpenAPIJSONRequestObject) (GetOpenAPIJSONResponseObject, error)
+	// GetOpenAPIYAML This description, as YAML
+	// (GET /openapi.yaml)
+	GetOpenAPIYAML(ctx context.Context, request GetOpenAPIYAMLRequestObject) (GetOpenAPIYAMLResponseObject, error)
 	// ListServers List the MCPServers
 	// (GET /servers)
 	ListServers(ctx context.Context, request ListServersRequestObject) (ListServersResponseObject, error)
@@ -2753,6 +2843,54 @@ func (sh *strictHandler) GetGrantMCP(w http.ResponseWriter, r *http.Request, nam
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetGrantMCPResponseObject); ok {
 		if err := validResponse.VisitGetGrantMCPResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetOpenAPIJSON operation middleware
+func (sh *strictHandler) GetOpenAPIJSON(w http.ResponseWriter, r *http.Request) {
+	var request GetOpenAPIJSONRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetOpenAPIJSON(ctx, request.(GetOpenAPIJSONRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetOpenAPIJSON")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetOpenAPIJSONResponseObject); ok {
+		if err := validResponse.VisitGetOpenAPIJSONResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetOpenAPIYAML operation middleware
+func (sh *strictHandler) GetOpenAPIYAML(w http.ResponseWriter, r *http.Request) {
+	var request GetOpenAPIYAMLRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetOpenAPIYAML(ctx, request.(GetOpenAPIYAMLRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetOpenAPIYAML")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetOpenAPIYAMLResponseObject); ok {
+		if err := validResponse.VisitGetOpenAPIYAMLResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -42,6 +42,8 @@ tags:
     description: What a token subject is offered, resolved as the gateway does.
   - name: events
     description: Notifications that something changed, so a reader knows when to read again.
+  - name: description
+    description: This description of the API, readable without a token.
 
 paths:
   /servers:
@@ -296,6 +298,41 @@ paths:
               schema: { $ref: "#/components/schemas/AgentExchange" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         default: { $ref: "#/components/responses/Problem" }
+
+  /openapi.yaml:
+    get:
+      tags: [description]
+      operationId: getOpenAPIYAML
+      summary: This description, as YAML
+      description: |
+        The file the gateway's server interface and the console's client are
+        generated from, as the gateway was built with it. It needs no token:
+        what the API offers is no secret, what it answers is.
+      security: []
+      responses:
+        "200":
+          description: The OpenAPI description, as written.
+          content:
+            application/yaml:
+              schema:
+                type: string
+
+  /openapi.json:
+    get:
+      tags: [description]
+      operationId: getOpenAPIJSON
+      summary: This description, as JSON
+      description: The same document as /openapi.yaml, converted to JSON. It needs no token.
+      security: []
+      responses:
+        "200":
+          description: The OpenAPI description.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                x-go-type: json.RawMessage
 
   /events:
     get:

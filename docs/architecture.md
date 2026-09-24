@@ -431,6 +431,13 @@ Readers authenticate with a ServiceAccount token issued for the audience
 for the Kubernetes API, and a token that opened both would be worth more to
 whoever captured it.
 
+The description itself is public: `GET /api/v1alpha1/openapi.yaml` is the
+embedded spec the code was generated from, byte for byte, and
+`/api/v1alpha1/openapi.json` the same as JSON. `GET /.well-known/api-catalog`
+([RFC 9727](https://www.rfc-editor.org/rfc/rfc9727)) links to both, so a tool
+given only the host finds them. None of the three takes a token; what the API
+offers is no secret, what it answers is.
+
 `GET /events` is a stream of server-sent events that says what changed — a
 kind and a name — and never what to: the reader reads again through the other
 operations, so the data has one way out. It hears every change the replica's

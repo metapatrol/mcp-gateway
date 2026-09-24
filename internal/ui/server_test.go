@@ -204,3 +204,12 @@ func TestAPIProxyStreamsEvents(t *testing.T) {
 		t.Fatal("the event did not come through while the stream was open")
 	}
 }
+
+func TestAPICatalogIsPassedOn(t *testing.T) {
+	g := newGateway(t)
+	h := handler(t, g, built, static("sa-token"))
+	rec := serve(h, http.MethodGet, "/.well-known/api-catalog", nil)
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.NotNil(t, g.last)
+	assert.Equal(t, "/.well-known/api-catalog", g.last.URL.Path)
+}
