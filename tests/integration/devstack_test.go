@@ -172,7 +172,11 @@ func tool(name, description string, readOnly bool, props map[string][2]string, r
 	for p, v := range props {
 		properties[p] = map[string]any{"type": v[0], "description": v[1]}
 	}
-	schema, _ := json.Marshal(map[string]any{"type": "object", "properties": properties, "required": required})
+	s := map[string]any{"type": "object", "properties": properties}
+	if len(required) > 0 {
+		s["required"] = required
+	}
+	schema, _ := json.Marshal(s)
 	t := &mcp.Tool{Name: name, Description: description, InputSchema: json.RawMessage(schema)}
 	if readOnly {
 		t.Annotations = &mcp.ToolAnnotations{ReadOnlyHint: true}

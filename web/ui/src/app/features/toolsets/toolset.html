@@ -24,6 +24,7 @@
       <app-condition label="Ready" [condition]="cond(t.status.conditions, 'Ready')" />
     </div>
   </header>
+  <app-view-switch [(view)]="view" />
 
   @if (differs().length) {
     <p class="panel mb-4 border-warn/40 bg-warn-soft px-4 py-2.5 text-[13px] text-warn">
@@ -31,6 +32,9 @@
     </p>
   }
 
+  @if (view() === 'tools') {
+    <app-raw-tools kind="toolset" [name]="name()" />
+  } @else {
   <div class="flex flex-col gap-4">
     <div class="grid items-start gap-4 2xl:grid-cols-[minmax(20rem,0.7fr)_minmax(0,1.3fr)]">
       <section class="panel">
@@ -238,4 +242,5 @@
 
     <app-conditions [conditions]="t.status.conditions" [observedGeneration]="t.status.observedGeneration" [generation]="t.meta.generation" />
   </div>
+  }
 }

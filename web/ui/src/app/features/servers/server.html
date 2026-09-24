@@ -12,7 +12,11 @@
     </div>
     <app-condition label="Ready" [condition]="ready()" />
   </header>
+  <app-view-switch [(view)]="view" />
 
+  @if (view() === 'tools') {
+    <app-raw-tools kind="server" [name]="name()" />
+  } @else {
   <div class="flex flex-col gap-4">
     <div class="grid gap-4 xl:grid-cols-2">
       <section class="panel">
@@ -149,4 +153,5 @@
       }
     </section>
   </div>
+  }
 }

@@ -2,16 +2,19 @@ package integration
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	mcpv1alpha1 "forgejo.metapatrol.local/platform/mcp-gateway/api/v1alpha1"
 	"forgejo.metapatrol.local/platform/mcp-gateway/internal/inspect"
@@ -118,4 +121,57 @@ func TestInspectEvents(t *testing.T) {
 	delete(seen, api.Change{Kind: api.ChangeKindServer, Name: "events-server"})
 	backend.AddTool("two")
 	waitFor(api.Change{Kind: api.ChangeKindServer, Name: "events-server"})
+}
+
+// TestInspectToolsListIsWhatAgentsGet compares a grant's tools/list in the
+// inspect API with the tools/list an agent holding only that grant receives
+// from the gateway: the console's JSON view has to be the real thing, prefix,
+// aliases, descriptions, schemas and hints included.
+func TestInspectToolsListIsWhatAgentsGet(t *testing.T) {
+	ctx := context.Background()
+	mcpURL, inspectURL, _ := startGatewayWithInspect(t)
+
+	backend := mcptest.NewBackend(t, "fidelity", "plain")
+	backend.AddDefinedTool(&mcp.Tool{
+		Name:        "search",
+		Title:       "Search",
+		Description: "Search the things.",
+		InputSchema: json.RawMessage(`{"type":"object","properties":{"q":{"type":"string","description":"what"}},"required":["q"]}`),
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true, OpenWorldHint: ptrTo(false)},
+	})
+	for _, obj := range []client.Object{
+		&mcpv1alpha1.MCPServer{ObjectMeta: metav1.ObjectMeta{Name: "fidelity"}, Spec: mcpv1alpha1.MCPServerSpec{Endpoint: backend.URL}},
+		&mcpv1alpha1.MCPToolSet{ObjectMeta: metav1.ObjectMeta{Name: "fidelity"}, Spec: mcpv1alpha1.MCPToolSetSpec{
+			ServerRef: "fidelity", Tools: []string{"*"}, Prefix: "f_", Aliases: map[string]mcpv1alpha1.ToolName{"search": "find"},
+		}},
+		&mcpv1alpha1.MCPCapability{ObjectMeta: metav1.ObjectMeta{Name: "fidelity"}, Spec: mcpv1alpha1.MCPCapabilitySpec{ToolSets: []string{"fidelity"}}},
+		&mcpv1alpha1.MCPGrant{ObjectMeta: metav1.ObjectMeta{Name: "fidelity"}, Spec: mcpv1alpha1.MCPGrantSpec{Subject: "fidelity-agent", Capabilities: []string{"fidelity"}}},
+	} {
+		require.NoError(t, k8sClient.Create(ctx, obj))
+		t.Cleanup(func() { _ = k8sClient.Delete(ctx, obj) })
+	}
+
+	session := connect(t, mcpURL, "fidelity-agent", nil)
+	var agent []byte
+	require.Eventually(t, func() bool {
+		res, err := session.ListTools(ctx, nil)
+		if err != nil || len(res.Tools) != 2 {
+			return false
+		}
+		agent, err = json.Marshal(res.Tools)
+		return err == nil
+	}, 10*time.Second, 100*time.Millisecond)
+
+	resp, err := http.Get(inspectURL + "/api/v1alpha1/grants/fidelity/tools")
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	var doc struct {
+		Tools json.RawMessage `json:"tools"`
+	}
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&doc))
+
+	assert.JSONEq(t, string(agent), string(doc.Tools))
+	assert.Contains(t, string(doc.Tools), `"name":"find"`)
+	assert.Contains(t, string(doc.Tools), `"name":"f_plain"`)
 }

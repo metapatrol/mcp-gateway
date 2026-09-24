@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { getCapability } from '../../api/functions';
 import { condition } from '../../core/conditions';
@@ -7,10 +7,12 @@ import { Lists } from '../../core/lists';
 import { ConditionPill, Pill } from '../../shared/condition-pill';
 import { ConditionsTable } from '../../shared/conditions-table';
 import { LoadState } from '../../shared/load-state';
+import { RawTools } from '../../shared/raw-tools';
+import { DetailView, ViewSwitch } from '../../shared/view-switch';
 
 @Component({
   selector: 'app-capability',
-  imports: [RouterLink, ConditionPill, Pill, ConditionsTable, LoadState],
+  imports: [RouterLink, ConditionPill, Pill, ConditionsTable, LoadState, RawTools, ViewSwitch],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <nav class="muted mb-2 flex gap-1.5 text-[12.5px]" aria-label="Breadcrumb">
@@ -31,7 +33,11 @@ import { LoadState } from '../../shared/load-state';
           <app-condition label="Ready" [condition]="cond(c.status.conditions, 'Ready')" />
         </div>
       </header>
+      <app-view-switch [(view)]="view" />
 
+      @if (view() === 'tools') {
+        <app-raw-tools kind="capability" [name]="name()" />
+      } @else {
       <div class="flex flex-col gap-4">
         <div class="grid gap-4 xl:grid-cols-2">
           <section class="panel">
@@ -124,10 +130,12 @@ import { LoadState } from '../../shared/load-state';
 
         <app-conditions [conditions]="c.status.conditions" [observedGeneration]="c.status.observedGeneration" [generation]="c.meta.generation" />
       </div>
+      }
     }
   `,
 })
 export class CapabilityDetail {
+  protected readonly view = signal<DetailView>('details');
   private readonly inspect = inject(Inspect);
   private readonly lists = inject(Lists);
   readonly name = input.required<string>();

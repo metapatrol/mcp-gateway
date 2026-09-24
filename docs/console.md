@@ -60,6 +60,15 @@ like read access to the four kinds.
 | Grants | Its subject, its capabilities, the ones that do not exist, and the other grants for the same subject |
 | Subjects | For any subject — typed in, or picked from those grants name — every tool it is offered with every path it is granted through, the tools it is not offered and why, and the instructions text it is sent at start: the gateway's own (`gateway.instructions`) followed by those of the backends it holds tools from |
 
+Servers, tool sets, capabilities and grants each have a second tab,
+`tools/list`: what the resource hands out, as the JSON an MCP client receives —
+a server's catalog as the backend lists it; for the others the tools under the
+names agents call them by, with the backends' definitions. It comes from
+`GET /api/v1alpha1/{kind}/{name}/tools`, built with the same code the gateway
+registers tools for agents with; a test compares it with what an agent holding
+the grant actually receives. A grant's list is that grant alone; a subject
+gets the union of its grants.
+
 Tool hints — read-only, destructive, idempotent, open world — are shown only as
 far as the backend declares them, and marked as its claims: the gateway verifies
 none of them. A tool that declares nothing says "no hints declared"; MCP then

@@ -62,6 +62,16 @@ func (c *Catalog) Tool(name string) (*mcp.Tool, bool) {
 	return t, ok
 }
 
+// Exposed is a backend's tool as it is offered under name: the backend's
+// definition unchanged, but for the name. It is how the gateway registers a
+// tool for agents, and how the inspect API shows one, so the two cannot
+// differ.
+func Exposed(tool *mcp.Tool, name string) *mcp.Tool {
+	t := *tool
+	t.Name = name
+	return &t
+}
+
 // Names returns the tool names, sorted. The slice must not be modified.
 func (c *Catalog) Names() []string { return c.names }
 

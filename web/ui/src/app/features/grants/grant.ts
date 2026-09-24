@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { getGrant } from '../../api/functions';
 import { condition } from '../../core/conditions';
@@ -7,10 +7,12 @@ import { Lists } from '../../core/lists';
 import { ConditionPill, Pill } from '../../shared/condition-pill';
 import { ConditionsTable } from '../../shared/conditions-table';
 import { LoadState } from '../../shared/load-state';
+import { RawTools } from '../../shared/raw-tools';
+import { DetailView, ViewSwitch } from '../../shared/view-switch';
 
 @Component({
   selector: 'app-grant',
-  imports: [RouterLink, ConditionPill, Pill, ConditionsTable, LoadState],
+  imports: [RouterLink, ConditionPill, Pill, ConditionsTable, LoadState, RawTools, ViewSwitch],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <nav class="muted mb-2 flex gap-1.5 text-[12.5px]" aria-label="Breadcrumb">
@@ -37,6 +39,10 @@ import { LoadState } from '../../shared/load-state';
           <app-condition label="Ready" [condition]="cond(g.status.conditions, 'Ready')" />
         </div>
       </header>
+      <app-view-switch [(view)]="view" />
+      @if (view() === 'tools') {
+        <app-raw-tools kind="grant" [name]="name()" />
+      } @else {
       <div class="flex flex-col gap-4">
         <section class="panel">
           <header class="panel-head"><h2 class="panel-title">Capabilities</h2></header>
@@ -62,10 +68,12 @@ import { LoadState } from '../../shared/load-state';
         </section>
         <app-conditions [conditions]="g.status.conditions" [observedGeneration]="g.status.observedGeneration" [generation]="g.meta.generation" />
       </div>
+      }
     }
   `,
 })
 export class GrantDetail {
+  protected readonly view = signal<DetailView>('details');
   private readonly inspect = inject(Inspect);
   protected readonly lists = inject(Lists);
   readonly name = input.required<string>();

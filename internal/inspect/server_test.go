@@ -375,3 +375,37 @@ func TestAPIMirrorsTheCRDs(t *testing.T) {
 		})
 	}
 }
+
+func names(doc api.ToolsList) []string {
+	var out []string
+	for _, t := range doc.Tools {
+		out = append(out, t["name"].(string))
+	}
+	return out
+}
+
+func TestToolsLists(t *testing.T) {
+	h := newTestServer(t)
+
+	srv := get[api.ToolsList](t, h, "/servers/source-intelligence/tools", http.StatusOK)
+	assert.Equal(t, []string{"admin.reindex", "code.search", "code.symbol", "refs.list", "repositories.list", "repositories.read_file"}, names(srv))
+	assert.Equal(t, "Search the source.", srv.Tools[1]["description"])
+	assert.Equal(t, "object", srv.Tools[1]["inputSchema"].(map[string]any)["type"])
+	assert.Equal(t, true, srv.Tools[1]["annotations"].(map[string]any)["readOnlyHint"])
+
+	ts := get[api.ToolsList](t, h, "/toolsets/si-analysis/tools", http.StatusOK)
+	assert.Equal(t, []string{"code.search", "code.symbol", "refs.list", "repositories.list"}, names(ts), "excluded and unselected tools are not handed out")
+
+	c := get[api.ToolsList](t, h, "/capabilities/field-ops/tools", http.StatusOK)
+	assert.Equal(t, []string{"get_forecast"}, names(c), "neither search is handed out, and fetch_page does not exist")
+
+	g := get[api.ToolsList](t, h, "/grants/coder/tools", http.StatusOK)
+	assert.Equal(t, []string{"code.search", "code.symbol", "refs.list", "repositories.list"}, names(g), "tickets is not served")
+
+	empty := get[api.ToolsList](t, h, "/grants/coder-web/tools", http.StatusOK)
+	assert.Empty(t, empty.Tools, "a grant of a capability that does not exist hands out nothing")
+
+	for _, path := range []string{"/servers/nope/tools", "/toolsets/nope/tools", "/capabilities/nope/tools", "/grants/nope/tools"} {
+		get[api.Problem](t, h, path, http.StatusNotFound)
+	}
+}

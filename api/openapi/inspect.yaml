@@ -75,6 +75,23 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         default: { $ref: "#/components/responses/Problem" }
 
+  /servers/{name}/tools:
+    get:
+      tags: [servers]
+      operationId: listServerTools
+      summary: The server's catalog, as tools/list
+      parameters:
+        - $ref: "#/components/parameters/Name"
+      responses:
+        "200":
+          description: The result of an MCP tools/list request, as MCP 2026-07-28 writes it.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ToolsList" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        default: { $ref: "#/components/responses/Problem" }
+
   /toolsets:
     get:
       tags: [toolsets]
@@ -104,6 +121,23 @@ paths:
               schema: { $ref: "#/components/schemas/ToolSet" }
         "404": { $ref: "#/components/responses/NotFound" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        default: { $ref: "#/components/responses/Problem" }
+
+  /toolsets/{name}/tools:
+    get:
+      tags: [toolsets]
+      operationId: listToolSetTools
+      summary: What the tool set hands out, as tools/list
+      parameters:
+        - $ref: "#/components/parameters/Name"
+      responses:
+        "200":
+          description: The result of an MCP tools/list request, as MCP 2026-07-28 writes it.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ToolsList" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
         default: { $ref: "#/components/responses/Problem" }
 
   /capabilities:
@@ -137,6 +171,23 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         default: { $ref: "#/components/responses/Problem" }
 
+  /capabilities/{name}/tools:
+    get:
+      tags: [capabilities]
+      operationId: listCapabilityTools
+      summary: What the capability hands out, as tools/list
+      parameters:
+        - $ref: "#/components/parameters/Name"
+      responses:
+        "200":
+          description: The result of an MCP tools/list request, as MCP 2026-07-28 writes it.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ToolsList" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        default: { $ref: "#/components/responses/Problem" }
+
   /grants:
     get:
       tags: [grants]
@@ -166,6 +217,23 @@ paths:
               schema: { $ref: "#/components/schemas/Grant" }
         "404": { $ref: "#/components/responses/NotFound" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        default: { $ref: "#/components/responses/Problem" }
+
+  /grants/{name}/tools:
+    get:
+      tags: [grants]
+      operationId: listGrantTools
+      summary: What the grant hands out, as tools/list
+      parameters:
+        - $ref: "#/components/parameters/Name"
+      responses:
+        "200":
+          description: The result of an MCP tools/list request, as MCP 2026-07-28 writes it.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ToolsList" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
         default: { $ref: "#/components/responses/Problem" }
 
   /subjects:
@@ -386,6 +454,30 @@ components:
         destructiveHint: { type: boolean }
         idempotentHint: { type: boolean }
         openWorldHint: { type: boolean }
+
+    # ---------------------------------------------------------------- tools/list
+
+    ToolsList:
+      description: |
+        A tools/list result, as an MCP client receives it: every tool as MCP
+        defines a tool, under the name an agent calls it by.
+
+        For a server it is the catalog as the backend lists it, read by this
+        replica, however old. For a tool set, a capability and a grant it is
+        what that resource hands out, on its own, as this replica serves it:
+        prefixes and aliases applied, the backends' definitions otherwise
+        unchanged, conflicting names and tools of catalogs not served left
+        out. A subject is offered the union of its grants.
+      type: object
+      required: [tools]
+      properties:
+        tools:
+          type: array
+          description: Sorted by name.
+          items:
+            type: object
+            description: An MCP Tool, as the gateway writes it.
+            additionalProperties: true
 
     # ---------------------------------------------------------------- events
 

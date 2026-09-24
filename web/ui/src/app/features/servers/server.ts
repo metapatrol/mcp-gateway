@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { getServer } from '../../api/functions';
 import { authRows } from '../../core/auth';
@@ -9,15 +9,18 @@ import { ago, shortRevision } from '../../core/time';
 import { ConditionPill, Pill } from '../../shared/condition-pill';
 import { ConditionsTable } from '../../shared/conditions-table';
 import { LoadState } from '../../shared/load-state';
+import { RawTools } from '../../shared/raw-tools';
+import { DetailView, ViewSwitch } from '../../shared/view-switch';
 import { ToolDoc } from '../../shared/tool-doc';
 
 @Component({
   selector: 'app-server',
-  imports: [RouterLink, ConditionPill, Pill, ConditionsTable, LoadState, ToolDoc],
+  imports: [RouterLink, ConditionPill, Pill, ConditionsTable, LoadState, ToolDoc, RawTools, ViewSwitch],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './server.html',
 })
 export class ServerDetail {
+  protected readonly view = signal<DetailView>('details');
   private readonly inspect = inject(Inspect);
   protected readonly lists = inject(Lists);
   readonly name = input.required<string>();

@@ -450,9 +450,7 @@ func (g *Gateway) register(subject string, server *mcp.Server, name string, w ex
 			err = fmt.Errorf("the SDK refused the definition: %v", r)
 		}
 	}()
-	tool := *w.tool
-	tool.Name = name
-	server.AddTool(&tool, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	server.AddTool(discovery.Exposed(w.tool, name), func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		return g.callTool(ctx, subject, req)
 	})
 	return nil

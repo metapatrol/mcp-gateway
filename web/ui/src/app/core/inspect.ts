@@ -49,7 +49,8 @@ export type Liveness = 'connecting' | 'live' | 'reconnecting' | 'polling';
  */
 @Injectable({ providedIn: 'root' })
 export class Inspect {
-  private readonly api = inject(Api);
+  /** The generated client, for answers without a source: tools/list. */
+  readonly api = inject(Api);
   private readonly config = inject(ApiConfiguration);
   private readonly document = inject(DOCUMENT);
 

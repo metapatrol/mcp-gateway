@@ -821,6 +821,20 @@ type ToolSetSummary struct {
 	Status ToolSetStatus `json:"status"`
 }
 
+// ToolsList A tools/list result, as an MCP client receives it: every tool as MCP
+// defines a tool, under the name an agent calls it by.
+//
+// For a server it is the catalog as the backend lists it, read by this
+// replica, however old. For a tool set, a capability and a grant it is
+// what that resource hands out, on its own, as this replica serves it:
+// prefixes and aliases applied, the backends' definitions otherwise
+// unchanged, conflicting names and tools of catalogs not served left
+// out. A subject is offered the union of its grants.
+type ToolsList struct {
+	// Tools Sorted by name.
+	Tools []map[string]interface{} `json:"tools"`
+}
+
 // Name defines model for Name.
 type Name = string
 
@@ -843,6 +857,9 @@ type ServerInterface interface {
 	// GetCapability Get one MCPCapability with the tools it comes to
 	// (GET /capabilities/{name})
 	GetCapability(w http.ResponseWriter, r *http.Request, name Name)
+	// ListCapabilityTools What the capability hands out, as tools/list
+	// (GET /capabilities/{name}/tools)
+	ListCapabilityTools(w http.ResponseWriter, r *http.Request, name Name)
 	// WatchEvents Stream notifications of changes
 	// (GET /events)
 	WatchEvents(w http.ResponseWriter, r *http.Request)
@@ -852,12 +869,18 @@ type ServerInterface interface {
 	// GetGrant Get one MCPGrant
 	// (GET /grants/{name})
 	GetGrant(w http.ResponseWriter, r *http.Request, name Name)
+	// ListGrantTools What the grant hands out, as tools/list
+	// (GET /grants/{name}/tools)
+	ListGrantTools(w http.ResponseWriter, r *http.Request, name Name)
 	// ListServers List the MCPServers
 	// (GET /servers)
 	ListServers(w http.ResponseWriter, r *http.Request)
 	// GetServer Get one MCPServer with its catalog
 	// (GET /servers/{name})
 	GetServer(w http.ResponseWriter, r *http.Request, name Name)
+	// ListServerTools The server's catalog, as tools/list
+	// (GET /servers/{name}/tools)
+	ListServerTools(w http.ResponseWriter, r *http.Request, name Name)
 	// GetSubject Resolve what one subject gets
 	// (GET /subject)
 	GetSubject(w http.ResponseWriter, r *http.Request, params GetSubjectParams)
@@ -870,6 +893,9 @@ type ServerInterface interface {
 	// GetToolSet Get one MCPToolSet with an explanation of its selection
 	// (GET /toolsets/{name})
 	GetToolSet(w http.ResponseWriter, r *http.Request, name Name)
+	// ListToolSetTools What the tool set hands out, as tools/list
+	// (GET /toolsets/{name}/tools)
+	ListToolSetTools(w http.ResponseWriter, r *http.Request, name Name)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -912,6 +938,32 @@ func (siw *ServerInterfaceWrapper) GetCapability(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetCapability(w, r, name)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListCapabilityTools operation middleware
+func (siw *ServerInterfaceWrapper) ListCapabilityTools(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "name" -------------
+	var name Name
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", r.PathValue("name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListCapabilityTools(w, r, name)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -975,6 +1027,32 @@ func (siw *ServerInterfaceWrapper) GetGrant(w http.ResponseWriter, r *http.Reque
 	handler.ServeHTTP(w, r)
 }
 
+// ListGrantTools operation middleware
+func (siw *ServerInterfaceWrapper) ListGrantTools(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "name" -------------
+	var name Name
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", r.PathValue("name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListGrantTools(w, r, name)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListServers operation middleware
 func (siw *ServerInterfaceWrapper) ListServers(w http.ResponseWriter, r *http.Request) {
 
@@ -1006,6 +1084,32 @@ func (siw *ServerInterfaceWrapper) GetServer(w http.ResponseWriter, r *http.Requ
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetServer(w, r, name)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListServerTools operation middleware
+func (siw *ServerInterfaceWrapper) ListServerTools(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "name" -------------
+	var name Name
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", r.PathValue("name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListServerTools(w, r, name)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1093,6 +1197,32 @@ func (siw *ServerInterfaceWrapper) GetToolSet(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetToolSet(w, r, name)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListToolSetTools operation middleware
+func (siw *ServerInterfaceWrapper) ListToolSetTools(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "name" -------------
+	var name Name
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", r.PathValue("name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListToolSetTools(w, r, name)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1224,12 +1354,16 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/servers", wrapper.ListServers)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/servers/{name}", wrapper.GetServer)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/servers/{name}/tools", wrapper.ListServerTools)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/toolsets", wrapper.ListToolSets)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/toolsets/{name}", wrapper.GetToolSet)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/toolsets/{name}/tools", wrapper.ListToolSetTools)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/capabilities", wrapper.ListCapabilities)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/capabilities/{name}", wrapper.GetCapability)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/capabilities/{name}/tools", wrapper.ListCapabilityTools)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/grants", wrapper.ListGrants)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/grants/{name}", wrapper.GetGrant)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/grants/{name}/tools", wrapper.ListGrantTools)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/subjects", wrapper.ListSubjects)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/subject", wrapper.GetSubject)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/events", wrapper.WatchEvents)
@@ -1357,6 +1491,77 @@ type GetCapabilitydefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response GetCapabilitydefaultApplicationProblemPlusJSONResponse) VisitGetCapabilityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListCapabilityToolsRequestObject struct {
+	Name Name `json:"name"`
+}
+
+type ListCapabilityToolsResponseObject interface {
+	VisitListCapabilityToolsResponse(w http.ResponseWriter) error
+}
+
+type ListCapabilityTools200JSONResponse ToolsList
+
+func (response ListCapabilityTools200JSONResponse) VisitListCapabilityToolsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListCapabilityTools401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response ListCapabilityTools401ApplicationProblemPlusJSONResponse) VisitListCapabilityToolsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListCapabilityTools404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response ListCapabilityTools404ApplicationProblemPlusJSONResponse) VisitListCapabilityToolsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListCapabilityToolsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListCapabilityToolsdefaultApplicationProblemPlusJSONResponse) VisitListCapabilityToolsResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -1590,6 +1795,77 @@ func (response GetGrantdefaultApplicationProblemPlusJSONResponse) VisitGetGrantR
 	return err
 }
 
+type ListGrantToolsRequestObject struct {
+	Name Name `json:"name"`
+}
+
+type ListGrantToolsResponseObject interface {
+	VisitListGrantToolsResponse(w http.ResponseWriter) error
+}
+
+type ListGrantTools200JSONResponse ToolsList
+
+func (response ListGrantTools200JSONResponse) VisitListGrantToolsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListGrantTools401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response ListGrantTools401ApplicationProblemPlusJSONResponse) VisitListGrantToolsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListGrantTools404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response ListGrantTools404ApplicationProblemPlusJSONResponse) VisitListGrantToolsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListGrantToolsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListGrantToolsdefaultApplicationProblemPlusJSONResponse) VisitListGrantToolsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListServersRequestObject struct {
 }
 
@@ -1704,6 +1980,77 @@ type GetServerdefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response GetServerdefaultApplicationProblemPlusJSONResponse) VisitGetServerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListServerToolsRequestObject struct {
+	Name Name `json:"name"`
+}
+
+type ListServerToolsResponseObject interface {
+	VisitListServerToolsResponse(w http.ResponseWriter) error
+}
+
+type ListServerTools200JSONResponse ToolsList
+
+func (response ListServerTools200JSONResponse) VisitListServerToolsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListServerTools401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response ListServerTools401ApplicationProblemPlusJSONResponse) VisitListServerToolsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListServerTools404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response ListServerTools404ApplicationProblemPlusJSONResponse) VisitListServerToolsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListServerToolsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListServerToolsdefaultApplicationProblemPlusJSONResponse) VisitListServerToolsResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -1949,6 +2296,77 @@ func (response GetToolSetdefaultApplicationProblemPlusJSONResponse) VisitGetTool
 	return err
 }
 
+type ListToolSetToolsRequestObject struct {
+	Name Name `json:"name"`
+}
+
+type ListToolSetToolsResponseObject interface {
+	VisitListToolSetToolsResponse(w http.ResponseWriter) error
+}
+
+type ListToolSetTools200JSONResponse ToolsList
+
+func (response ListToolSetTools200JSONResponse) VisitListToolSetToolsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListToolSetTools401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response ListToolSetTools401ApplicationProblemPlusJSONResponse) VisitListToolSetToolsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListToolSetTools404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response ListToolSetTools404ApplicationProblemPlusJSONResponse) VisitListToolSetToolsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListToolSetToolsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListToolSetToolsdefaultApplicationProblemPlusJSONResponse) VisitListToolSetToolsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// ListCapabilities List the MCPCapabilities
@@ -1957,6 +2375,9 @@ type StrictServerInterface interface {
 	// GetCapability Get one MCPCapability with the tools it comes to
 	// (GET /capabilities/{name})
 	GetCapability(ctx context.Context, request GetCapabilityRequestObject) (GetCapabilityResponseObject, error)
+	// ListCapabilityTools What the capability hands out, as tools/list
+	// (GET /capabilities/{name}/tools)
+	ListCapabilityTools(ctx context.Context, request ListCapabilityToolsRequestObject) (ListCapabilityToolsResponseObject, error)
 	// WatchEvents Stream notifications of changes
 	// (GET /events)
 	WatchEvents(ctx context.Context, request WatchEventsRequestObject) (WatchEventsResponseObject, error)
@@ -1966,12 +2387,18 @@ type StrictServerInterface interface {
 	// GetGrant Get one MCPGrant
 	// (GET /grants/{name})
 	GetGrant(ctx context.Context, request GetGrantRequestObject) (GetGrantResponseObject, error)
+	// ListGrantTools What the grant hands out, as tools/list
+	// (GET /grants/{name}/tools)
+	ListGrantTools(ctx context.Context, request ListGrantToolsRequestObject) (ListGrantToolsResponseObject, error)
 	// ListServers List the MCPServers
 	// (GET /servers)
 	ListServers(ctx context.Context, request ListServersRequestObject) (ListServersResponseObject, error)
 	// GetServer Get one MCPServer with its catalog
 	// (GET /servers/{name})
 	GetServer(ctx context.Context, request GetServerRequestObject) (GetServerResponseObject, error)
+	// ListServerTools The server's catalog, as tools/list
+	// (GET /servers/{name}/tools)
+	ListServerTools(ctx context.Context, request ListServerToolsRequestObject) (ListServerToolsResponseObject, error)
 	// GetSubject Resolve what one subject gets
 	// (GET /subject)
 	GetSubject(ctx context.Context, request GetSubjectRequestObject) (GetSubjectResponseObject, error)
@@ -1984,6 +2411,9 @@ type StrictServerInterface interface {
 	// GetToolSet Get one MCPToolSet with an explanation of its selection
 	// (GET /toolsets/{name})
 	GetToolSet(ctx context.Context, request GetToolSetRequestObject) (GetToolSetResponseObject, error)
+	// ListToolSetTools What the tool set hands out, as tools/list
+	// (GET /toolsets/{name}/tools)
+	ListToolSetTools(ctx context.Context, request ListToolSetToolsRequestObject) (ListToolSetToolsResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -2075,6 +2505,32 @@ func (sh *strictHandler) GetCapability(w http.ResponseWriter, r *http.Request, n
 	}
 }
 
+// ListCapabilityTools operation middleware
+func (sh *strictHandler) ListCapabilityTools(w http.ResponseWriter, r *http.Request, name Name) {
+	var request ListCapabilityToolsRequestObject
+
+	request.Name = name
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListCapabilityTools(ctx, request.(ListCapabilityToolsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListCapabilityTools")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListCapabilityToolsResponseObject); ok {
+		if err := validResponse.VisitListCapabilityToolsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // WatchEvents operation middleware
 func (sh *strictHandler) WatchEvents(w http.ResponseWriter, r *http.Request) {
 	var request WatchEventsRequestObject
@@ -2149,6 +2605,32 @@ func (sh *strictHandler) GetGrant(w http.ResponseWriter, r *http.Request, name N
 	}
 }
 
+// ListGrantTools operation middleware
+func (sh *strictHandler) ListGrantTools(w http.ResponseWriter, r *http.Request, name Name) {
+	var request ListGrantToolsRequestObject
+
+	request.Name = name
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListGrantTools(ctx, request.(ListGrantToolsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListGrantTools")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListGrantToolsResponseObject); ok {
+		if err := validResponse.VisitListGrantToolsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListServers operation middleware
 func (sh *strictHandler) ListServers(w http.ResponseWriter, r *http.Request) {
 	var request ListServersRequestObject
@@ -2192,6 +2674,32 @@ func (sh *strictHandler) GetServer(w http.ResponseWriter, r *http.Request, name 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetServerResponseObject); ok {
 		if err := validResponse.VisitGetServerResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListServerTools operation middleware
+func (sh *strictHandler) ListServerTools(w http.ResponseWriter, r *http.Request, name Name) {
+	var request ListServerToolsRequestObject
+
+	request.Name = name
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListServerTools(ctx, request.(ListServerToolsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListServerTools")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListServerToolsResponseObject); ok {
+		if err := validResponse.VisitListServerToolsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -2292,6 +2800,32 @@ func (sh *strictHandler) GetToolSet(w http.ResponseWriter, r *http.Request, name
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetToolSetResponseObject); ok {
 		if err := validResponse.VisitGetToolSetResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListToolSetTools operation middleware
+func (sh *strictHandler) ListToolSetTools(w http.ResponseWriter, r *http.Request, name Name) {
+	var request ListToolSetToolsRequestObject
+
+	request.Name = name
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListToolSetTools(ctx, request.(ListToolSetToolsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListToolSetTools")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListToolSetToolsResponseObject); ok {
+		if err := validResponse.VisitListToolSetToolsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
