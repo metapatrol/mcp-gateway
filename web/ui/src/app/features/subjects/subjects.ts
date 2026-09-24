@@ -1,8 +1,9 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { listSubjects } from '../../api/functions';
 import { SubjectSummary } from '../../api/models';
 import { Inspect, live } from '../../core/inspect';
+import { queryParams } from '../../core/query';
 import { LoadState } from '../../shared/load-state';
 
 /** Subjects whose name or grants contain the query, ignoring case. */
@@ -32,7 +33,7 @@ export function filterSubjects(items: SubjectSummary[], query: string): SubjectS
               class="input py-1"
               placeholder="Filter, or resolve any subject"
               [value]="query()"
-              (input)="query.set($any($event.target).value)"
+              (input)="search($any($event.target).value)"
               autocomplete="off"
               spellcheck="false"
             />
@@ -86,7 +87,10 @@ export class Subjects {
     () => ({}),
     () => this.inspect.call(listSubjects, {}),
   );
-  protected readonly query = signal('');
+  /** ?q=, so a search can be linked to and survives a reload. */
+  readonly q = input<string>();
+  protected readonly query = computed(() => this.q() ?? '');
+  private readonly setQuery = queryParams();
   protected readonly all = computed(() => (this.subjects.hasValue() ? (this.subjects.value()?.items ?? []) : []));
   protected readonly rows = computed(() => filterSubjects(this.all(), this.query()));
   /** The typed text, when it is not a subject any grant names: it can still be resolved. */
@@ -94,6 +98,11 @@ export class Subjects {
     const q = this.query().trim();
     return q && !this.all().some((s) => s.subject === q) ? q : '';
   });
+
+  /** Typing replaces the history entry rather than adding one per key. */
+  protected search(value: string): void {
+    this.setQuery({ q: value || null }, { replace: true });
+  }
 
   protected go(subject: string): void {
     void this.router.navigate(['/subjects/resolve'], { queryParams: { subject } });

@@ -29,7 +29,7 @@
 />
 
 @if (t(); as t) {
-  <app-view-switch [(view)]="view" />
+  <app-view-switch [view]="view()" [base]="['/toolsets', name()]" />
 
   @if (view() === 'mcp') {
     <app-mcp-view kind="toolset" [name]="name()" />
@@ -71,10 +71,10 @@
                 type="button"
                 class="border-line px-2.5 py-1 not-first:border-l"
                 [class]="
-                  filter() === f.key ? 'bg-accent-soft font-semibold text-accent-ink' : 'muted'
+                  shown() === f.key ? 'bg-accent-soft font-semibold text-accent-ink' : 'muted'
                 "
-                [attr.aria-pressed]="filter() === f.key"
-                (click)="filter.set($any(f.key))"
+                [attr.aria-pressed]="shown() === f.key"
+                (click)="setFilter($any(f.key))"
               >
                 {{ f.label }} {{ f.n }}
               </button>
@@ -94,9 +94,9 @@
                         class="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border px-2.5 py-1.5 text-left"
                         [class]="
                           (e.outcome === 'ok' || !t.selection.catalogAvailable ? 'border-line' : 'border-bad/40 bg-bad-soft') +
-                          (focus() === e.entry ? ' ring-2 ring-accent' : '')
+                          (focused() === e.entry ? ' ring-2 ring-accent' : '')
                         "
-                        [attr.aria-pressed]="focus() === e.entry"
+                        [attr.aria-pressed]="focused() === e.entry"
                         (click)="toggleFocus(e.entry)"
                       >
                         <span class="min-w-0">
@@ -144,9 +144,9 @@
                         <button
                           type="button"
                           class="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-line px-2.5 py-1.5 text-left"
-                          [class.ring-2]="focus() === x.entry"
-                          [class.ring-accent]="focus() === x.entry"
-                          [attr.aria-pressed]="focus() === x.entry"
+                          [class.ring-2]="focused() === x.entry"
+                          [class.ring-accent]="focused() === x.entry"
+                          [attr.aria-pressed]="focused() === x.entry"
                           (click)="toggleFocus(x.entry)"
                         >
                           <span class="min-w-0">
@@ -184,7 +184,7 @@
                           class="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border px-2.5 py-1.5 text-left"
                           [class]="
                             (a.used ? 'border-line' : 'border-bad/40 bg-bad-soft') +
-                            (focus() === 'alias:' + a.tool ? ' ring-2 ring-accent' : '')
+                            (focused() === 'alias:' + a.tool ? ' ring-2 ring-accent' : '')
                           "
                           (click)="toggleFocus('alias:' + a.tool)"
                         >
@@ -219,7 +219,7 @@
               </thead>
               <tbody>
                 @for (row of rows(); track row.tool.name) {
-                  <tr [class]="touched(row, focus()) ? 'bg-accent-soft' : ''">
+                  <tr [class]="touched(row, focused()) ? 'bg-accent-soft' : ''">
                     <td class="text-center font-semibold">
                       @switch (row.state) {
                         @case ('selected') {
@@ -259,7 +259,7 @@
                     <td class="muted hidden text-[12.5px] md:table-cell">{{ reason(row) }}</td>
                   </tr>
                 }
-                @if (filter() !== 'exposed' && t.selection.catalogAvailable) {
+                @if (shown() !== 'exposed' && t.selection.catalogAvailable) {
                   @for (m of t.selection.missing; track m) {
                     <tr class="bg-bad-soft">
                       <td class="text-center font-semibold text-bad">✕</td>
@@ -280,7 +280,7 @@
                   <tr>
                     <td colspan="4" class="faint">No catalog.</td>
                   </tr>
-                } @else if (!rows().length && !(filter() !== 'exposed' && t.selection.missing.length)) {
+                } @else if (!rows().length && !(shown() !== 'exposed' && t.selection.missing.length)) {
                   <tr>
                     <td colspan="4" class="faint">Nothing here.</td>
                   </tr>

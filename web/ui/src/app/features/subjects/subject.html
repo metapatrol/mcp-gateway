@@ -30,7 +30,7 @@
 <app-load-state [error]="resolved.error()" [loading]="!!subject() && !resolved.hasValue()" what="subject" />
 
 @if (r(); as r) {
-  <app-view-switch [(view)]="view" />
+  <app-view-switch [view]="view()" [base]="['/subjects/resolve']" [query]="{ subject: subject() }" />
 
   @if (view() === 'mcp') {
     <app-mcp-view kind="subject" [name]="r.subject" />

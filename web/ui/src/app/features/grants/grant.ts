@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { getGrant } from '../../api/functions';
 import { condition } from '../../core/conditions';
@@ -11,7 +11,7 @@ import { DetailTitle } from '../../shared/detail-title';
 import { LoadState } from '../../shared/load-state';
 import { Notice } from '../../shared/notice';
 import { McpView } from '../../shared/mcp-view';
-import { DetailView, ViewSwitch } from '../../shared/view-switch';
+import { detailView, ViewSwitch } from '../../shared/view-switch';
 
 @Component({
   selector: 'app-grant',
@@ -42,7 +42,7 @@ import { DetailView, ViewSwitch } from '../../shared/view-switch';
     </header>
     <app-load-state [error]="grant.error()" [loading]="!grant.hasValue()" what="MCPGrant" [name]="name()" />
     @if (g(); as g) {
-      <app-view-switch [(view)]="view" />
+      <app-view-switch [view]="view()" [base]="['/grants', name()]" />
       @if (view() === 'mcp') {
         <app-mcp-view kind="grant" [name]="name()" />
       } @else {
@@ -78,7 +78,9 @@ import { DetailView, ViewSwitch } from '../../shared/view-switch';
   `,
 })
 export class GrantDetail {
-  protected readonly view = signal<DetailView>('details');
+  /** The route's optional /mcp segment. */
+  readonly tab = input<string>();
+  protected readonly view = computed(() => detailView(this.tab()));
   private readonly inspect = inject(Inspect);
   protected readonly lists = inject(Lists);
   readonly name = input.required<string>();

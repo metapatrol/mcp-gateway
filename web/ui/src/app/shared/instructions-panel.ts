@@ -1,5 +1,9 @@
-import { ChangeDetectionStrategy, Component, computed, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { ActivatedRoute } from '@angular/router';
+import { map } from 'rxjs';
 import { renderMarkdown } from '../core/markdown';
+import { queryParams } from '../core/query';
 
 /** Instructions, rendered as the Markdown they usually are, or raw. */
 @Component({
@@ -17,7 +21,7 @@ import { renderMarkdown } from '../core/markdown';
                 class="px-2.5 py-1 capitalize not-first:border-l not-first:border-line"
                 [class]="mode() === m ? 'bg-accent-soft font-semibold text-accent-ink' : 'text-muted'"
                 [attr.aria-pressed]="mode() === m"
-                (click)="mode.set(m)"
+                (click)="setMode(m)"
               >
                 {{ m }}
               </button>
@@ -38,6 +42,13 @@ import { renderMarkdown } from '../core/markdown';
 export class InstructionsPanel {
   readonly text = input<string | undefined>();
   protected readonly modes = ['rendered', 'raw'] as const;
-  protected readonly mode = signal<'rendered' | 'raw'>('rendered');
+  /** ?instructions=raw, so the raw text can be linked to. */
+  private readonly param = toSignal(inject(ActivatedRoute).queryParamMap.pipe(map((q) => q.get('instructions'))));
+  protected readonly mode = computed(() => (this.param() === 'raw' ? 'raw' : 'rendered'));
+  private readonly setQuery = queryParams();
+
+  protected setMode(mode: 'rendered' | 'raw'): void {
+    this.setQuery({ instructions: mode === 'raw' ? 'raw' : null }, { replace: true });
+  }
   protected readonly html = computed(() => renderMarkdown(this.text() ?? ''));
 }

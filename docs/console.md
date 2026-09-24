@@ -69,6 +69,12 @@ Servers, tool sets, capabilities, grants and subjects each have a second tab,
 | Subject | The same for the subject, all of its grants together: what it receives |
 | Server | What the backend answered the gateway's discovery — the result of opening the session (its server info, protocol version, capabilities, instructions) and each `tools/list` result, as the MCP SDK read them |
 
+What a page shows is in its URL, so it can be linked to and survives a
+reload. The MCP tab is the page's path with `/mcp`, as in the API
+(`/servers/search/mcp`, `/subjects/resolve/mcp?subject=agent-coder`); a tool
+set's filter and selected entry are `?filter=` and `?focus=`, the subject
+search is `?q=`, and raw instructions are `?instructions=raw`.
+
 The agent's side is not a rendering. The gateway answers it itself
 (`GET /api/v1alpha1/{kind}/{name}/mcp`, `GET /api/v1alpha1/subject/mcp`): a
 server built as a subject's is, the same registration of each tool, the same

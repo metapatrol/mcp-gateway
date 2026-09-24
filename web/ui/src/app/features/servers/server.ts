@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { getServer } from '../../api/functions';
 import { authRows } from '../../core/auth';
@@ -13,7 +13,7 @@ import { DetailTitle } from '../../shared/detail-title';
 import { LoadState } from '../../shared/load-state';
 import { Notice } from '../../shared/notice';
 import { McpView } from '../../shared/mcp-view';
-import { DetailView, ViewSwitch } from '../../shared/view-switch';
+import { detailView, ViewSwitch } from '../../shared/view-switch';
 import { ToolDoc } from '../../shared/tool-doc';
 
 @Component({
@@ -23,7 +23,9 @@ import { ToolDoc } from '../../shared/tool-doc';
   templateUrl: './server.html',
 })
 export class ServerDetail {
-  protected readonly view = signal<DetailView>('details');
+  /** The route's optional /mcp segment. */
+  readonly tab = input<string>();
+  protected readonly view = computed(() => detailView(this.tab()));
   private readonly inspect = inject(Inspect);
   protected readonly lists = inject(Lists);
   readonly name = input.required<string>();

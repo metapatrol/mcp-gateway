@@ -13,7 +13,7 @@
 <app-load-state [error]="server.error()" [loading]="!server.hasValue()" what="MCPServer" [name]="name()" />
 
 @if (s(); as s) {
-  <app-view-switch [(view)]="view" />
+  <app-view-switch [view]="view()" [base]="['/servers', name()]" />
 
   @if (view() === 'mcp') {
     <app-mcp-view kind="server" [name]="name()" />
