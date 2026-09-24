@@ -232,6 +232,40 @@ can differ for up to a discovery interval; a tool set page says so when the
 controller's status and the answering replica disagree about what it resolves
 to.
 
+## Other readers
+
+The console is one reader of the inspect API; anything that holds a token for
+it can be another. An OpenAPI-to-MCP translator, for one, turns the API into
+tools an agent can call, to check what it or another subject is offered. It
+needs:
+
+- the description, from `/.well-known/api-catalog` or
+  `/api/v1alpha1/openapi.json`, both readable without a token. Every
+  operation's `description` is written to serve as a tool description.
+  Leave out `watchEvents`, a stream that is no tool call, and the two
+  operations returning the description itself;
+- a ServiceAccount token projected for the audience `mcp-gateway-inspect`,
+  and that ServiceAccount in `gateway.inspect.serviceAccounts`:
+
+  ```yaml
+  volumes:
+    - name: inspect-token
+      projected:
+        sources:
+          - serviceAccountToken:
+              audience: mcp-gateway-inspect
+              expirationSeconds: 3600
+              path: token
+  ```
+
+- with `networkPolicy.enabled`, its pods let in on the inspect port through
+  `networkPolicy.inspectNamespaceSelector` and `inspectPodSelector`.
+
+Registered as an MCPServer behind the gateway, its tools are granted like any
+other. The inspect API then sees the translator, not the agent calling
+through it: whoever is granted those tools reads every subject's grants and
+every backend's catalog. Grant them to the agents that may.
+
 ## Developing it
 
 ```bash

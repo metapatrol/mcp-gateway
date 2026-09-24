@@ -875,11 +875,13 @@ type Unauthorized = Problem
 
 // GetSubjectParams defines parameters for GetSubject.
 type GetSubjectParams struct {
+	// Subject The token's sub claim, exactly as a grant names it.
 	Subject string `form:"subject" json:"subject"`
 }
 
 // GetSubjectMCPParams defines parameters for GetSubjectMCP.
 type GetSubjectMCPParams struct {
+	// Subject The token's sub claim, exactly as a grant names it.
 	Subject string `form:"subject" json:"subject"`
 }
 

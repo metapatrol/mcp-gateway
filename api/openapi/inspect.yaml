@@ -51,6 +51,10 @@ paths:
       tags: [servers]
       operationId: listServers
       summary: List the MCPServers
+      description: |
+        Every MCP backend the gateway knows, with its endpoint, whether its
+        catalog is currently served, and how many tools it has. Start here to find a
+        server's name, or to see which backends are unavailable.
       responses:
         "200":
           description: Every MCPServer, sorted by name.
@@ -65,6 +69,11 @@ paths:
       tags: [servers]
       operationId: getServer
       summary: Get one MCPServer with its catalog
+      description: |
+        One backend: its configuration, its discovery state on this replica, and
+        its catalog — every tool with the description, input schema and annotations
+        the backend declared — plus the tool sets that select from it. Use it to see
+        what a backend offers before any tool set narrows it down.
       parameters:
         - $ref: "#/components/parameters/Name"
       responses:
@@ -82,6 +91,10 @@ paths:
       tags: [servers]
       operationId: getServerMCP
       summary: What the backend answered the gateway
+      description: |
+        The backend's own JSON-RPC answers to the gateway's discovery — the
+        handshake and every tools/list page — as read. Use it when the question is
+        what the backend sent, not what the gateway made of it.
       parameters:
         - $ref: "#/components/parameters/Name"
       responses:
@@ -99,6 +112,9 @@ paths:
       tags: [toolsets]
       operationId: listToolSets
       summary: List the MCPToolSets
+      description: |
+        Every tool set, with the server it selects from, how many tools it
+        selects, and whether it is ready.
       responses:
         "200":
           description: Every MCPToolSet, sorted by name.
@@ -113,6 +129,11 @@ paths:
       tags: [toolsets]
       operationId: getToolSet
       summary: Get one MCPToolSet with an explanation of its selection
+      description: |
+        One tool set, and for every tool of its server's catalog whether it is
+        selected, under which name, and which include or exclude entry decided it.
+        Use it to check that a selection does what was configured, or to find out
+        why a tool is missing from it.
       parameters:
         - $ref: "#/components/parameters/Name"
       responses:
@@ -130,6 +151,10 @@ paths:
       tags: [toolsets]
       operationId: getToolSetMCP
       summary: What an agent holding the tool set receives
+      description: |
+        The server/discover and tools/list answers an agent would receive if this
+        tool set were all it were granted, byte for byte as the gateway would send
+        them.
       parameters:
         - $ref: "#/components/parameters/Name"
       responses:
@@ -147,6 +172,9 @@ paths:
       tags: [capabilities]
       operationId: listCapabilities
       summary: List the MCPCapabilities
+      description: |
+        Every capability, with the tool sets it combines, how many tools it comes
+        to, and whether it is ready.
       responses:
         "200":
           description: Every MCPCapability, sorted by name.
@@ -161,6 +189,10 @@ paths:
       tags: [capabilities]
       operationId: getCapability
       summary: Get one MCPCapability with the tools it comes to
+      description: |
+        One capability: the tools its tool sets come to together, under the names
+        agents see, and any name two of its tool sets both claim. Use it to find
+        conflicts or to see what an ability amounts to.
       parameters:
         - $ref: "#/components/parameters/Name"
       responses:
@@ -178,6 +210,10 @@ paths:
       tags: [capabilities]
       operationId: getCapabilityMCP
       summary: What an agent holding the capability receives
+      description: |
+        The server/discover and tools/list answers an agent would receive if this
+        capability were all it were granted, byte for byte as the gateway would send
+        them.
       parameters:
         - $ref: "#/components/parameters/Name"
       responses:
@@ -195,6 +231,9 @@ paths:
       tags: [grants]
       operationId: listGrants
       summary: List the MCPGrants
+      description: |
+        Every grant, with the subject it names, the capabilities it binds, and
+        whether it is ready.
       responses:
         "200":
           description: Every MCPGrant, sorted by name.
@@ -209,6 +248,9 @@ paths:
       tags: [grants]
       operationId: getGrant
       summary: Get one MCPGrant
+      description: |
+        One grant, with its capabilities and the other grants naming the same
+        subject. What the subject gets in total is getSubject.
       parameters:
         - $ref: "#/components/parameters/Name"
       responses:
@@ -226,6 +268,9 @@ paths:
       tags: [grants]
       operationId: getGrantMCP
       summary: What an agent holding the grant receives
+      description: |
+        The server/discover and tools/list answers an agent would receive if this
+        grant were all it held, byte for byte as the gateway would send them.
       parameters:
         - $ref: "#/components/parameters/Name"
       responses:
@@ -243,6 +288,9 @@ paths:
       tags: [subjects]
       operationId: listSubjects
       summary: List the subjects that grants name
+      description: |
+        Every token subject at least one grant names. Use it to find the exact
+        subject to pass to getSubject.
       responses:
         "200":
           description: Every subject at least one MCPGrant names, sorted.
@@ -258,9 +306,11 @@ paths:
       operationId: getSubject
       summary: Resolve what one subject gets
       description: |
-        The resolution the gateway runs for this subject's tools/list, with the
-        path every tool is granted through, and the instructions the subject is
-        sent in its server/discover answer.
+        The resolution the gateway runs for this subject's tools/list: every
+        tool it is offered with the grant, capability and tool set it comes
+        through, every tool it is granted but not offered and why, and the
+        instructions it is sent in its server/discover answer. Use it to answer
+        what an agent may call and why.
 
         The subject is a query parameter rather than a path segment: it is the
         token's sub claim, which may be a URL or contain slashes. A subject no
@@ -269,6 +319,7 @@ paths:
         - name: subject
           in: query
           required: true
+          description: The token's sub claim, exactly as a grant names it.
           schema: { type: string, minLength: 1 }
           example: agent-coder
       responses:
@@ -285,10 +336,15 @@ paths:
       tags: [subjects]
       operationId: getSubjectMCP
       summary: What the subject receives
+      description: |
+        The server/discover and tools/list answers the gateway sends this subject,
+        all of its grants together, byte for byte. It is exactly what an agent with
+        this subject's token sees.
       parameters:
         - name: subject
           in: query
           required: true
+          description: The token's sub claim, exactly as a grant names it.
           schema: { type: string, minLength: 1 }
       responses:
         "200":
