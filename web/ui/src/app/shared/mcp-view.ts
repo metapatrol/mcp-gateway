@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, input, signal } f
 import { getCapabilityMcp, getGrantMcp, getServerMcp, getSubjectMcp, getToolSetMcp } from '../api/functions';
 import { AgentExchange, BackendExchange } from '../api/models';
 import { Inspect, live } from '../core/inspect';
+import { JsonViewer } from './json-viewer';
 import { LoadState } from './load-state';
 
 export type McpOwner = 'server' | 'toolset' | 'capability' | 'grant' | 'subject';
@@ -20,7 +21,7 @@ const pretty = (v: unknown) => JSON.stringify(v, null, 2);
  */
 @Component({
   selector: 'app-mcp-view',
-  imports: [LoadState],
+  imports: [LoadState, JsonViewer],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <app-load-state [error]="doc.error()" [loading]="!doc.hasValue()" what="MCP view" />
@@ -31,7 +32,7 @@ const pretty = (v: unknown) => JSON.stringify(v, null, 2);
             <h2 class="panel-title font-mono tracking-normal normal-case">{{ b.title }}</h2>
             <button type="button" class="btn" (click)="copy(b)">{{ copied() === b.title ? 'Copied' : 'Copy' }}</button>
           </header>
-          <pre class="max-h-[75vh] overflow-auto px-4 py-3 font-mono text-[12.5px] leading-relaxed">{{ b.json }}</pre>
+          <app-json-viewer [value]="b.json" />
         </section>
       }
     </div>
