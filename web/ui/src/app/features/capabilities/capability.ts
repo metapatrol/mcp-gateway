@@ -7,6 +7,7 @@ import { Lists } from '../../core/lists';
 import { ConditionPill, Pill } from '../../shared/condition-pill';
 import { ConditionsTable } from '../../shared/conditions-table';
 import { InstructionsPanel } from '../../shared/instructions-panel';
+import { DetailTitle } from '../../shared/detail-title';
 import { LoadState } from '../../shared/load-state';
 import { Notice } from '../../shared/notice';
 import { McpView } from '../../shared/mcp-view';
@@ -14,27 +15,27 @@ import { DetailView, ViewSwitch } from '../../shared/view-switch';
 
 @Component({
   selector: 'app-capability',
-  imports: [RouterLink, ConditionPill, Pill, ConditionsTable, LoadState, McpView, ViewSwitch, InstructionsPanel, Notice],
+  imports: [RouterLink, ConditionPill, Pill, ConditionsTable, LoadState, McpView, ViewSwitch, InstructionsPanel, Notice, DetailTitle],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <nav class="muted mb-2 flex gap-1.5 text-[12.5px]" aria-label="Breadcrumb">
-      <a routerLink="/capabilities" class="text-accent hover:underline">Capabilities</a><span class="faint">/</span><span>{{ name() }}</span>
-    </nav>
-    <app-load-state [error]="capability.error()" [loading]="!capability.hasValue()" what="MCPCapability" [name]="name()" />
-    @if (c(); as c) {
-      <header class="mb-5 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p class="eyebrow">MCPCapability</p>
-          <h1 class="font-mono text-2xl font-semibold tracking-tight">{{ c.meta.name }}</h1>
+    <header class="mb-3 flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
+      <div class="min-w-0">
+        <app-detail-title section="Capabilities" link="/capabilities" [name]="name()" />
+        @if (c(); as c) {
           @if (c.spec.description) {
-            <p class="muted mt-1">{{ c.spec.description }}</p>
+            <p class="muted mt-0.5 text-[13px]">{{ c.spec.description }}</p>
           }
-        </div>
+        }
+      </div>
+      @if (c(); as c) {
         <div class="flex flex-wrap gap-1.5">
           <app-condition label="Valid" [condition]="cond(c.status.conditions, 'Valid')" />
           <app-condition label="Ready" [condition]="cond(c.status.conditions, 'Ready')" />
         </div>
-      </header>
+      }
+    </header>
+    <app-load-state [error]="capability.error()" [loading]="!capability.hasValue()" what="MCPCapability" [name]="name()" />
+    @if (c(); as c) {
       <app-view-switch [(view)]="view" />
 
       @if (view() === 'mcp') {

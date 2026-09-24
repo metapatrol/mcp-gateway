@@ -9,8 +9,8 @@ import { LoadState } from '../../shared/load-state';
   imports: [RouterLink, LoadState],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <header class="mb-5 flex flex-wrap items-end justify-between gap-4">
-      <h1 class="text-2xl font-semibold tracking-tight">Subjects</h1>
+    <header class="mb-4 flex flex-wrap items-end justify-between gap-4">
+      <h1 class="text-xl font-semibold tracking-tight">Subjects</h1>
       <form class="flex w-full max-w-md gap-2" (submit)="open($event)">
         <label for="subject" class="sr-only">Subject</label>
         <input

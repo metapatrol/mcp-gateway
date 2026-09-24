@@ -11,10 +11,9 @@ import { LoadState } from '../../shared/load-state';
   imports: [RouterLink, ConditionPill, LoadState],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <header class="mb-5">
-      <p class="eyebrow">MCPToolSet</p>
-      <h1 class="text-2xl font-semibold tracking-tight">Tool sets</h1>
-    </header>
+    <h1 class="mb-4 flex items-baseline gap-2 text-xl font-semibold tracking-tight">
+      Tool sets<span class="font-mono text-[13px] font-normal text-faint">MCPToolSet</span>
+    </h1>
     <app-load-state [error]="lists.toolSets.error()" [loading]="!lists.toolSets.hasValue()" what="tool sets" />
     @if (lists.toolSets.hasValue()) {
       <section class="panel overflow-x-auto">

@@ -11,10 +11,9 @@ import { LoadState } from '../../shared/load-state';
   imports: [RouterLink, ConditionPill, LoadState],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <header class="mb-5">
-      <p class="eyebrow">MCPCapability</p>
-      <h1 class="text-2xl font-semibold tracking-tight">Capabilities</h1>
-    </header>
+    <h1 class="mb-4 flex items-baseline gap-2 text-xl font-semibold tracking-tight">
+      Capabilities<span class="font-mono text-[13px] font-normal text-faint">MCPCapability</span>
+    </h1>
     <app-load-state [error]="lists.capabilities.error()" [loading]="!lists.capabilities.hasValue()" what="capabilities" />
     @if (lists.capabilities.hasValue()) {
       <section class="panel overflow-x-auto">

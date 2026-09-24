@@ -1,7 +1,25 @@
-<nav class="muted mb-2 flex gap-1.5 text-[12.5px]" aria-label="Breadcrumb">
-  <a routerLink="/toolsets" class="text-accent hover:underline">Tool sets</a
-  ><span class="faint">/</span><span>{{ name() }}</span>
-</nav>
+<header class="mb-3 flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
+  <div class="min-w-0">
+    <app-detail-title section="Tool sets" link="/toolsets" [name]="name()" />
+    @if (t(); as t) {
+      <p class="muted mt-0.5 text-[13px]">
+        server <a class="link" [routerLink]="['/servers', t.spec.serverRef]">{{ t.spec.serverRef }}</a>
+        @if (t.usedBy.length) {
+          · used by
+          @for (c of t.usedBy; track c; let last = $last) {
+            <a class="link" [routerLink]="['/capabilities', c]">{{ c }}</a>@if (!last) {, }
+          }
+        }
+      </p>
+    }
+  </div>
+  @if (t(); as t) {
+    <div class="flex flex-wrap gap-1.5">
+      <app-condition label="Valid" [condition]="cond(t.status.conditions, 'Valid')" />
+      <app-condition label="Ready" [condition]="cond(t.status.conditions, 'Ready')" />
+    </div>
+  }
+</header>
 
 <app-load-state
   [error]="toolSet.error()"
@@ -11,29 +29,6 @@
 />
 
 @if (t(); as t) {
-  <header class="mb-5 flex flex-wrap items-start justify-between gap-4">
-    <div>
-      <p class="eyebrow">MCPToolSet</p>
-      <h1 class="font-mono text-2xl font-semibold tracking-tight">{{ t.meta.name }}</h1>
-      <p class="muted mt-1 text-[13.5px]">
-        From server
-        <a class="link" [routerLink]="['/servers', t.spec.serverRef]">{{ t.spec.serverRef }}</a>
-        · used by
-        @for (c of t.usedBy; track c; let last = $last) {
-          <a class="link" [routerLink]="['/capabilities', c]">{{ c }}</a>
-          @if (!last) {
-            ,
-          }
-        } @empty {
-          <span class="faint">no capability</span>
-        }
-      </p>
-    </div>
-    <div class="flex flex-wrap gap-1.5">
-      <app-condition label="Valid" [condition]="cond(t.status.conditions, 'Valid')" />
-      <app-condition label="Ready" [condition]="cond(t.status.conditions, 'Ready')" />
-    </div>
-  </header>
   <app-view-switch [(view)]="view" />
 
   @if (view() === 'mcp') {

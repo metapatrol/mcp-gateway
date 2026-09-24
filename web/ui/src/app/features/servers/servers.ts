@@ -11,10 +11,9 @@ import { LoadState } from '../../shared/load-state';
   imports: [RouterLink, ConditionPill, LoadState],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <header class="mb-5">
-      <p class="eyebrow">MCPServer</p>
-      <h1 class="text-2xl font-semibold tracking-tight">Servers</h1>
-    </header>
+    <h1 class="mb-4 flex items-baseline gap-2 text-xl font-semibold tracking-tight">
+      Servers<span class="font-mono text-[13px] font-normal text-faint">MCPServer</span>
+    </h1>
     <app-load-state [error]="lists.servers.error()" [loading]="!lists.servers.hasValue()" what="servers" />
     @if (lists.servers.hasValue()) {
       <section class="panel overflow-x-auto">

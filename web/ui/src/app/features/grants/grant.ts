@@ -7,6 +7,7 @@ import { Lists } from '../../core/lists';
 import { ConditionPill, Pill } from '../../shared/condition-pill';
 import { ConditionsTable } from '../../shared/conditions-table';
 import { InstructionsPanel } from '../../shared/instructions-panel';
+import { DetailTitle } from '../../shared/detail-title';
 import { LoadState } from '../../shared/load-state';
 import { Notice } from '../../shared/notice';
 import { McpView } from '../../shared/mcp-view';
@@ -14,20 +15,15 @@ import { DetailView, ViewSwitch } from '../../shared/view-switch';
 
 @Component({
   selector: 'app-grant',
-  imports: [RouterLink, ConditionPill, Pill, ConditionsTable, LoadState, McpView, ViewSwitch, InstructionsPanel, Notice],
+  imports: [RouterLink, ConditionPill, Pill, ConditionsTable, LoadState, McpView, ViewSwitch, InstructionsPanel, Notice, DetailTitle],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <nav class="muted mb-2 flex gap-1.5 text-[12.5px]" aria-label="Breadcrumb">
-      <a routerLink="/grants" class="text-accent hover:underline">Grants</a><span class="faint">/</span><span>{{ name() }}</span>
-    </nav>
-    <app-load-state [error]="grant.error()" [loading]="!grant.hasValue()" what="MCPGrant" [name]="name()" />
-    @if (g(); as g) {
-      <header class="mb-5 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p class="eyebrow">MCPGrant</p>
-          <h1 class="font-mono text-2xl font-semibold tracking-tight">{{ g.meta.name }}</h1>
-          <p class="muted mt-1 text-[13.5px]">
-            Subject <a class="link" [routerLink]="['/subjects/resolve']" [queryParams]="{ subject: g.spec.subject }">{{ g.spec.subject }}</a>
+    <header class="mb-3 flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
+      <div class="min-w-0">
+        <app-detail-title section="Grants" link="/grants" [name]="name()" />
+        @if (g(); as g) {
+          <p class="muted mt-0.5 text-[13px]">
+            subject <a class="link" [routerLink]="['/subjects/resolve']" [queryParams]="{ subject: g.spec.subject }">{{ g.spec.subject }}</a>
             @if (g.sameSubject.length) {
               · also granted by
               @for (o of g.sameSubject; track o; let last = $last) {
@@ -35,12 +31,17 @@ import { DetailView, ViewSwitch } from '../../shared/view-switch';
               }
             }
           </p>
-        </div>
+        }
+      </div>
+      @if (g(); as g) {
         <div class="flex flex-wrap gap-1.5">
           <app-condition label="Valid" [condition]="cond(g.status.conditions, 'Valid')" />
           <app-condition label="Ready" [condition]="cond(g.status.conditions, 'Ready')" />
         </div>
-      </header>
+      }
+    </header>
+    <app-load-state [error]="grant.error()" [loading]="!grant.hasValue()" what="MCPGrant" [name]="name()" />
+    @if (g(); as g) {
       <app-view-switch [(view)]="view" />
       @if (view() === 'mcp') {
         <app-mcp-view kind="grant" [name]="name()" />

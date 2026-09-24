@@ -8,6 +8,7 @@ import { shortRevision } from '../../core/time';
 import { ConditionPill } from '../../shared/condition-pill';
 import { ConditionsTable } from '../../shared/conditions-table';
 import { InstructionsPanel } from '../../shared/instructions-panel';
+import { DetailTitle } from '../../shared/detail-title';
 import { LoadState } from '../../shared/load-state';
 import { Notice } from '../../shared/notice';
 import { McpView } from '../../shared/mcp-view';
@@ -17,7 +18,7 @@ import { disagreement, Filter, filtered, reason, touchedBy } from './selection';
 
 @Component({
   selector: 'app-toolset',
-  imports: [RouterLink, ConditionPill, ConditionsTable, LoadState, ToolDoc, McpView, ViewSwitch, InstructionsPanel, Notice],
+  imports: [RouterLink, ConditionPill, ConditionsTable, LoadState, ToolDoc, McpView, ViewSwitch, InstructionsPanel, Notice, DetailTitle],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './toolset.html',
 })

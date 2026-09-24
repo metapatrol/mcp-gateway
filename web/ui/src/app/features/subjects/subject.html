@@ -1,6 +1,28 @@
-<nav class="muted mb-2 flex gap-1.5 text-[12.5px]" aria-label="Breadcrumb">
-  <a routerLink="/subjects" class="text-accent hover:underline">Subjects</a><span class="faint">/</span><span class="truncate">{{ subject() }}</span>
-</nav>
+<header class="mb-3 flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
+  <div class="min-w-0">
+    <app-detail-title section="Subjects" link="/subjects" [name]="subject() ?? ''" />
+    @if (r(); as r) {
+      <p class="muted mt-0.5 text-[13px]">
+        @if (r.grants.length) {
+          granted by
+          @for (g of r.grants; track g; let last = $last) {
+            <a class="link" [routerLink]="['/grants', g]">{{ g }}</a>@if (!last) {, }
+          }
+        } @else {
+          no grant names this subject
+        }
+      </p>
+    }
+  </div>
+  @if (r(); as r) {
+    <div class="flex flex-wrap gap-1.5">
+      <app-pill tone="ok">{{ offered() }} offered</app-pill>
+      @if (missing().length) {
+        <app-pill tone="warn">{{ missing().length }} not offered</app-pill>
+      }
+    </div>
+  }
+</header>
 
 @if (!subject()) {
   <p class="faint">No subject given.</p>
@@ -8,28 +30,6 @@
 <app-load-state [error]="resolved.error()" [loading]="!!subject() && !resolved.hasValue()" what="subject" />
 
 @if (r(); as r) {
-  <header class="mb-5 flex flex-wrap items-start justify-between gap-4">
-    <div class="min-w-0">
-      <p class="eyebrow">Subject</p>
-      <h1 class="font-mono text-2xl font-semibold tracking-tight [overflow-wrap:anywhere]">{{ r.subject }}</h1>
-      <p class="muted mt-1 text-[13.5px]">
-        @if (r.grants.length) {
-          Granted by
-          @for (g of r.grants; track g; let last = $last) {
-            <a class="link" [routerLink]="['/grants', g]">{{ g }}</a>@if (!last) {, }
-          }
-        } @else {
-          No grant names this subject.
-        }
-      </p>
-    </div>
-    <div class="flex flex-wrap gap-1.5">
-      <app-pill tone="ok">{{ offered() }} offered</app-pill>
-      @if (missing().length) {
-        <app-pill tone="warn">{{ missing().length }} not offered</app-pill>
-      }
-    </div>
-  </header>
   <app-view-switch [(view)]="view" />
 
   @if (view() === 'mcp') {
