@@ -199,6 +199,10 @@ metrics Service for each; `serviceMonitor.enabled` renders a ServiceMonitor.
 | `mcp_gateway_tool_call_duration_seconds{server,tool}` | gateway | How long backends take |
 | `mcp_gateway_tool_calls_denied_total{subject}` | gateway | Calls refused for want of a grant |
 | `mcp_gateway_auth_failures_total{reason}` | gateway | Refused tokens, by reason: `missing_token`, `expired`, `audience`, `signature`, `unavailable`, … |
+| `mcp_gateway_inspect_requests_total{operation,code}` | gateway | Inspect API requests, by the spec's operationId (`none` if no operation was reached) |
+| `mcp_gateway_inspect_request_duration_seconds{operation}` | gateway | Inspect API latency, the event stream excepted |
+| `mcp_gateway_inspect_event_streams` | gateway | Open event streams |
+| `mcp_gateway_inspect_auth_failures_total{reason}` | gateway | Refused inspect tokens: `missing_token`, `review_failed`, `not_authenticated`, `wrong_audience`, `not_service_account`, `service_account_not_allowed` |
 | `mcp_gateway_build_info{component,…}` | all | Version, commit, build time, Go version |
 
 controller-runtime's own `controller_runtime_*` and `workqueue_*` families come

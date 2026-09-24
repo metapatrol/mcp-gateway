@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -14,6 +15,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
+
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/metrics"
 )
 
 // reviews answers TokenReviews from a table of token → (username, audiences),
@@ -67,11 +70,24 @@ func TestTokenReviewer(t *testing.T) {
 	}
 
 	assert.Equal(t, http.StatusNoContent, call("Bearer ui").Code)
+	refusals := func(reason string) float64 {
+		return testutil.ToFloat64(metrics.InspectAuthFailures.WithLabelValues(reason))
+	}
+	before := map[string]float64{}
+	reasons := []string{"missing_token", "not_authenticated", "service_account_not_allowed", "not_service_account", "wrong_audience"}
+	for _, r := range reasons {
+		before[r] = refusals(r)
+	}
 	for _, header := range []string{"", "Basic dWk6", "Bearer ", "Bearer unknown", "Bearer other-sa", "Bearer a-person", "Bearer wrong-aud"} {
 		rec := call(header)
 		assert.Equal(t, http.StatusUnauthorized, rec.Code, header)
 		assert.Equal(t, "application/problem+json", rec.Header().Get("Content-Type"))
 		assert.NotEmpty(t, rec.Header().Get("WWW-Authenticate"))
+	}
+	// "", Basic and an empty bearer carry no token; each other names its reason.
+	want := map[string]float64{"missing_token": 3, "not_authenticated": 1, "service_account_not_allowed": 1, "not_service_account": 1, "wrong_audience": 1}
+	for _, r := range reasons {
+		assert.Equal(t, before[r]+want[r], refusals(r), r)
 	}
 
 	t.Run("an accepted token is remembered for the TTL", func(t *testing.T) {

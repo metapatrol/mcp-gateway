@@ -19,7 +19,7 @@ func Handler(s *Server, authenticate func(http.Handler) http.Handler, log logr.L
 	badRequest := func(w http.ResponseWriter, _ *http.Request, err error) {
 		writeProblem(w, http.StatusBadRequest, err.Error())
 	}
-	strict := api.NewStrictHandlerWithOptions(s, nil, api.StrictHTTPServerOptions{
+	strict := api.NewStrictHandlerWithOptions(s, []api.StrictMiddlewareFunc{nameOperation}, api.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc: badRequest,
 		ResponseErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
 			log.Error(err, "inspect request failed", "path", r.URL.Path)
@@ -37,7 +37,10 @@ func Handler(s *Server, authenticate func(http.Handler) http.Handler, log logr.L
 	for _, p := range publicPaths {
 		mux.Handle("GET "+p, h)
 	}
-	mux.HandleFunc("GET "+APICatalogPath, apiCatalog)
+	mux.HandleFunc("GET "+APICatalogPath, func(w http.ResponseWriter, r *http.Request) {
+		setOperation(r.Context(), "apiCatalog")
+		apiCatalog(w, r)
+	})
 	mux.Handle("/", authenticate(h))
-	return mux
+	return instrument(mux)
 }

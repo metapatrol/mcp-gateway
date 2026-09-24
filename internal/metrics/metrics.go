@@ -108,12 +108,56 @@ var (
 		},
 		[]string{"reason"},
 	)
+
+	// InspectRequests counts requests to the inspect API. The operation is the
+	// spec's operationId, or "none" for a request that reached no operation —
+	// an unknown path, or one refused before routing.
+	InspectRequests = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "mcp_gateway_inspect_requests_total",
+			Help: "Requests to the inspect API by operation and HTTP status code.",
+		},
+		[]string{"operation", "code"},
+	)
+
+	// InspectRequestDuration measures inspect API requests. The event stream
+	// is left out: it lasts as long as the reader stays, which says nothing
+	// about how fast the API answers.
+	InspectRequestDuration = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "mcp_gateway_inspect_request_duration_seconds",
+			Help:    "Duration of inspect API requests by operation, the event stream excepted.",
+			Buckets: []float64{0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5},
+		},
+		[]string{"operation"},
+	)
+
+	// InspectEventStreams is the number of open event streams.
+	InspectEventStreams = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "mcp_gateway_inspect_event_streams",
+			Help: "Open event streams of the inspect API.",
+		},
+	)
+
+	// InspectAuthFailures counts requests to the inspect API whose token was
+	// refused. It is kept apart from AuthFailures, which is about agents: a
+	// refusal here is someone other than the console trying to read the
+	// whole configuration.
+	InspectAuthFailures = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "mcp_gateway_inspect_auth_failures_total",
+			Help: "Requests to the inspect API refused at authentication by reason.",
+		},
+		[]string{"reason"},
+	)
 )
 
 func init() {
 	metrics.Registry.MustRegister(
 		BuildInfo, Resources, Discoveries, DiscoveredTools, BackendAvailable,
 		ToolCalls, ToolCallDuration, DeniedToolCalls, AuthFailures,
+		InspectRequests, InspectRequestDuration, InspectEventStreams, InspectAuthFailures,
 	)
 }
 

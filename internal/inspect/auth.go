@@ -15,6 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"forgejo.metapatrol.local/platform/mcp-gateway/internal/inspect/api"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/metrics"
 )
 
 // The inspect API shows every subject's grants and every backend's catalog,
@@ -55,10 +56,12 @@ func (t *TokenReviewer) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
 		if !ok || token == "" {
+			metrics.InspectAuthFailures.WithLabelValues("missing_token").Inc()
 			unauthorized(w, "a bearer token is required")
 			return
 		}
-		if err := t.check(r.Context(), token); err != nil {
+		if reason, err := t.check(r.Context(), token); err != nil {
+			metrics.InspectAuthFailures.WithLabelValues(reason).Inc()
 			unauthorized(w, err.Error())
 			return
 		}
@@ -73,7 +76,9 @@ func (t *TokenReviewer) now() time.Time {
 	return time.Now()
 }
 
-func (t *TokenReviewer) check(ctx context.Context, token string) error {
+// check returns why a token is refused, as a metric label, and the error to
+// answer with.
+func (t *TokenReviewer) check(ctx context.Context, token string) (string, error) {
 	key := sha256.Sum256([]byte(token))
 	now := t.now()
 
@@ -81,29 +86,29 @@ func (t *TokenReviewer) check(ctx context.Context, token string) error {
 	until, ok := t.accepted[key]
 	t.mu.Unlock()
 	if ok && now.Before(until) {
-		return nil
+		return "", nil
 	}
 
 	review := &authenticationv1.TokenReview{
 		Spec: authenticationv1.TokenReviewSpec{Token: token, Audiences: []string{t.Audience}},
 	}
 	if err := t.Client.Create(ctx, review); err != nil {
-		return fmt.Errorf("the token could not be reviewed: %w", err)
+		return "review_failed", fmt.Errorf("the token could not be reviewed: %w", err)
 	}
 	st := review.Status
 	if !st.Authenticated {
-		return fmt.Errorf("the token was not accepted for audience %s", t.Audience)
+		return "not_authenticated", fmt.Errorf("the token was not accepted for audience %s", t.Audience)
 	}
 	if !slices.Contains(st.Audiences, t.Audience) {
-		return fmt.Errorf("the token was not issued for audience %s", t.Audience)
+		return "wrong_audience", fmt.Errorf("the token was not issued for audience %s", t.Audience)
 	}
 	account, ok := strings.CutPrefix(st.User.Username, "system:serviceaccount:")
 	if !ok {
-		return fmt.Errorf("%s is not a ServiceAccount", st.User.Username)
+		return "not_service_account", fmt.Errorf("%s is not a ServiceAccount", st.User.Username)
 	}
 	account = strings.Replace(account, ":", "/", 1)
 	if !slices.Contains(t.ServiceAccounts, account) {
-		return fmt.Errorf("ServiceAccount %s may not read this API", account)
+		return "service_account_not_allowed", fmt.Errorf("ServiceAccount %s may not read this API", account)
 	}
 
 	ttl := t.TTL
@@ -126,7 +131,7 @@ func (t *TokenReviewer) check(ctx context.Context, token string) error {
 		}
 	}
 	t.accepted[key] = now.Add(ttl)
-	return nil
+	return "", nil
 }
 
 func unauthorized(w http.ResponseWriter, detail string) {

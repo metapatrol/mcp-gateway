@@ -16,6 +16,7 @@ import (
 
 	mcpv1alpha1 "forgejo.metapatrol.local/platform/mcp-gateway/api/v1alpha1"
 	"forgejo.metapatrol.local/platform/mcp-gateway/internal/inspect/api"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/metrics"
 )
 
 // Events tells readers of the inspect API that something changed, so they know
@@ -102,12 +103,14 @@ func (e *Events) Subscribe() (<-chan api.ChangeBatch, func(), error) {
 	}
 	ch := make(chan api.ChangeBatch, 8)
 	e.streams[ch] = true
+	metrics.InspectEventStreams.Inc()
 	return ch, func() {
 		e.mu.Lock()
 		defer e.mu.Unlock()
 		if e.streams[ch] {
 			delete(e.streams, ch)
 			close(ch)
+			metrics.InspectEventStreams.Dec()
 		}
 	}, nil
 }
@@ -132,6 +135,7 @@ func (e *Events) Start(ctx context.Context) error {
 			for ch := range e.streams {
 				delete(e.streams, ch)
 				close(ch)
+				metrics.InspectEventStreams.Dec()
 			}
 			e.mu.Unlock()
 			return nil
