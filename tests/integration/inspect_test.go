@@ -198,6 +198,22 @@ func TestInspectMCPIsWhatAgentsGet(t *testing.T) {
 	assert.Equal(t, call("server/discover"), string(ex.Discover), "byte for byte")
 	assert.Equal(t, agentList, string(ex.ToolsList[0]), "byte for byte")
 	assert.Contains(t, string(ex.Discover), "Search first.")
+
+	// The grant's page shows the same instructions its agent is sent.
+	var discovered struct {
+		Result struct {
+			Instructions string `json:"instructions"`
+		} `json:"result"`
+	}
+	require.NoError(t, json.Unmarshal(ex.Discover, &discovered))
+	page, err := http.Get(inspectURL + "/api/v1alpha1/grants/fidelity")
+	require.NoError(t, err)
+	defer func() { _ = page.Body.Close() }()
+	var grant struct {
+		Instructions string `json:"instructions"`
+	}
+	require.NoError(t, json.NewDecoder(page.Body).Decode(&grant))
+	assert.Equal(t, discovered.Result.Instructions, grant.Instructions)
 	assert.Contains(t, agentList, `"name":"f_plain"`)
 
 	server, err := http.Get(inspectURL + "/api/v1alpha1/servers/fidelity/mcp")

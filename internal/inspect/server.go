@@ -32,6 +32,7 @@ type Gateway interface {
 	Policy() *policy.Snapshot
 	UsableCatalog(server string) (*discovery.Catalog, bool)
 	Instructions(subject string) string
+	InstructionsOf(res policy.Resolution) string
 	// Preview answers server/discover and tools/list as the gateway does
 	// for an agent offered res.
 	Preview(ctx context.Context, res policy.Resolution) (gateway.Preview, error)
@@ -317,6 +318,7 @@ func (s *Server) GetToolSet(ctx context.Context, req api.GetToolSetRequestObject
 		return toolDefinition(t)
 	})
 	out.Selection.CatalogAvailable = usable
+	out.Instructions = s.Gateway.InstructionsOf(s.Gateway.Policy().ResolveToolSets([]string{ts.Name}, s.catalogs()))
 	if usable {
 		out.Selection.CatalogRevision = &c.Revision
 	}
@@ -363,6 +365,7 @@ func (s *Server) GetCapability(ctx context.Context, req api.GetCapabilityRequest
 	catalogs := s.catalogs()
 	res := s.Gateway.Policy().ResolveCapabilities([]string{c.Name}, catalogs)
 	out.MissingToolSets = nonNil(res.MissingToolSets)
+	out.Instructions = s.Gateway.InstructionsOf(res)
 	via := s.claimedThrough(w, c.Spec.ToolSets, catalogs)
 	resolved := func(name string, ref policy.ToolRef) api.ResolvedTool {
 		_, available := s.offered(ref)
@@ -456,6 +459,7 @@ func (s *Server) GetGrant(ctx context.Context, req api.GetGrantRequestObject) (a
 			out.SameSubject = append(out.SameSubject, other.Name)
 		}
 	}
+	out.Instructions = s.Gateway.InstructionsOf(s.Gateway.Policy().ResolveCapabilities(g.Spec.Capabilities, s.catalogs()))
 	return api.GetGrant200JSONResponse(out), nil
 }
 

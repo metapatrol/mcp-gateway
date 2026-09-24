@@ -99,16 +99,7 @@
           }
         </div>
       </section>
-      <section class="panel">
-        <header class="panel-head">
-          <h2 class="panel-title">Instructions</h2>
-        </header>
-        @if (s.catalog?.instructions; as instructions) {
-          <pre class="overflow-x-auto px-4 py-3 font-mono text-[12.5px] leading-relaxed whitespace-pre-wrap">{{ instructions }}</pre>
-        } @else {
-          <p class="faint px-4 py-3 text-sm">No instructions.</p>
-        }
-      </section>
+      <app-instructions [text]="s.catalog?.instructions" />
     </div>
 
     <section class="panel">

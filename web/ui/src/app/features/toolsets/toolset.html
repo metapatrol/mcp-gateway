@@ -240,6 +240,8 @@
       </section>
     </div>
 
+    <app-instructions [text]="t.instructions" />
+
     <app-conditions [conditions]="t.status.conditions" [observedGeneration]="t.status.observedGeneration" [generation]="t.meta.generation" />
   </div>
   }

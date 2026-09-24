@@ -55,9 +55,9 @@ like read access to the four kinds.
 |---|---|
 | Overview | How many of each kind are Ready, everything that is not — the resource at fault first, the ones only passing it on after — and a map from grants through capabilities and tool sets to servers. Hovering a box follows its chain |
 | Servers | Endpoint, `spec.auth` with Secrets by name and key only, discovery as the controller reports it and as this gateway replica sees it, the backend's instructions, and its catalog with every tool's description, arguments, and the hints the backend declares for it |
-| Tool sets | The entries of `tools`, `exclude`, `prefix` and `aliases` beside the whole catalog, and for every tool whether it is exposed, under which name, and which entry decided it. Selecting an entry marks the tools it selected or removed |
-| Capabilities | Its tool sets, the grants that use it, the tools it comes to, and name conflicts |
-| Grants | Its subject, its capabilities, the ones that do not exist, and the other grants for the same subject |
+| Tool sets | The entries of `tools`, `exclude`, `prefix` and `aliases` beside the whole catalog, and for every tool whether it is exposed, under which name, and which entry decided it. Selecting an entry marks the tools it selected or removed. The instructions an agent holding the tool set would be sent |
+| Capabilities | Its tool sets, the grants that use it, the tools it comes to, name conflicts, and the instructions an agent holding it would be sent |
+| Grants | Its subject, its capabilities, the ones that do not exist, the other grants for the same subject, and the instructions an agent holding it would be sent |
 | Subjects | For any subject — typed in, or picked from those grants name — every tool it is offered with every path it is granted through, the tools it is not offered and why, and the instructions text it is sent at start: the gateway's own (`gateway.instructions`) followed by those of the backends it holds tools from |
 
 Servers, tool sets, capabilities, grants and subjects each have a second tab,

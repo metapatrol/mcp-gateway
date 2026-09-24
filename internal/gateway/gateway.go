@@ -395,6 +395,10 @@ func (g *Gateway) UsableCatalog(server string) (*discovery.Catalog, bool) {
 // server/discover answer, as of now.
 func (g *Gateway) Instructions(subject string) string { return g.instructionsFor(subject) }
 
+// InstructionsOf returns what an agent offered exactly res is sent as
+// instructions, as of now.
+func (g *Gateway) InstructionsOf(res policy.Resolution) string { return g.instructionsOf(g.offered(res)) }
+
 // catalogs gives policy resolution the tool names of every usable catalog, so
 // that tool set patterns expand against what the gateway would actually serve.
 func (g *Gateway) catalogs(server string) ([]string, bool) {

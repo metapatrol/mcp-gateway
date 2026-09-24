@@ -750,8 +750,14 @@ components:
       allOf:
         - $ref: "#/components/schemas/ToolSetSummary"
         - type: object
-          required: [usedBy, selection, source]
+          required: [usedBy, selection, instructions, source]
           properties:
+            instructions:
+              type: string
+              description: |
+                The instructions an agent holding this resource alone is sent
+                in server/discover: the gateway's own text, then each backend's
+                with the tools it gives, as the gateway assembles them.
             usedBy:
               type: array
               description: The capabilities that list this tool set.
@@ -931,8 +937,14 @@ components:
       allOf:
         - $ref: "#/components/schemas/CapabilitySummary"
         - type: object
-          required: [grantedBy, tools, conflicts, missingToolSets, source]
+          required: [grantedBy, tools, conflicts, missingToolSets, instructions, source]
           properties:
+            instructions:
+              type: string
+              description: |
+                The instructions an agent holding this resource alone is sent
+                in server/discover: the gateway's own text, then each backend's
+                with the tools it gives, as the gateway assembles them.
             grantedBy:
               type: array
               description: The grants that list this capability.
@@ -986,8 +998,14 @@ components:
       allOf:
         - $ref: "#/components/schemas/GrantSummary"
         - type: object
-          required: [missingCapabilities, sameSubject, source]
+          required: [missingCapabilities, sameSubject, instructions, source]
           properties:
+            instructions:
+              type: string
+              description: |
+                The instructions an agent holding this resource alone is sent
+                in server/discover: the gateway's own text, then each backend's
+                with the tools it gives, as the gateway assembles them.
             missingCapabilities:
               type: array
               description: Names in spec.capabilities no MCPCapability has. They grant nothing; the rest of the grant still applies.

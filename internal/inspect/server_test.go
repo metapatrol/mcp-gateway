@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -42,6 +43,9 @@ func (g *fakeGateway) UsableCatalog(server string) (*discovery.Catalog, bool) {
 	return c, ok
 }
 func (g *fakeGateway) Instructions(subject string) string { return g.instructions[subject] }
+func (g *fakeGateway) InstructionsOf(res policy.Resolution) string {
+	return "for " + strings.Join(resolved(res), ",")
+}
 func (g *fakeGateway) Preview(_ context.Context, res policy.Resolution) (gateway.Preview, error) {
 	list, _ := json.Marshal(map[string]any{"tools": resolved(res)})
 	return gateway.Preview{Discover: json.RawMessage(`{"previewed":true}`), ToolsList: []json.RawMessage{list}}, nil
@@ -438,4 +442,14 @@ func TestMCPViews(t *testing.T) {
 	for _, path := range []string{"/servers/nope/mcp", "/toolsets/nope/mcp", "/capabilities/nope/mcp", "/grants/nope/mcp"} {
 		get[api.Problem](t, h, path, http.StatusNotFound)
 	}
+}
+
+func TestInstructionsPerResource(t *testing.T) {
+	h := newTestServer(t)
+	ts := get[api.ToolSet](t, h, "/toolsets/si-search", http.StatusOK)
+	assert.Equal(t, "for code.search", ts.Instructions, "what the tool set alone resolves to")
+	c := get[api.Capability](t, h, "/capabilities/field-ops", http.StatusOK)
+	assert.Equal(t, "for fetch_page,get_forecast", c.Instructions)
+	g := get[api.Grant](t, h, "/grants/coder-web", http.StatusOK)
+	assert.Equal(t, "for ", g.Instructions, "a grant of nothing")
 }

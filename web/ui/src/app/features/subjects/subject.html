@@ -123,14 +123,7 @@
       <p class="faint">No tools offered.</p>
     }
 
-    <section class="panel">
-      <header class="panel-head"><h2 class="panel-title">Instructions</h2></header>
-      @if (r.instructions) {
-        <pre class="overflow-x-auto px-4 py-3 font-mono text-[12.5px] leading-relaxed whitespace-pre-wrap">{{ r.instructions }}</pre>
-      } @else {
-        <p class="faint px-4 py-3 text-sm">No instructions.</p>
-      }
-    </section>
+    <app-instructions [text]="r.instructions" />
   </div>
   }
 }

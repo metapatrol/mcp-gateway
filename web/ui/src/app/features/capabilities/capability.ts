@@ -6,13 +6,14 @@ import { Inspect, live } from '../../core/inspect';
 import { Lists } from '../../core/lists';
 import { ConditionPill, Pill } from '../../shared/condition-pill';
 import { ConditionsTable } from '../../shared/conditions-table';
+import { InstructionsPanel } from '../../shared/instructions-panel';
 import { LoadState } from '../../shared/load-state';
 import { McpView } from '../../shared/mcp-view';
 import { DetailView, ViewSwitch } from '../../shared/view-switch';
 
 @Component({
   selector: 'app-capability',
-  imports: [RouterLink, ConditionPill, Pill, ConditionsTable, LoadState, McpView, ViewSwitch],
+  imports: [RouterLink, ConditionPill, Pill, ConditionsTable, LoadState, McpView, ViewSwitch, InstructionsPanel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <nav class="muted mb-2 flex gap-1.5 text-[12.5px]" aria-label="Breadcrumb">
@@ -127,6 +128,8 @@ import { DetailView, ViewSwitch } from '../../shared/view-switch';
             </table>
           </div>
         </section>
+
+        <app-instructions [text]="c.instructions" />
 
         <app-conditions [conditions]="c.status.conditions" [observedGeneration]="c.status.observedGeneration" [generation]="c.meta.generation" />
       </div>

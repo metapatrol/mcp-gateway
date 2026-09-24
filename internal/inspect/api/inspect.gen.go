@@ -293,7 +293,12 @@ type Capability struct {
 	Conflicts []NameConflict `json:"conflicts"`
 
 	// GrantedBy The grants that list this capability.
-	GrantedBy       []string `json:"grantedBy"`
+	GrantedBy []string `json:"grantedBy"`
+
+	// Instructions The instructions an agent holding this resource alone is sent
+	// in server/discover: the gateway's own text, then each backend's
+	// with the tools it gives, as the gateway assembles them.
+	Instructions    string   `json:"instructions"`
 	Meta            Meta     `json:"meta"`
 	MissingToolSets []string `json:"missingToolSets"`
 
@@ -462,7 +467,11 @@ type ExclusionEntryKind string
 
 // Grant defines model for Grant.
 type Grant struct {
-	Meta Meta `json:"meta"`
+	// Instructions The instructions an agent holding this resource alone is sent
+	// in server/discover: the gateway's own text, then each backend's
+	// with the tools it gives, as the gateway assembles them.
+	Instructions string `json:"instructions"`
+	Meta         Meta   `json:"meta"`
 
 	// MissingCapabilities Names in spec.capabilities no MCPCapability has. They grant nothing; the rest of the grant still applies.
 	MissingCapabilities []string `json:"missingCapabilities"`
@@ -794,7 +803,11 @@ type ToolRef struct {
 
 // ToolSet defines model for ToolSet.
 type ToolSet struct {
-	Meta Meta `json:"meta"`
+	// Instructions The instructions an agent holding this resource alone is sent
+	// in server/discover: the gateway's own text, then each backend's
+	// with the tools it gives, as the gateway assembles them.
+	Instructions string `json:"instructions"`
+	Meta         Meta   `json:"meta"`
 
 	// Selection The tool set's spec checked against the catalog this replica holds for
 	// its server — the same resolution as status, with the reasons kept.

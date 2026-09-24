@@ -5,6 +5,7 @@ import { SubjectTool } from '../../api/models';
 import { Inspect, live } from '../../core/inspect';
 import { Lists } from '../../core/lists';
 import { Pill } from '../../shared/condition-pill';
+import { InstructionsPanel } from '../../shared/instructions-panel';
 import { LoadState } from '../../shared/load-state';
 import { McpView } from '../../shared/mcp-view';
 import { DetailView, ViewSwitch } from '../../shared/view-switch';
@@ -13,7 +14,7 @@ import { byServer, notOffered } from './grouping';
 
 @Component({
   selector: 'app-subject',
-  imports: [RouterLink, Pill, LoadState, ToolDoc, McpView, ViewSwitch],
+  imports: [RouterLink, Pill, LoadState, ToolDoc, McpView, ViewSwitch, InstructionsPanel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './subject.html',
 })
