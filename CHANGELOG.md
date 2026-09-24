@@ -1,3 +1,10 @@
+# [1.8.0](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/compare/v1.7.1...v1.8.0) (2026-09-24)
+
+
+### Features
+
+* **ui:** keep what a page shows in its URL ([b548668](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/commit/b548668042c0c9ac2aa574a4186383027acdd61c))
+
 ## [1.7.1](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/compare/v1.7.0...v1.7.1) (2026-09-24)
 
 
