@@ -40,6 +40,8 @@ tags:
     description: MCPGrant — capabilities bound to a subject.
   - name: subjects
     description: What a token subject is offered, resolved as the gateway does.
+  - name: events
+    description: Notifications that something changed, so a reader knows when to read again.
 
 paths:
   /servers:
@@ -208,6 +210,47 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         default: { $ref: "#/components/responses/Problem" }
 
+  /events:
+    get:
+      tags: [events]
+      operationId: watchEvents
+      summary: Stream notifications of changes
+      description: |
+        A stream of server-sent events (text/event-stream) that says what
+        changed, not what it changed to: a reader reads the resources it shows
+        again, through the other operations, when one of them is named. There
+        is one way to read the data, and this is only when.
+
+        Every event is named `changed`, and its data is one ChangeBatch as
+        JSON. Changes are collected for a moment and sent together, so a
+        GitOps sync applying fifty grants is one event, not fifty. A comment
+        line is sent every 25 seconds to keep proxies from closing an idle
+        stream.
+
+        What counts as a change:
+
+          - any change to one of the four kinds, status included, as the
+            replica's watch sees it
+          - a backend's catalog changing on this replica, or its discovery
+            starting or stopping to fail
+
+        Nothing is replayed. A reader that reconnects has missed whatever
+        happened in between, and reads everything again.
+      responses:
+        "200":
+          description: The stream. It ends when the reader goes away or the replica shuts down.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "503":
+          description: The replica already streams to as many readers as it allows.
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        default: { $ref: "#/components/responses/Problem" }
+
 components:
   securitySchemes:
     serviceAccountToken:
@@ -333,6 +376,30 @@ components:
         destructiveHint: { type: boolean }
         idempotentHint: { type: boolean }
         openWorldHint: { type: boolean }
+
+    # ---------------------------------------------------------------- events
+
+    ChangeBatch:
+      description: The data of one `changed` event on /events.
+      type: object
+      required: [changes]
+      properties:
+        changes:
+          type: array
+          description: What changed since the previous event, without duplicates.
+          items: { $ref: "#/components/schemas/Change" }
+
+    Change:
+      type: object
+      required: [kind, name]
+      properties:
+        kind:
+          type: string
+          enum: [server, toolset, capability, grant]
+          description: |
+            The kind of the resource. A server's change may also be one of
+            its catalog, on this replica.
+        name: { type: string }
 
     # ---------------------------------------------------------------- servers
 

@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"testing"
 	"time"
@@ -19,6 +20,8 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -52,7 +55,8 @@ func TestDevStack(t *testing.T) {
 		require.NoError(t, k8sClient.Create(ctx, obj))
 	}
 	startController(t)
-	mcpURL, inspectURL := startGatewayWithInspect(t)
+	mcpURL, inspectURL, _ := startGatewayWithInspect(t)
+	kubeconfig := writeKubeconfig(t)
 
 	addr := os.Getenv("DEVSTACK_ADDR")
 	if addr == "" {
@@ -81,7 +85,10 @@ func TestDevStack(t *testing.T) {
 		fmt.Println("               (built without the web UI: run make ui-build, or npm start in web/ui)")
 	}
 	fmt.Printf("  inspect API  %s/api/v1alpha1/\n", inspectURL)
-	fmt.Printf("  MCP          %s   (bearer token = subject, e.g. agent-coder)\n\n", mcpURL)
+	fmt.Printf("  MCP          %s   (bearer token = subject, e.g. agent-coder)\n", mcpURL)
+	fmt.Printf("  kubectl      kubectl --kubeconfig %s get mcp-gateway\n", kubeconfig)
+	fmt.Println("               (edit a resource there and watch the console follow)")
+	fmt.Println()
 	fmt.Println("  Ctrl-C stops it.")
 
 	stop, cancel := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
@@ -90,9 +97,10 @@ func TestDevStack(t *testing.T) {
 }
 
 // startGatewayWithInspect runs the gateway as its main does with the inspect
-// API on, and returns the URLs of both. The inspect API takes every caller:
-// there is no API server token to review here, and the listener is local.
-func startGatewayWithInspect(t *testing.T) (mcpURL, inspectURL string) {
+// API and its event stream on, and returns the URLs of both. The inspect API
+// takes every caller: there is no API server token to review here, and the
+// listener is local.
+func startGatewayWithInspect(t *testing.T) (mcpURL, inspectURL string, events *inspect.Events) {
 	t.Helper()
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:     scheme,
@@ -115,9 +123,12 @@ func startGatewayWithInspect(t *testing.T) (mcpURL, inspectURL string) {
 		Instructions:  "You are connected to mcp-gateway on a dev stack.",
 	})
 	catalogs = gateway.NewCatalogReconciler(mgr.GetClient(), registry, gw)
+	events = &inspect.Events{Cache: mgr.GetCache()}
+	catalogs.OnDiscovery = events.PublishServer
 	require.NoError(t, catalogs.SetupWithManager(mgr))
 	require.NoError(t, (&gateway.PolicyReconciler{Client: mgr.GetClient(), Gateway: gw}).SetupWithManager(mgr))
 	require.NoError(t, mgr.Add(gw))
+	require.NoError(t, mgr.Add(events))
 
 	handler, err := gw.Handler(gateway.HandlerOptions{Verifier: verifier})
 	require.NoError(t, err)
@@ -130,11 +141,27 @@ func startGatewayWithInspect(t *testing.T) (mcpURL, inspectURL string) {
 		Gateway:  gw,
 		Registry: registry,
 		Replica:  "dev-stack",
+		Events:   events,
 	}, pass, logr.Discard()))
 	t.Cleanup(inspectSrv.Close)
 
 	run(t, mgr)
-	return mcpSrv.URL + "/mcp", inspectSrv.URL
+	return mcpSrv.URL + "/mcp", inspectSrv.URL, events
+}
+
+// writeKubeconfig writes a kubeconfig for the envtest API server, so the
+// resources can be changed with kubectl while the dev stack runs.
+func writeKubeconfig(t *testing.T) string {
+	t.Helper()
+	config := clientcmdapi.NewConfig()
+	config.Clusters["dev-stack"] = &clientcmdapi.Cluster{Server: cfg.Host, CertificateAuthorityData: cfg.CAData}
+	config.AuthInfos["dev-stack"] = &clientcmdapi.AuthInfo{ClientCertificateData: cfg.CertData, ClientKeyData: cfg.KeyData, Token: cfg.BearerToken}
+	config.Contexts["dev-stack"] = &clientcmdapi.Context{Cluster: "dev-stack", AuthInfo: "dev-stack"}
+	config.CurrentContext = "dev-stack"
+	file := filepath.Join(os.TempDir(), "mcp-gateway-dev-stack.kubeconfig")
+	require.NoError(t, clientcmd.WriteToFile(*config, file))
+	t.Cleanup(func() { _ = os.Remove(file) })
+	return file
 }
 
 // tool builds a definition with a real-looking schema: properties as name →

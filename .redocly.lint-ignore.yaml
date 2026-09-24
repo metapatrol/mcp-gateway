@@ -1,0 +1,7 @@
+# This file instructs Redocly's linter to ignore the rules contained for specific parts of your API.
+# See https://redocly.com/docs/cli/ for more information.
+# ChangeBatch is the data of the /events stream. OpenAPI 3.0 cannot name the
+# schema of a server-sent event's data, so no operation references it.
+api/openapi/inspect.yaml:
+  no-unused-components:
+    - '#/components/schemas/ChangeBatch'

@@ -40,6 +40,12 @@ type CatalogReconciler struct {
 	Registry *discovery.Registry
 	Gateway  *Gateway
 
+	// OnDiscovery, if set, is told when a discovery changed what this replica
+	// knows about a backend: a new catalog, or discovery starting or
+	// stopping to fail. A discovery that finds what the last one found is
+	// not reported, so this is quiet between changes.
+	OnDiscovery func(server string)
+
 	// announcements carries backends that sent
 	// notifications/tools/list_changed.
 	announcements chan event.TypedGenericEvent[*mcpv1alpha1.MCPServer]
@@ -89,6 +95,7 @@ func (r *CatalogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	r.Registry.Ensure(server.Name, server.Spec.Endpoint, server.Spec.Auth)
+	before, _ := r.Registry.Health(server.Name)
 	discoverCtx, cancel := context.WithTimeout(ctx, discoveryTimeout)
 	defer cancel()
 	catalog, changed, err := r.Registry.Discover(discoverCtx, server.Name)
@@ -96,6 +103,9 @@ func (r *CatalogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	// Whatever happened, the tool lists may need to follow: a new catalog, a
 	// catalog that just aged out, or one that is usable again.
 	r.Gateway.Invalidate()
+	if r.OnDiscovery != nil && (changed || (err != nil) != (before.Failures > 0)) {
+		r.OnDiscovery(server.Name)
+	}
 
 	interval := server.Interval()
 	if err != nil {

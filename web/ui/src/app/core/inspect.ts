@@ -12,7 +12,9 @@ import {
 import { DOCUMENT } from '@angular/common';
 import { Observable } from 'rxjs';
 import { Api } from '../api/api';
-import { Source } from '../api/models';
+import { ApiConfiguration } from '../api/api-configuration';
+import { watchEvents } from '../api/functions';
+import { Change, ChangeBatch, Source } from '../api/models';
 import { StrictHttpResponse } from '../api/strict-http-response';
 
 /** A generated API function: every answer of the inspect API carries its source. */
@@ -24,16 +26,34 @@ type Operation<P, R> = (
 ) => Observable<StrictHttpResponse<R>>;
 
 const SOURCES_KEY = 'mcp-gateway-ui.show-sources';
-const AUTO_REFRESH_MS = 30_000;
+
+/** Polling without the event stream. */
+const POLL_MS = 30_000;
+/**
+ * Polling with it: a safety net for what no event announces, such as a
+ * catalog ageing out of use while its backend stays down.
+ */
+const LIVE_POLL_MS = 5 * 60_000;
+/** How long to wait before opening a stream the gateway refused. */
+const REOPEN_MS = 30_000;
+
+export type Liveness = 'connecting' | 'live' | 'reconnecting' | 'polling';
 
 /**
  * Inspect calls the gateway's inspect API through the generated client and
  * keeps what the whole page shares: which replica answered last, when to
- * refresh, and whether data sources are marked.
+ * read again, and whether data sources are marked.
+ *
+ * When to read again is the gateway's event stream: each `changed` event
+ * reloads what the page shows. The stream only says that something changed;
+ * the data still comes through the other operations. Without the stream —
+ * the browser has no EventSource, or the gateway refuses one — the page
+ * polls.
  */
 @Injectable({ providedIn: 'root' })
 export class Inspect {
   private readonly api = inject(Api);
+  private readonly config = inject(ApiConfiguration);
   private readonly document = inject(DOCUMENT);
 
   /** The replica and time of the most recent answer. */
@@ -41,16 +61,27 @@ export class Inspect {
   /** Bumped by every refresh, manual or automatic. */
   readonly refreshes = signal(0);
   readonly showSources = signal(this.readShowSources());
+  /** Whether updates arrive as they happen, or by polling. */
+  readonly liveness = signal<Liveness>('connecting');
+  /** The most recent batch of changes, and when it arrived. */
+  readonly lastChanges = signal<{ changes: Change[]; at: number } | undefined>(undefined);
+
+  private stream?: EventSource;
+  private lastRefresh = Date.now();
 
   constructor() {
-    // Every 30 seconds while the page is visible: the data is live, and a
-    // console left open should not show last hour's catalog.
+    const destroy = inject(DestroyRef);
     const timer = setInterval(() => {
-      if (this.document.visibilityState !== 'hidden') {
+      const every = this.liveness() === 'live' ? LIVE_POLL_MS : POLL_MS;
+      if (this.document.visibilityState !== 'hidden' && Date.now() - this.lastRefresh >= every) {
         this.refresh();
       }
-    }, AUTO_REFRESH_MS);
-    inject(DestroyRef).onDestroy(() => clearInterval(timer));
+    }, 5_000);
+    destroy.onDestroy(() => {
+      clearInterval(timer);
+      this.stream?.close();
+    });
+    this.open();
   }
 
   async call<P, R extends { source: Source }>(op: Operation<P, R>, params: P): Promise<R> {
@@ -60,7 +91,45 @@ export class Inspect {
   }
 
   refresh(): void {
+    this.lastRefresh = Date.now();
     this.refreshes.update((n) => n + 1);
+  }
+
+  private open(): void {
+    const view = this.document.defaultView as (Window & typeof globalThis) | null;
+    if (!view?.EventSource) {
+      this.liveness.set('polling');
+      return;
+    }
+    const stream = new view.EventSource(`${this.config.rootUrl}${watchEvents.PATH}`);
+    this.stream = stream;
+    let lost = false;
+    stream.onopen = () => {
+      // Whatever happened while the stream was down was not announced.
+      if (lost) {
+        this.refresh();
+      }
+      lost = false;
+      this.liveness.set('live');
+    };
+    stream.addEventListener('changed', (event) => {
+      const batch = parseBatch((event as MessageEvent<string>).data);
+      if (batch) {
+        this.lastChanges.set({ changes: batch.changes, at: Date.now() });
+      }
+      this.refresh();
+    });
+    stream.onerror = () => {
+      lost = true;
+      if (stream.readyState === EventSource.CLOSED) {
+        // Refused outright — 401, 503 — which EventSource does not retry.
+        // Poll, and ask again later.
+        this.liveness.set('polling');
+        setTimeout(() => this.open(), REOPEN_MS);
+      } else {
+        this.liveness.set('reconnecting');
+      }
+    };
   }
 
   toggleSources(): void {
@@ -119,4 +188,14 @@ export function describeError(err: unknown): string {
 /** Whether an error is the API saying the resource does not exist. */
 export function isNotFound(err: unknown): boolean {
   return err instanceof HttpErrorResponse && err.status === 404;
+}
+
+/** The data of a `changed` event, or undefined if it is not one. */
+export function parseBatch(data: string): ChangeBatch | undefined {
+  try {
+    const batch = JSON.parse(data) as ChangeBatch;
+    return Array.isArray(batch?.changes) ? batch : undefined;
+  } catch {
+    return undefined;
+  }
 }

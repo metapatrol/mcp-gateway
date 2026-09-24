@@ -7,4 +7,6 @@ generate:
   strict-server: true
 output: inspect.gen.go
 output-options:
-  skip-prune: false
+  # ChangeBatch is the data of an event stream, which no operation names as a
+  # JSON body; it is kept for the server to write.
+  skip-prune: true

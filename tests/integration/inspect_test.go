@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -12,7 +13,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	mcpv1alpha1 "forgejo.metapatrol.local/platform/mcp-gateway/api/v1alpha1"
 	"forgejo.metapatrol.local/platform/mcp-gateway/internal/inspect"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/inspect/api"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/mcptest"
 )
 
 // TestInspectTokenReview checks the inspect API's authentication against a
@@ -53,4 +57,65 @@ func TestInspectTokenReview(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, call(token("mcp-gateway-ui", "some-other-api")), "another audience")
 	assert.Equal(t, http.StatusUnauthorized, call(token("someone-else", "mcp-gateway-inspect")), "another ServiceAccount")
 	assert.Equal(t, http.StatusUnauthorized, call("not-a-token"))
+}
+
+// TestInspectEvents checks that the event stream hears what the console needs
+// to hear from a real API server: resources created, status written, and a
+// catalog this replica discovers. No controller runs, so every status write is
+// the test's own and every event can be told apart.
+func TestInspectEvents(t *testing.T) {
+	ctx := context.Background()
+	_, _, events := startGatewayWithInspect(t)
+	stream, cancel, err := events.Subscribe()
+	require.NoError(t, err)
+	defer cancel()
+
+	seen := map[api.Change]bool{}
+	waitFor := func(want api.Change) {
+		t.Helper()
+		deadline := time.After(10 * time.Second)
+		for !seen[want] {
+			select {
+			case batch := <-stream:
+				for _, c := range batch.Changes {
+					seen[c] = true
+				}
+			case <-deadline:
+				t.Fatalf("no event for %v; saw %v", want, seen)
+			}
+		}
+	}
+
+	grant := &mcpv1alpha1.MCPGrant{
+		ObjectMeta: metav1.ObjectMeta{Name: "events-grant"},
+		Spec:       mcpv1alpha1.MCPGrantSpec{Subject: "someone", Capabilities: []string{"nothing"}},
+	}
+	require.NoError(t, k8sClient.Create(ctx, grant))
+	t.Cleanup(func() { _ = k8sClient.Delete(ctx, grant) })
+	waitFor(api.Change{Kind: api.ChangeKindGrant, Name: "events-grant"})
+
+	// A status write — which the gateway's own reconcilers do not watch for —
+	// reaches the stream.
+	delete(seen, api.Change{Kind: api.ChangeKindGrant, Name: "events-grant"})
+	grant.Status.Conditions = []metav1.Condition{{
+		Type: "Valid", Status: metav1.ConditionFalse, Reason: "CapabilityNotFound", Message: "nothing", LastTransitionTime: metav1.Now(),
+	}}
+	require.NoError(t, k8sClient.Status().Update(ctx, grant))
+	waitFor(api.Change{Kind: api.ChangeKindGrant, Name: "events-grant"})
+
+	backend := mcptest.NewBackend(t, "events-backend", "one")
+	server := &mcpv1alpha1.MCPServer{
+		ObjectMeta: metav1.ObjectMeta{Name: "events-server"},
+		Spec:       mcpv1alpha1.MCPServerSpec{Endpoint: backend.URL},
+	}
+	require.NoError(t, k8sClient.Create(ctx, server))
+	t.Cleanup(func() { _ = k8sClient.Delete(ctx, server) })
+	waitFor(api.Change{Kind: api.ChangeKindServer, Name: "events-server"})
+
+	// A tool added on the backend is a new catalog on this replica, which
+	// no write to the API announces.
+	time.Sleep(time.Second) // let the first discovery's event pass
+	delete(seen, api.Change{Kind: api.ChangeKindServer, Name: "events-server"})
+	backend.AddTool("two")
+	waitFor(api.Change{Kind: api.ChangeKindServer, Name: "events-server"})
 }

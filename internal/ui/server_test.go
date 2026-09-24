@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -161,4 +162,45 @@ func TestFileToken(t *testing.T) {
 	require.NoError(t, os.WriteFile(file, nil, 0o600))
 	_, err = FileToken(file)()
 	assert.Error(t, err)
+}
+
+// TestAPIProxyStreamsEvents checks that the proxy passes the gateway's event
+// stream on as it is written, not when it ends: the gateway below writes one
+// event and then holds the stream open.
+func TestAPIProxyStreamsEvents(t *testing.T) {
+	release := make(chan struct{})
+	gw := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "Bearer sa-token", r.Header.Get("Authorization"))
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		_, _ = io.WriteString(w, "event: changed\ndata: {\"changes\":[]}\n\n")
+		w.(http.Flusher).Flush()
+		select {
+		case <-release:
+		case <-r.Context().Done():
+		}
+	}))
+	defer gw.Close()
+	defer close(release)
+	u, _ := url.Parse(gw.URL)
+	console := httptest.NewServer(Handler(Options{Gateway: u, Token: static("sa-token")}))
+	defer console.Close()
+
+	resp, err := http.Get(console.URL + "/api/v1alpha1/events")
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+	assert.Equal(t, "text/event-stream", resp.Header.Get("Content-Type"))
+
+	got := make(chan string, 1)
+	go func() {
+		buf := make([]byte, 64)
+		n, _ := resp.Body.Read(buf)
+		got <- string(buf[:n])
+	}()
+	select {
+	case line := <-got:
+		assert.Contains(t, line, "event: changed")
+	case <-time.After(2 * time.Second):
+		t.Fatal("the event did not come through while the stream was open")
+	}
 }

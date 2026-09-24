@@ -195,6 +195,12 @@ func main() {
 
 	if inspectAddr != "" {
 		replica, _ := os.Hostname()
+		events := &inspect.Events{Cache: mgr.GetCache()}
+		catalogs.OnDiscovery = events.PublishServer
+		if err := mgr.Add(events); err != nil {
+			setupLog.Error(err, "unable to add the inspect event stream")
+			os.Exit(1)
+		}
 		reviewer := &inspect.TokenReviewer{
 			Client:          mgr.GetClient(),
 			Audience:        inspectAudience,
@@ -206,6 +212,7 @@ func main() {
 			Gateway:  gw,
 			Registry: registry,
 			Replica:  replica,
+			Events:   events,
 		}, reviewer.Middleware, inspectLog)
 		if err := mgr.Add(&gateway.HTTPServer{Name: "the inspect API", Addr: inspectAddr, Handler: api, Log: inspectLog.Info}); err != nil {
 			setupLog.Error(err, "unable to add the inspect API server")

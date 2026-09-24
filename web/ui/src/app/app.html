@@ -64,11 +64,33 @@
       </label>
       @if (unreachable()) {
         <p class="text-red-600 dark:text-red-400">The gateway's inspect API is not answering.</p>
-      } @else if (served(); as s) {
-        <p class="faint leading-relaxed">
-          <span class="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400"><span class="size-1.5 rounded-full bg-current"></span>live</span>
-          · refreshed {{ s.ago }}<br />
-          replica <span class="font-mono">{{ s.replica }}</span>
+      } @else {
+        <p class="faint leading-relaxed" aria-live="polite">
+          @switch (inspect.liveness()) {
+            @case ('live') {
+              <span class="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400" title="Changes arrive as they happen">
+                <span class="size-1.5 animate-pulse rounded-full bg-current"></span>live
+              </span>
+            }
+            @case ('reconnecting') {
+              <span class="inline-flex items-center gap-1.5 text-amber-600 dark:text-amber-400"><span class="size-1.5 rounded-full bg-current"></span>reconnecting</span>
+            }
+            @case ('polling') {
+              <span class="inline-flex items-center gap-1.5" title="The event stream is not available; the console reads again every 30 seconds">
+                <span class="size-1.5 rounded-full bg-current"></span>polling
+              </span>
+            }
+            @default {
+              <span class="inline-flex items-center gap-1.5"><span class="size-1.5 rounded-full bg-current"></span>connecting</span>
+            }
+          }
+          @if (served(); as s) {
+            · read {{ s.ago }}<br />
+            replica <span class="font-mono">{{ s.replica }}</span>
+          }
+          @if (lastChange(); as c) {
+            <br />last change: {{ c.text }}, {{ c.ago }}
+          }
         </p>
       }
     </div>

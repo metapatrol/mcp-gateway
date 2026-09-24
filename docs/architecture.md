@@ -356,6 +356,18 @@ Readers authenticate with a ServiceAccount token issued for the audience
 for the Kubernetes API, and a token that opened both would be worth more to
 whoever captured it.
 
+`GET /events` is a stream of server-sent events that says what changed — a
+kind and a name — and never what to: the reader reads again through the other
+operations, so the data has one way out. It hears every change the replica's
+informers see to the four kinds, status included, and a backend's catalog
+changing or its discovery starting or stopping to fail. The controller's
+routine `lastDiscoveryTime` write is not a change. Changes are collected for
+250ms and sent as one batch, so a GitOps sync of fifty grants is one event.
+Nothing is replayed: a reader that reconnects reads everything again. SSE rather
+than WebSocket because the traffic goes one way, a stream is an ordinary GET
+that OpenAPI describes and a reverse proxy passes on, and browsers reconnect by
+themselves.
+
 Every answer is one replica's view and says which (`source.replica`). Replicas
 discover independently, so two of them can differ for up to a discovery
 interval. Resolution goes through `internal/policy` against the catalogs the
@@ -374,13 +386,18 @@ is one API and one spec: the console's client is generated from
 `api/openapi/inspect.yaml` on every UI build, so a change to the spec that the
 UI does not follow fails its build.
 
+It reads again whenever the event stream names a change, and polls every 30
+seconds while it cannot have the stream (every five minutes while it can, for
+what no event announces, such as a catalog ageing out of use).
+
 It has no sign-in of its own and keeps nothing. Who may open it is decided in
 front of it: a port-forward, or an ingress with an authenticating proxy.
 
 `make dev-stack` runs the whole chain on one machine — an API server with the
 CRDs, MCP backends, the controller, the gateway with its inspect API, and the
 console at http://127.0.0.1:8480/ — with example resources in every state the
-console has a way of showing.
+console has a way of showing — and writes a kubeconfig for that API server, so
+a resource can be edited with kubectl and the console seen to follow.
 
 ## Network model
 

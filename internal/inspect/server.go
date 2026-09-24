@@ -47,6 +47,8 @@ type Server struct {
 	Registry Registry
 	// Replica names this gateway replica in every answer.
 	Replica string
+	// Events serves /events; nil answers it with 503.
+	Events *Events
 	// Now defaults to time.Now.
 	Now func() time.Time
 }
@@ -152,6 +154,25 @@ func (w *world) grant(name string) (*mcpv1alpha1.MCPGrant, bool) {
 func notFound(kind, name string) api.NotFoundApplicationProblemPlusJSONResponse {
 	detail := "no " + kind + " named " + name
 	return api.NotFoundApplicationProblemPlusJSONResponse{Title: "Not Found", Status: 404, Detail: &detail}
+}
+
+// ---------------------------------------------------------------- events
+
+func (s *Server) WatchEvents(ctx context.Context, _ api.WatchEventsRequestObject) (api.WatchEventsResponseObject, error) {
+	unavailable := func(detail string) api.WatchEventsResponseObject {
+		return api.WatchEvents503ApplicationProblemPlusJSONResponse{Title: "Service Unavailable", Status: 503, Detail: &detail}
+	}
+	if s.Events == nil {
+		return unavailable("this replica does not stream events"), nil
+	}
+	body, err := s.Events.stream(ctx)
+	if errors.Is(err, errTooManyStreams) {
+		return unavailable("this replica streams to as many readers as it allows; poll instead"), nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return api.WatchEvents200TexteventStreamResponse{Body: body}, nil
 }
 
 // ---------------------------------------------------------------- servers

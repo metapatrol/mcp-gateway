@@ -42,6 +42,19 @@ export class App {
   });
 
   protected readonly unreachable = computed(() => this.lists.servers.error() !== undefined);
+  protected readonly lastChange = computed(() => {
+    const last = this.inspect.lastChanges();
+    this.inspect.refreshes();
+    if (!last) {
+      return undefined;
+    }
+    const first = last.changes[0];
+    const more = last.changes.length - 1;
+    return {
+      text: first ? `${first.kind} ${first.name}${more > 0 ? ` and ${more} more` : ''}` : 'something',
+      ago: ago(new Date(last.at).toISOString()),
+    };
+  });
   protected readonly served = computed(() => {
     const s = this.inspect.source();
     // Re-read on every refresh so "ago" moves.
