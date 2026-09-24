@@ -63,7 +63,7 @@ export class Subjects {
   protected rowClass(t: SubjectTool): string {
     switch (t.state) {
       case 'conflict':
-        return 'bg-red-50 dark:bg-red-950/30';
+        return 'bg-bad-soft';
       case 'unavailable':
         return 'opacity-70';
       default:

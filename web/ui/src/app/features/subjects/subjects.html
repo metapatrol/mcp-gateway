@@ -14,7 +14,7 @@
         <button
           type="button"
           class="rounded-full border px-3 py-1 font-mono text-[12.5px]"
-          [class]="s.subject === subject() ? 'border-accent-600 bg-accent-600 text-white' : 'border-slate-200 hover:border-slate-300 dark:border-slate-700'"
+          [class]="s.subject === subject() ? 'border-accent bg-accent text-surface' : 'border-line hover:border-line-strong '"
           [attr.aria-pressed]="s.subject === subject()"
           (click)="pick(s.subject)"
         >
@@ -77,10 +77,10 @@
                 <td class="text-center font-semibold">
                   @switch (t.state) {
                     @case ('offered') {
-                      <span class="text-emerald-600 dark:text-emerald-400" title="offered">✓</span>
+                      <span class="text-ok" title="offered">✓</span>
                     }
                     @case ('conflict') {
-                      <span class="text-red-600 dark:text-red-400" title="name conflict">✕</span>
+                      <span class="text-bad" title="name conflict">✕</span>
                     }
                     @default {
                       <span class="faint" title="not available">○</span>
@@ -134,13 +134,13 @@
         <p class="panel-note">
           References that name nothing, and so grant nothing:
           @for (m of r.missingCapabilities; track m) {
-            <code class="text-red-700 dark:text-red-300">capability {{ m }}</code>
+            <code class="text-bad">capability {{ m }}</code>
           }
           @for (m of r.missingToolSets; track m) {
-            <code class="text-red-700 dark:text-red-300">tool set {{ m }}</code>
+            <code class="text-bad">tool set {{ m }}</code>
           }
           @for (m of r.missingServers; track m) {
-            <code class="text-red-700 dark:text-red-300">server {{ m }}</code>
+            <code class="text-bad">server {{ m }}</code>
           }
         </p>
       }

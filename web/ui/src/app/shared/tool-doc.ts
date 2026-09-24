@@ -11,7 +11,7 @@ import { parameters } from '../core/schema';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (tool().description; as d) {
-      <p class="mt-1 max-w-[72ch] font-sans text-[12.5px] leading-snug whitespace-pre-line text-slate-600 dark:text-slate-400">{{ d }}</p>
+      <p class="mt-1 max-w-[72ch] font-sans text-[12.5px] leading-snug whitespace-pre-line text-muted">{{ d }}</p>
     } @else {
       <p class="faint mt-1 font-sans text-[12.5px]">No description.</p>
     }
@@ -27,16 +27,16 @@ import { parameters } from '../core/schema';
     </div>
     @if (params().length) {
       <details class="mt-1 font-sans text-xs" [open]="open()">
-        <summary class="w-max cursor-pointer text-accent-600 dark:text-accent-300">
+        <summary class="w-max cursor-pointer text-accent">
           input · {{ params().length }} {{ params().length === 1 ? 'parameter' : 'parameters' }}
         </summary>
-        <ul class="mt-1.5 flex flex-col gap-1 border-l-2 border-slate-200 pl-2.5 dark:border-slate-700">
+        <ul class="mt-1.5 flex flex-col gap-1 border-l-2 border-line pl-2.5">
           @for (p of params(); track p.name) {
             <li class="flex flex-wrap items-baseline gap-x-2">
-              <code class="text-slate-900 dark:text-slate-100">{{ p.name }}</code>
-              <span class="font-mono text-[11.5px] text-teal-700 dark:text-teal-300">{{ p.type }}</span>
+              <code class="text-ink">{{ p.name }}</code>
+              <span class="font-mono text-[11.5px] text-calc">{{ p.type }}</span>
               @if (p.required) {
-                <span class="text-[10px] font-semibold tracking-wide text-amber-700 uppercase dark:text-amber-400">required</span>
+                <span class="text-[10px] font-semibold tracking-wide text-warn uppercase">required</span>
               }
               @if (p.description) {
                 <span class="faint">{{ p.description }}</span>
@@ -57,9 +57,9 @@ export class ToolDoc {
   protected readonly hints = computed(() => declaredHints(this.tool().annotations));
 }
 
-const GOOD = 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300';
-const BAD = 'bg-red-50 text-red-700 dark:bg-red-950/60 dark:text-red-300';
-const PLAIN = 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300';
+const GOOD = 'bg-ok-soft text-ok';
+const BAD = 'bg-bad-soft text-bad';
+const PLAIN = 'bg-sunken text-muted';
 
 /**
  * The hints a backend actually declared, and nothing it did not. MCP's

@@ -3,10 +3,10 @@ import { Condition } from '../api/models';
 import { tone } from '../core/conditions';
 
 export const PILL: Record<string, string> = {
-  ok: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300',
-  bad: 'bg-red-50 text-red-700 dark:bg-red-950/60 dark:text-red-300',
-  warn: 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300',
-  neutral: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400',
+  ok: 'bg-ok-soft text-ok',
+  bad: 'bg-bad-soft text-bad',
+  warn: 'bg-warn-soft text-warn',
+  neutral: 'bg-sunken text-muted',
 };
 
 /** A condition as a pill: its type, its reason, the message on hover. */

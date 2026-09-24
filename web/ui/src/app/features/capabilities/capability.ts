@@ -15,7 +15,7 @@ import { SrcTag } from '../../shared/src-tag';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <nav class="muted mb-2 flex gap-1.5 text-[12.5px]" aria-label="Breadcrumb">
-      <a routerLink="/capabilities" class="text-accent-600 hover:underline dark:text-accent-300">Capabilities</a><span class="faint">/</span><span>{{ name() }}</span>
+      <a routerLink="/capabilities" class="text-accent hover:underline">Capabilities</a><span class="faint">/</span><span>{{ name() }}</span>
     </nav>
     <app-load-state [error]="capability.error()" [loading]="!capability.hasValue()" what="MCPCapability" [name]="name()" />
     @if (c(); as c) {
@@ -41,7 +41,7 @@ import { SrcTag } from '../../shared/src-tag';
               @for (t of c.spec.toolSets; track t) {
                 <div class="flex items-center justify-between gap-2 py-1">
                   @if (c.missingToolSets.includes(t)) {
-                    <span class="font-mono text-[13px] text-red-700 line-through dark:text-red-300">{{ t }}</span>
+                    <span class="font-mono text-[13px] text-bad line-through">{{ t }}</span>
                     <app-pill tone="bad">does not exist</app-pill>
                   } @else {
                     <a class="link" [routerLink]="['/toolsets', t]">{{ t }}</a>
@@ -67,8 +67,8 @@ import { SrcTag } from '../../shared/src-tag';
         </div>
 
         @if (c.conflicts.length) {
-          <section class="panel border-red-300 dark:border-red-900">
-            <header class="panel-head"><h2 class="panel-title text-red-700 dark:text-red-300">Name conflicts<app-src kind="gateway" /></h2></header>
+          <section class="panel border-bad/40">
+            <header class="panel-head"><h2 class="panel-title text-bad">Name conflicts<app-src kind="gateway" /></h2></header>
             <div class="overflow-x-auto">
               <table class="data-table">
                 <thead><tr><th>Name</th><th>Claimed by</th></tr></thead>

@@ -7,17 +7,17 @@ const LOOK: Record<SourceKind, { text: string; title: string; classes: string }>
   spec: {
     text: 'spec',
     title: 'As written in the manifest',
-    classes: 'border border-slate-200 bg-slate-50 text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400',
+    classes: 'border border-line bg-sunken text-muted',
   },
   status: {
     text: 'status',
     title: 'As the controller last reported it',
-    classes: 'bg-accent-50 text-accent-700 dark:bg-accent-950 dark:text-accent-300',
+    classes: 'bg-accent-soft text-accent-ink',
   },
   gateway: {
     text: 'gateway',
     title: 'Live from the gateway replica that answered: its catalogs and its resolution',
-    classes: 'bg-teal-50 text-teal-700 dark:bg-teal-950 dark:text-teal-300',
+    classes: 'bg-calc-soft text-calc',
   },
 };
 

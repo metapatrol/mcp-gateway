@@ -1,5 +1,5 @@
 <nav class="muted mb-2 flex gap-1.5 text-[12.5px]" aria-label="Breadcrumb">
-  <a routerLink="/toolsets" class="text-accent-600 hover:underline dark:text-accent-300">Tool sets</a><span class="faint">/</span><span>{{ name() }}</span>
+  <a routerLink="/toolsets" class="text-accent hover:underline">Tool sets</a><span class="faint">/</span><span>{{ name() }}</span>
 </nav>
 
 <app-load-state [error]="toolSet.error()" [loading]="!toolSet.hasValue()" what="MCPToolSet" [name]="name()" />
@@ -26,7 +26,7 @@
   </header>
 
   @if (differs().length) {
-    <p class="panel mb-4 border-amber-300 bg-amber-50 px-4 py-2.5 text-[13px] text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+    <p class="panel mb-4 border-warn/40 bg-warn-soft px-4 py-2.5 text-[13px] text-warn">
       The controller's status and this gateway replica disagree about {{ differs().join(', ') }}. They resolve alike, so one of them holds an older catalog
       (status {{ rev(t.status.catalogRevision) }}, gateway {{ rev(t.selection.catalogRevision) }}). It settles within a discovery interval.
     </p>
@@ -49,8 +49,8 @@
                     type="button"
                     class="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border px-2.5 py-1.5 text-left"
                     [class]="
-                      (e.outcome === 'ok' ? 'border-slate-200 dark:border-slate-700' : 'border-red-300 bg-red-50 dark:border-red-900 dark:bg-red-950/40') +
-                      (focus() === e.entry ? ' ring-2 ring-accent-500' : '')
+                      (e.outcome === 'ok' ? 'border-line' : 'border-bad/40 bg-bad-soft') +
+                      (focus() === e.entry ? ' ring-2 ring-accent' : '')
                     "
                     [attr.aria-pressed]="focus() === e.entry"
                     (click)="toggleFocus(e.entry)"
@@ -59,7 +59,7 @@
                       <code class="text-[13px] [overflow-wrap:anywhere]">{{ e.entry }}</code>
                       <span class="faint ml-2 text-[10.5px] tracking-wider uppercase">{{ e.kind }}</span>
                     </span>
-                    <span class="text-right text-xs" [class]="e.outcome === 'ok' ? 'text-emerald-700 dark:text-emerald-400' : 'font-medium text-red-700 dark:text-red-300'">
+                    <span class="text-right text-xs" [class]="e.outcome === 'ok' ? 'text-ok' : 'font-medium text-bad'">
                       @switch (e.outcome) {
                         @case ('ok') {
                           ✓ {{ e.selects.length }} {{ e.selects.length === 1 ? 'tool' : 'tools' }}
@@ -89,9 +89,9 @@
                   <li>
                     <button
                       type="button"
-                      class="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-slate-200 px-2.5 py-1.5 text-left dark:border-slate-700"
+                      class="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-line px-2.5 py-1.5 text-left"
                       [class.ring-2]="focus() === x.entry"
-                      [class.ring-accent-500]="focus() === x.entry"
+                      [class.ring-accent]="focus() === x.entry"
                       [attr.aria-pressed]="focus() === x.entry"
                       (click)="toggleFocus(x.entry)"
                     >
@@ -112,7 +112,7 @@
               <h3 class="muted mb-1.5 text-xs font-semibold">naming</h3>
               <ul class="flex flex-col gap-1.5">
                 @if (t.spec.prefix) {
-                  <li class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-slate-200 px-2.5 py-1.5 dark:border-slate-700">
+                  <li class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-line px-2.5 py-1.5">
                     <span>prefix <code class="text-[13px]">{{ t.spec.prefix }}</code></span>
                     <span class="muted text-xs">every tool without an alias</span>
                   </li>
@@ -123,13 +123,13 @@
                       type="button"
                       class="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border px-2.5 py-1.5 text-left"
                       [class]="
-                        (a.used ? 'border-slate-200 dark:border-slate-700' : 'border-red-300 bg-red-50 dark:border-red-900 dark:bg-red-950/40') +
-                        (focus() === 'alias:' + a.tool ? ' ring-2 ring-accent-500' : '')
+                        (a.used ? 'border-line' : 'border-bad/40 bg-bad-soft') +
+                        (focus() === 'alias:' + a.tool ? ' ring-2 ring-accent' : '')
                       "
                       (click)="toggleFocus('alias:' + a.tool)"
                     >
                       <span class="min-w-0"><code class="text-[13px]">{{ a.tool }}</code> <span class="faint">→</span> <code class="text-[13px]">{{ a.alias }}</code></span>
-                      <span class="text-xs" [class]="a.used ? 'text-emerald-700 dark:text-emerald-400' : 'font-medium text-red-700 dark:text-red-300'">
+                      <span class="text-xs" [class]="a.used ? 'text-ok' : 'font-medium text-bad'">
                         {{ a.used ? '✓ alias' : '✕ names no selected tool' }}
                       </span>
                     </button>
@@ -140,7 +140,7 @@
           }
         </div>
         @if (!t.selection.catalogAvailable) {
-          <p class="panel-note text-amber-700 dark:text-amber-300">
+          <p class="panel-note text-warn">
             This gateway replica does not serve a catalog of {{ t.spec.serverRef }} right now, so every pattern selects nothing, as it does for agents.
             @if (serverReady(); as r) {
               The server is {{ r.status === 'True' ? 'Ready' : 'not Ready: ' + r.reason }}.
@@ -152,7 +152,7 @@
       <section class="panel">
         <header class="panel-head">
           <h2 class="panel-title">What the gateway exposes<app-src kind="gateway" /></h2>
-          <div class="inline-flex overflow-hidden rounded-md border border-slate-200 text-xs dark:border-slate-700" role="group" aria-label="Filter">
+          <div class="inline-flex overflow-hidden rounded-md border border-line text-xs" role="group" aria-label="Filter">
             @for (f of [
               { key: 'all', label: 'Catalog', n: counts().all },
               { key: 'exposed', label: 'Exposed', n: counts().exposed },
@@ -160,8 +160,8 @@
             ]; track f.key) {
               <button
                 type="button"
-                class="border-slate-200 px-2.5 py-1 not-first:border-l dark:border-slate-700"
-                [class]="filter() === f.key ? 'bg-accent-50 font-semibold text-accent-700 dark:bg-accent-950 dark:text-accent-300' : 'muted'"
+                class="border-line px-2.5 py-1 not-first:border-l"
+                [class]="filter() === f.key ? 'bg-accent-soft font-semibold text-accent-ink' : 'muted'"
                 [attr.aria-pressed]="filter() === f.key"
                 (click)="filter.set($any(f.key))"
               >
@@ -182,17 +182,17 @@
             </thead>
             <tbody>
               @for (row of rows(); track row.tool.name) {
-                <tr [class]="touched(row, focus()) ? 'bg-accent-50 dark:bg-accent-950/50' : ''">
+                <tr [class]="touched(row, focus()) ? 'bg-accent-soft' : ''">
                   <td class="text-center font-semibold">
                     @switch (row.state) {
                       @case ('selected') {
-                        <span class="text-emerald-600 dark:text-emerald-400" title="exposed">✓</span>
+                        <span class="text-ok" title="exposed">✓</span>
                       }
                       @case ('excluded') {
-                        <span class="text-red-600 dark:text-red-400" title="excluded">−</span>
+                        <span class="text-bad" title="excluded">−</span>
                       }
                       @case ('conflict') {
-                        <span class="text-red-600 dark:text-red-400" title="name conflict">✕</span>
+                        <span class="text-bad" title="name conflict">✕</span>
                       }
                       @default {
                         <span class="faint" title="not selected">·</span>
@@ -206,7 +206,7 @@
                   </td>
                   <td class="font-mono text-[13px]">
                     @if (row.state === 'selected' || row.state === 'conflict') {
-                      <span [class.font-semibold]="row.renamedBy" [class.text-red-700]="row.state === 'conflict'">{{ row.exposedAs }}</span>
+                      <span [class.font-semibold]="row.renamedBy" [class.text-bad]="row.state === 'conflict'">{{ row.exposedAs }}</span>
                     } @else {
                       <span class="faint">—</span>
                     }
@@ -216,14 +216,14 @@
               }
               @if (filter() !== 'exposed') {
                 @for (m of t.selection.missing; track m) {
-                  <tr class="bg-red-50 dark:bg-red-950/30">
-                    <td class="text-center font-semibold text-red-600 dark:text-red-400">✕</td>
+                  <tr class="bg-bad-soft">
+                    <td class="text-center font-semibold text-bad">✕</td>
                     <td class="font-mono text-[13px]">
                       {{ m }}
-                      <p class="mt-0.5 font-sans text-[12px] text-red-700 md:hidden dark:text-red-300">named in tools, but {{ t.spec.serverRef }} does not offer it</p>
+                      <p class="mt-0.5 font-sans text-[12px] text-bad md:hidden">named in tools, but {{ t.spec.serverRef }} does not offer it</p>
                     </td>
                     <td class="faint">—</td>
-                    <td class="hidden text-[12.5px] text-red-700 md:table-cell dark:text-red-300">named in tools, but {{ t.spec.serverRef }} does not offer it</td>
+                    <td class="hidden text-[12.5px] text-bad md:table-cell">named in tools, but {{ t.spec.serverRef }} does not offer it</td>
                   </tr>
                 }
               }

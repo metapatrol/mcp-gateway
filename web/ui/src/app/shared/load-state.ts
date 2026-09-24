@@ -10,7 +10,7 @@ import { describeError, isNotFound } from '../core/inspect';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (error(); as err) {
-      <div class="panel border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200" role="alert">
+      <div class="panel border-bad/40 bg-bad-soft px-4 py-3 text-sm text-bad" role="alert">
         @if (notFound()) {
           <p class="font-medium">No {{ what() }} named <code>{{ name() }}</code>.</p>
           <p class="mt-1 opacity-80">It may have been deleted, or the name is misspelt.</p>

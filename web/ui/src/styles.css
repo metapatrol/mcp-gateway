@@ -1,39 +1,120 @@
 @import 'tailwindcss';
 
+/* IBM Plex, served by the console itself: its Content-Security-Policy lets
+   nothing load from elsewhere, and it has to work without the internet.
+   Latin and Latin Extended cover what names and descriptions are written in. */
+@import '@fontsource/ibm-plex-sans/latin-400.css';
+@import '@fontsource/ibm-plex-sans/latin-ext-400.css';
+@import '@fontsource/ibm-plex-sans/latin-500.css';
+@import '@fontsource/ibm-plex-sans/latin-ext-500.css';
+@import '@fontsource/ibm-plex-sans/latin-600.css';
+@import '@fontsource/ibm-plex-sans/latin-ext-600.css';
+@import '@fontsource/ibm-plex-sans/latin-700.css';
+@import '@fontsource/ibm-plex-sans/latin-ext-700.css';
+@import '@fontsource/ibm-plex-mono/latin-400.css';
+@import '@fontsource/ibm-plex-mono/latin-ext-400.css';
+@import '@fontsource/ibm-plex-mono/latin-500.css';
+@import '@fontsource/ibm-plex-mono/latin-ext-500.css';
+@import '@fontsource/ibm-plex-mono/latin-600.css';
+@import '@fontsource/ibm-plex-mono/latin-ext-600.css';
+
 /* Dark mode follows the class the theme service sets on <html>, which itself
    follows prefers-color-scheme until the viewer picks a theme. */
 @custom-variant dark (&:where(.dark, .dark *));
 
-@theme {
-  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+/* The palette is a set of roles, not a scale: neutrals with a slight blue
+   bias, one accent, and the three states. Each role has a light and a dark
+   value, so the templates name a role once and never a theme. */
+:root {
+  --bg: #f3f5f9;
+  --surface: #ffffff;
+  --sunken: #ebeef4;
+  --ink: #141925;
+  --muted: #586177;
+  --faint: #8a93a7;
+  --line: #dce1ea;
+  --line-strong: #c3cad8;
+  --accent: #2b55c9;
+  --accent-soft: #e4ebfb;
+  --accent-ink: #1d3f9e;
+  --ok: #1c7a4b;
+  --ok-soft: #e1f2e8;
+  --warn: #9a5b00;
+  --warn-soft: #fbefd9;
+  --bad: #bc3434;
+  --bad-soft: #fae4e2;
+  --calc: #0e6f74;
+  --calc-soft: #ddf1f1;
+}
 
-  /* One accent, a blue leaning slightly violet; semantic colours stay
-     Tailwind's emerald, amber and red. */
-  --color-accent-50: oklch(0.97 0.02 268);
-  --color-accent-100: oklch(0.93 0.04 268);
-  --color-accent-300: oklch(0.78 0.11 268);
-  --color-accent-400: oklch(0.7 0.15 268);
-  --color-accent-500: oklch(0.6 0.19 266);
-  --color-accent-600: oklch(0.52 0.19 266);
-  --color-accent-700: oklch(0.45 0.17 266);
-  --color-accent-900: oklch(0.3 0.1 268);
-  --color-accent-950: oklch(0.22 0.07 268);
+.dark {
+  --bg: #0f131b;
+  --surface: #171c27;
+  --sunken: #1e2431;
+  --ink: #e7ebf3;
+  --muted: #a1aabd;
+  --faint: #727c92;
+  --line: #2a3242;
+  --line-strong: #3a4458;
+  --accent: #8aa6ff;
+  --accent-soft: #1f2a4a;
+  --accent-ink: #b5c7ff;
+  --ok: #5ccb92;
+  --ok-soft: #16301f;
+  --warn: #e8ae55;
+  --warn-soft: #352812;
+  --bad: #f08079;
+  --bad-soft: #3a1c1c;
+  --calc: #5cc9ce;
+  --calc-soft: #123236;
+}
+
+@theme inline {
+  --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-sunken: var(--sunken);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-ink: var(--accent-ink);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
+  --color-calc: var(--calc);
+  --color-calc-soft: var(--calc-soft);
 }
 
 @layer base {
   html {
-    @apply bg-slate-100 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100;
+    @apply bg-bg font-sans text-ink antialiased;
     color-scheme: light;
     font-size: 14px;
+    line-height: 1.5;
   }
 
   html.dark {
     color-scheme: dark;
   }
 
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+  }
+
   :focus-visible {
-    @apply outline-2 outline-offset-2 outline-accent-500;
+    @apply outline-2 outline-offset-2 outline-accent;
   }
 
   code {
@@ -42,43 +123,43 @@
 }
 
 @utility panel {
-  @apply min-w-0 rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900;
+  @apply min-w-0 rounded-[10px] border border-line bg-surface;
 }
 
 @utility panel-head {
-  @apply flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-4 py-2.5 dark:border-slate-800;
+  @apply flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-2.5;
 }
 
 @utility panel-title {
-  @apply text-[11px] font-semibold tracking-[0.08em] text-slate-500 uppercase dark:text-slate-400;
+  @apply text-[11.5px] font-semibold tracking-[0.07em] text-muted uppercase;
 }
 
 @utility panel-note {
-  @apply rounded-b-lg border-t border-slate-200 bg-slate-50 px-4 py-2.5 text-[12.5px] text-slate-500 dark:border-slate-800 dark:bg-slate-950/40 dark:text-slate-400;
+  @apply rounded-b-[10px] border-t border-line bg-sunken px-4 py-2.5 text-[12.5px] text-muted;
 }
 
 @utility eyebrow {
-  @apply text-[11px] font-semibold tracking-[0.08em] text-slate-400 uppercase dark:text-slate-500;
+  @apply text-[11px] font-semibold tracking-[0.08em] text-faint uppercase;
 }
 
 @utility link {
-  @apply cursor-pointer font-mono text-[13px] text-accent-600 hover:underline dark:text-accent-300;
+  @apply cursor-pointer font-mono text-[13px] text-accent hover:underline;
 }
 
 @utility muted {
-  @apply text-slate-500 dark:text-slate-400;
+  @apply text-muted;
 }
 
 @utility faint {
-  @apply text-slate-400 dark:text-slate-500;
+  @apply text-faint;
 }
 
 @utility btn {
-  @apply inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[12.5px] text-slate-600 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800;
+  @apply inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1 text-[12.5px] text-muted hover:bg-sunken disabled:opacity-50;
 }
 
 @utility input {
-  @apply block w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 font-mono text-[13px] placeholder:text-slate-400 focus:border-accent-500 focus:ring-2 focus:ring-accent-500/30 focus:outline-none dark:border-slate-700 dark:bg-slate-900;
+  @apply block w-full rounded-md border border-line-strong bg-surface px-3 py-1.5 font-mono text-[13px] placeholder:text-faint focus:border-accent focus:ring-2 focus:ring-accent/30 focus:outline-none;
 }
 
 @layer components {
@@ -87,11 +168,11 @@
   }
 
   .data-table th {
-    @apply border-b border-slate-200 px-3 py-2 text-left text-[11px] font-semibold tracking-[0.07em] text-slate-500 uppercase dark:border-slate-800 dark:text-slate-400;
+    @apply border-b border-line px-3 py-2 text-left text-[11px] font-semibold tracking-[0.07em] text-muted uppercase;
   }
 
   .data-table td {
-    @apply border-b border-slate-200 px-3 py-2 align-top [overflow-wrap:anywhere] dark:border-slate-800;
+    @apply border-b border-line px-3 py-2 align-top [overflow-wrap:anywhere];
   }
 
   .data-table tr:last-child td {
@@ -99,7 +180,7 @@
   }
 
   .data-table tr.row-link {
-    @apply cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50;
+    @apply cursor-pointer hover:bg-sunken;
   }
 
   .data-table td.num {

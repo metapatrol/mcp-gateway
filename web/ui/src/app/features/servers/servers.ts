@@ -41,7 +41,7 @@ import { SrcTag } from '../../shared/src-tag';
                 <td class="muted whitespace-nowrap">
                   {{ since(s.discovery.lastSuccess) }}
                   @if (s.discovery.consecutiveFailures) {
-                    <span class="text-red-600 dark:text-red-400"> · {{ s.discovery.consecutiveFailures }} failed</span>
+                    <span class="text-bad"> · {{ s.discovery.consecutiveFailures }} failed</span>
                   }
                 </td>
                 <td><app-condition label="Ready" [condition]="ready(s.status.conditions)" /></td>

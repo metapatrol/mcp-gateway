@@ -15,7 +15,7 @@ import { SrcTag } from '../../shared/src-tag';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <nav class="muted mb-2 flex gap-1.5 text-[12.5px]" aria-label="Breadcrumb">
-      <a routerLink="/grants" class="text-accent-600 hover:underline dark:text-accent-300">Grants</a><span class="faint">/</span><span>{{ name() }}</span>
+      <a routerLink="/grants" class="text-accent hover:underline">Grants</a><span class="faint">/</span><span>{{ name() }}</span>
     </nav>
     <app-load-state [error]="grant.error()" [loading]="!grant.hasValue()" what="MCPGrant" [name]="name()" />
     @if (g(); as g) {
@@ -46,8 +46,8 @@ import { SrcTag } from '../../shared/src-tag';
               <div class="flex flex-wrap items-center justify-between gap-2 py-1.5">
                 @if (g.missingCapabilities.includes(name)) {
                   <span>
-                    <span class="font-mono text-[13px] text-red-700 line-through dark:text-red-300">{{ name }}</span>
-                    <span class="ml-2 text-[12.5px] text-red-700 dark:text-red-300">does not exist, so it grants nothing</span>
+                    <span class="font-mono text-[13px] text-bad line-through">{{ name }}</span>
+                    <span class="ml-2 text-[12.5px] text-bad">does not exist, so it grants nothing</span>
                   </span>
                   <app-pill tone="bad">missing</app-pill>
                 } @else {
