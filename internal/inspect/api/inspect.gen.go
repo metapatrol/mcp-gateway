@@ -714,7 +714,16 @@ type SubjectToolClaimant struct {
 	Ref ToolRef `json:"ref"`
 }
 
-// ToolAnnotations Hints from the backend. They are its claims, not something the gateway verifies.
+// ToolAnnotations Hints the backend declares about the tool. They are its own claims:
+// the gateway verifies none of them, and MCP says a client must not
+// base a decision on them when it does not trust the server.
+//
+// readOnlyHint and idempotentHint arrive as false both when the backend
+// says false and when it says nothing — the MCP SDK the gateway reads
+// catalogs with does not keep the difference. false is also what MCP
+// assumes when they are left out, so read false as "not declared".
+// destructiveHint and openWorldHint are absent when not declared; MCP
+// then assumes true for both.
 type ToolAnnotations struct {
 	DestructiveHint *bool   `json:"destructiveHint,omitempty"`
 	IdempotentHint  *bool   `json:"idempotentHint,omitempty"`
@@ -725,7 +734,16 @@ type ToolAnnotations struct {
 
 // ToolDefinition A tool as the backend lists it in tools/list. The gateway passes it on unchanged, under the name agents see.
 type ToolDefinition struct {
-	// Annotations Hints from the backend. They are its claims, not something the gateway verifies.
+	// Annotations Hints the backend declares about the tool. They are its own claims:
+	// the gateway verifies none of them, and MCP says a client must not
+	// base a decision on them when it does not trust the server.
+	//
+	// readOnlyHint and idempotentHint arrive as false both when the backend
+	// says false and when it says nothing — the MCP SDK the gateway reads
+	// catalogs with does not keep the difference. false is also what MCP
+	// assumes when they are left out, so read false as "not declared".
+	// destructiveHint and openWorldHint are absent when not declared; MCP
+	// then assumes true for both.
 	Annotations *ToolAnnotations `json:"annotations,omitempty"`
 
 	// Description What tells an agent when the tool is useful.

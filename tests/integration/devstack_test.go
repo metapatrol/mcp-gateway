@@ -165,7 +165,8 @@ func writeKubeconfig(t *testing.T) string {
 }
 
 // tool builds a definition with a real-looking schema: properties as name →
-// [type, description], required ones named.
+// [type, description], required ones named. The hints are made up for the
+// example: readOnly declares read-only, otherwise destructive.
 func tool(name, description string, readOnly bool, props map[string][2]string, required ...string) *mcp.Tool {
 	properties := map[string]any{}
 	for p, v := range props {
@@ -245,6 +246,8 @@ func devBackends(t *testing.T) map[string]*mcptest.Backend {
 		tool("search", "Search the web and return titles, URLs and snippets.", true, map[string][2]string{"q": {"string", ""}, "count": {"integer", "default 10"}}, "q"),
 		tool("fetch", "Fetch a web page and return its main text.", true, map[string][2]string{"url": {"string", ""}}, "url"),
 	} {
+		// This backend declares no hints at all, as many do.
+		d.Annotations = nil
 		b["search"].AddDefinedTool(d)
 	}
 	for _, d := range []*mcp.Tool{

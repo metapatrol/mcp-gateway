@@ -54,11 +54,19 @@ like read access to the four kinds.
 | Page | Shows |
 |---|---|
 | Overview | How many of each kind are Ready, everything that is not — the resource at fault first, the ones only passing it on after — and a map from grants through capabilities and tool sets to servers. Hovering a box follows its chain |
-| Servers | Endpoint, `spec.auth` with Secrets by name and key only, discovery as the controller reports it and as this gateway replica sees it, the backend's instructions, and its catalog with every tool's description, arguments and hints (read-only, destructive, …) |
+| Servers | Endpoint, `spec.auth` with Secrets by name and key only, discovery as the controller reports it and as this gateway replica sees it, the backend's instructions, and its catalog with every tool's description, arguments, and the hints the backend declares for it |
 | Tool sets | The entries of `tools`, `exclude`, `prefix` and `aliases` beside the whole catalog, and for every tool whether it is exposed, under which name, and which entry decided it. Selecting an entry marks the tools it selected or removed |
 | Capabilities | Its tool sets, the grants that use it, the tools it comes to, and name conflicts |
 | Grants | Its subject, its capabilities, the ones that do not exist, and the other grants for the same subject |
 | Subjects | For any subject — typed in, or picked from those grants name — every tool it is offered with every path it is granted through, the tools it is not offered and why, and the instructions text it is sent at start: the gateway's own (`gateway.instructions`) followed by those of the backends it holds tools from |
+
+Tool hints — read-only, destructive, idempotent, open world — are shown only as
+far as the backend declares them, and marked as its claims: the gateway verifies
+none of them. A tool that declares nothing says "no hints declared"; MCP then
+assumes it may modify and destroy data, which the console does not paint on as
+if the backend had said so. `readOnlyHint` and `idempotentHint` count only when
+true, because the MCP SDK the gateway reads catalogs with cannot tell a false
+from an absent one.
 
 Small tags mark where a value comes from: `spec` as written, `status` as the
 controller reported it, `gateway` live from the replica that answered. They can

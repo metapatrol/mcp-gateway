@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
-import { ToolDefinition } from '../api/models';
+import { ToolAnnotations, ToolDefinition } from '../api/models';
 import { parameters } from '../core/schema';
 
 /**
@@ -15,13 +15,16 @@ import { parameters } from '../core/schema';
     } @else {
       <p class="faint mt-1 font-sans text-[12.5px]">No description.</p>
     }
-    @if (hints().length) {
-      <div class="mt-1 flex flex-wrap gap-1 font-sans">
+    <div class="mt-1 flex flex-wrap items-center gap-1 font-sans text-[10.5px]" [title]="HINT_TITLE">
+      @if (hints().length) {
+        <span class="faint">declared by the backend:</span>
         @for (h of hints(); track h.text) {
-          <span class="rounded px-1.5 py-0.5 text-[10.5px] font-medium" [class]="h.classes" [title]="'A hint from the backend, not verified by the gateway'">{{ h.text }}</span>
+          <span class="rounded px-1.5 py-0.5 font-medium" [class]="h.classes">{{ h.text }}</span>
         }
-      </div>
-    }
+      } @else {
+        <span class="faint">no hints declared</span>
+      }
+    </div>
     @if (params().length) {
       <details class="mt-1 font-sans text-xs" [open]="open()">
         <summary class="w-max cursor-pointer text-accent-600 dark:text-accent-300">
@@ -49,21 +52,39 @@ export class ToolDoc {
   readonly tool = input.required<ToolDefinition>();
   readonly open = input(false);
   protected readonly params = computed(() => parameters(this.tool().inputSchema));
-  protected readonly hints = computed(() => {
-    const a = this.tool().annotations;
-    const out: { text: string; classes: string }[] = [];
-    if (a?.readOnlyHint) {
-      out.push({ text: 'read-only', classes: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300' });
-    }
-    if (a?.destructiveHint && !a?.readOnlyHint) {
-      out.push({ text: 'destructive', classes: 'bg-red-50 text-red-700 dark:bg-red-950/60 dark:text-red-300' });
-    }
-    if (a?.idempotentHint) {
-      out.push({ text: 'idempotent', classes: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300' });
-    }
-    if (a?.openWorldHint) {
-      out.push({ text: 'open world', classes: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300' });
-    }
-    return out;
-  });
+  protected readonly HINT_TITLE =
+    "The backend's own claims about this tool. The gateway verifies none of them. MCP assumes a tool that declares nothing may modify and destroy data, and reaches outside.";
+  protected readonly hints = computed(() => declaredHints(this.tool().annotations));
+}
+
+const GOOD = 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300';
+const BAD = 'bg-red-50 text-red-700 dark:bg-red-950/60 dark:text-red-300';
+const PLAIN = 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300';
+
+/**
+ * The hints a backend actually declared, and nothing it did not. MCP's
+ * defaults — a tool that says nothing may destroy data and reach outside —
+ * are not shown as if the backend had said so.
+ *
+ * readOnlyHint and idempotentHint cannot be told apart from undeclared when
+ * false (the SDK drops the difference), so only true counts for them.
+ * destructiveHint means something only for a tool that is not read-only.
+ */
+export function declaredHints(a: ToolAnnotations | undefined): { text: string; classes: string }[] {
+  if (!a) {
+    return [];
+  }
+  const out: { text: string; classes: string }[] = [];
+  if (a.readOnlyHint) {
+    out.push({ text: 'read-only', classes: GOOD });
+  } else if (a.destructiveHint !== undefined && a.destructiveHint !== null) {
+    out.push(a.destructiveHint ? { text: 'destructive', classes: BAD } : { text: 'not destructive', classes: PLAIN });
+  }
+  if (a.idempotentHint) {
+    out.push({ text: 'idempotent', classes: PLAIN });
+  }
+  if (a.openWorldHint !== undefined && a.openWorldHint !== null) {
+    out.push({ text: a.openWorldHint ? 'open world' : 'closed world', classes: PLAIN });
+  }
+  return out;
 }

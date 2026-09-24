@@ -368,7 +368,17 @@ components:
         annotations: { $ref: "#/components/schemas/ToolAnnotations" }
 
     ToolAnnotations:
-      description: Hints from the backend. They are its claims, not something the gateway verifies.
+      description: |
+        Hints the backend declares about the tool. They are its own claims:
+        the gateway verifies none of them, and MCP says a client must not
+        base a decision on them when it does not trust the server.
+
+        readOnlyHint and idempotentHint arrive as false both when the backend
+        says false and when it says nothing — the MCP SDK the gateway reads
+        catalogs with does not keep the difference. false is also what MCP
+        assumes when they are left out, so read false as "not declared".
+        destructiveHint and openWorldHint are absent when not declared; MCP
+        then assumes true for both.
       type: object
       properties:
         title: { type: string }
