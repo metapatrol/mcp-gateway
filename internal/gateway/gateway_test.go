@@ -468,6 +468,34 @@ func TestProtectedResourceMetadata(t *testing.T) {
 	}
 }
 
+// An endpoint at the root, with a resource URL to match, has its metadata at
+// the bare well-known path — once.
+func TestProtectedResourceMetadataAtTheRoot(t *testing.T) {
+	g := New(Options{Registry: discovery.NewRegistry(discovery.Options{}), Logger: logr.Discard()})
+	for _, resource := range []string{"https://mcp.example.com", "https://mcp.example.com/"} {
+		handler, err := g.Handler(HandlerOptions{
+			Path:                 "/",
+			Verifier:             fakeVerifier,
+			ResourceURL:          resource,
+			AuthorizationServers: []string{"https://oauth.example.com/"},
+		})
+		require.NoError(t, err, resource)
+
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/.well-known/oauth-protected-resource", nil))
+		require.Equal(t, http.StatusOK, rec.Code, resource)
+		var metadata map[string]any
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &metadata))
+		assert.Equal(t, resource, metadata["resource"])
+
+		rec = httptest.NewRecorder()
+		handler.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{}`)))
+		assert.Equal(t, http.StatusUnauthorized, rec.Code, "the endpoint itself is at /")
+		assert.Contains(t, rec.Header().Get("WWW-Authenticate"),
+			`resource_metadata="https://mcp.example.com/.well-known/oauth-protected-resource"`)
+	}
+}
+
 func TestSpeaksTheStatelessProtocol(t *testing.T) {
 	e := newEnv(t, Options{})
 	session := e.connect("token-reviewer")

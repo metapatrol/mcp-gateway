@@ -95,7 +95,9 @@ gateway:
     subjectClaim: sub
 
   # RFC 9728 protected resource metadata. With both set, a 401 tells an agent
-  # where to obtain a token.
+  # where to obtain a token. resourceURL is the MCP endpoint as agents reach
+  # it, mcpPath included: https://mcp.example.com/mcp, or
+  # https://mcp.example.com with mcpPath /.
   resourceURL: ""
   authorizationServers: []
   scopesSupported: []

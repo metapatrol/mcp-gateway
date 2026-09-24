@@ -72,8 +72,12 @@ func (g *Gateway) Handler(opts HandlerOptions) (http.Handler, error) {
 		})
 		u, _ := url.Parse(metadataURL)
 		mux.Handle(u.Path, metadata)
-		// Clients that predate RFC 9728's path-aware form ask at the root.
-		mux.Handle("/.well-known/oauth-protected-resource", metadata)
+		// Clients that predate RFC 9728's path-aware form ask at the root. A
+		// resource URL without a path — the endpoint served at / — already
+		// has its metadata there, and a second pattern for it would panic.
+		if root := "/.well-known/oauth-protected-resource"; u.Path != root {
+			mux.Handle(root, metadata)
+		}
 	}
 
 	streamable := mcp.NewStreamableHTTPHandler(g.serverForRequest, streamableOptions(opts.Logger))
