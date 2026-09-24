@@ -77,7 +77,7 @@
 
     <app-instructions [text]="s.catalog?.instructions" />
 
-    <div class="grid gap-4 xl:grid-cols-2 2xl:grid-cols-3">
+    <div class="grid gap-4 xl:grid-cols-2">
       <section class="panel">
         <header class="panel-head"><h2 class="panel-title">Configuration</h2></header>
         <dl class="grid grid-cols-[minmax(8rem,auto)_minmax(0,1fr)] gap-x-4 gap-y-2 px-4 py-3 text-[13.5px]">
@@ -138,11 +138,11 @@
         </div>
       </section>
 
-      <section class="panel">
+      <section class="panel xl:col-span-2">
         <header class="panel-head"><h2 class="panel-title">Used by</h2></header>
         <div class="flex flex-col px-4 py-2">
           @for (t of s.usedBy; track t) {
-            <div class="flex items-center justify-between gap-2 py-1">
+            <div class="flex flex-wrap items-center justify-between gap-2 py-1.5">
               <a class="link" [routerLink]="['/toolsets', t]">{{ t }}</a>
               <app-condition label="Ready" [condition]="toolSetCondition(t)" />
             </div>

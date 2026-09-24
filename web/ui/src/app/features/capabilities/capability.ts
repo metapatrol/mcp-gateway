@@ -108,7 +108,7 @@ import { DetailView, ViewSwitch } from '../../shared/view-switch';
             <header class="panel-head"><h2 class="panel-title">Tool sets</h2></header>
             <div class="flex flex-col px-4 py-2">
               @for (t of c.spec.toolSets; track t) {
-                <div class="flex items-center justify-between gap-2 py-1">
+                <div class="flex flex-wrap items-center justify-between gap-2 py-1.5">
                   @if (c.missingToolSets.includes(t)) {
                     <span class="font-mono text-[13px] text-bad line-through">{{ t }}</span>
                     <app-pill tone="bad">does not exist</app-pill>
@@ -124,7 +124,7 @@ import { DetailView, ViewSwitch } from '../../shared/view-switch';
             <header class="panel-head"><h2 class="panel-title">Granted by</h2></header>
             <div class="flex flex-col px-4 py-2">
               @for (g of c.grantedBy; track g) {
-                <div class="flex items-center justify-between gap-2 py-1">
+                <div class="flex flex-wrap items-center justify-between gap-2 py-1.5">
                   <a class="link" [routerLink]="['/grants', g]">{{ g }}</a>
                   <span class="muted font-mono text-xs">{{ subjectOf(g) }}</span>
                 </div>

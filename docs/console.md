@@ -87,7 +87,9 @@ Every detail page is laid out in the same order: what is wrong with the
 resource, if anything; what it comes to — its tools, or for a grant its
 capabilities; the instructions an agent holding it is sent; what it is made of
 and what uses it; and last its conditions, the detail behind the pills at the
-top.
+top. Notices, the tools, the instructions and the conditions take the full
+width; the panels about what a resource is made of and what uses it sit two
+to a row, the last one full width when they are odd in number.
 
 Tool hints — read-only, destructive, idempotent, open world — are shown only as
 far as the backend declares them, and marked as its claims: the gateway verifies
