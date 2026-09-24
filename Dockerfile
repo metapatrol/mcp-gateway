@@ -8,7 +8,16 @@
 # stage runs first. For the other binaries it only creates the empty directory
 # the embed directive needs, which costs one layer and no npm install. The UI's
 # API client is generated from the inspect API's spec as part of its build.
-FROM zot.metapatrol.local/library/node:24-alpine AS ui
+#
+# The base images come from the internal registry's mirror; a build outside
+# the network, such as the GitHub mirror's, passes the public ones:
+#
+#   --build-arg NODE_IMAGE=docker.io/library/node:24-alpine
+#   --build-arg GO_IMAGE=docker.io/library/golang:1.27-alpine
+ARG NODE_IMAGE=zot.metapatrol.local/library/node:24-alpine
+ARG GO_IMAGE=zot.metapatrol.local/library/golang:1.27-alpine
+
+FROM ${NODE_IMAGE} AS ui
 
 ARG BINARY
 
@@ -21,7 +30,7 @@ COPY web/ui ./web/ui
 RUN mkdir -p internal/ui/dist && touch internal/ui/dist/.gitkeep && \
     if [ "$BINARY" = "mcp-gateway-ui" ]; then cd web/ui && npm run build; fi
 
-FROM zot.metapatrol.local/library/golang:1.27-alpine AS builder
+FROM ${GO_IMAGE} AS builder
 
 ARG BINARY
 ARG VERSION=dev
