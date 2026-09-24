@@ -72,8 +72,11 @@ Servers, tool sets, capabilities, grants and subjects each have a second tab,
 What a page shows is in its URL, so it can be linked to and survives a
 reload. The MCP tab is the page's path with `/mcp`, as in the API
 (`/servers/search/mcp`, `/subjects/resolve/mcp?subject=agent-coder`); a tool
-set's filter and selected entry are `?filter=` and `?focus=`, the subject
-search is `?q=`, and raw instructions are `?instructions=raw`.
+set's filter and selected entry are `?filter=` and `?focus=`, raw
+instructions are `?instructions=raw`, and every list's search and sort are
+`?q=` and `?sort=` — a column, `-` in front for descending
+(`/servers?sort=-tools`). Sorting by Ready or Valid puts what is not ready
+first.
 
 The agent's side is not a rendering. The gateway answers it itself
 (`GET /api/v1alpha1/{kind}/{name}/mcp`, `GET /api/v1alpha1/subject/mcp`): a

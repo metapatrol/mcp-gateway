@@ -1,14 +1,18 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { Condition } from '../../api/models';
 import { condition } from '../../core/conditions';
 import { Lists } from '../../core/lists';
 import { ConditionPill } from '../../shared/condition-pill';
 import { LoadState } from '../../shared/load-state';
+import { conditionRank, parseSort, searchRows, sortRows } from '../../core/table';
+import { ListSearch } from '../../shared/list-search';
+import { SortHeader } from '../../shared/sort-header';
+
 
 @Component({
   selector: 'app-toolsets',
-  imports: [RouterLink, ConditionPill, LoadState],
+  imports: [RouterLink, ConditionPill, LoadState, ListSearch, SortHeader],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <h1 class="mb-4 flex items-baseline gap-2 text-xl font-semibold tracking-tight">
@@ -16,20 +20,24 @@ import { LoadState } from '../../shared/load-state';
     </h1>
     <app-load-state [error]="lists.toolSets.error()" [loading]="!lists.toolSets.hasValue()" what="tool sets" />
     @if (lists.toolSets.hasValue()) {
-      <section class="panel overflow-x-auto">
+      <section class="panel">
+        <header class="panel-head">
+          <app-list-search placeholder="Filter by name, server or tool" [query]="q() ?? ''" [shown]="rows().length" [total]="lists.toolSetItems().length" />
+        </header>
+        <div class="overflow-x-auto">
         <table class="data-table">
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Server</th>
-              <th>Selection</th>
-              <th class="text-right">Tools</th>
-              <th>Valid</th>
-              <th>Ready</th>
+              <th><app-sort key="name" [sort]="sort()">Name</app-sort></th>
+              <th><app-sort key="server" [sort]="sort()">Server</app-sort></th>
+              <th><app-sort key="selection" [sort]="sort()">Selection</app-sort></th>
+              <th class="text-right"><app-sort key="tools" [sort]="sort()">Tools</app-sort></th>
+              <th><app-sort key="valid" [sort]="sort()">Valid</app-sort></th>
+              <th><app-sort key="ready" [sort]="sort()">Ready</app-sort></th>
             </tr>
           </thead>
           <tbody>
-            @for (t of lists.toolSetItems(); track t.meta.name) {
+            @for (t of rows(); track t.meta.name) {
               <tr class="row-link" (click)="open(t.meta.name)">
                 <td><a class="link" [routerLink]="['/toolsets', t.meta.name]">{{ t.meta.name }}</a></td>
                 <td>
@@ -49,10 +57,11 @@ import { LoadState } from '../../shared/load-state';
                 <td><app-condition label="Ready" bare [condition]="get(t.status.conditions, 'Ready')" /></td>
               </tr>
             } @empty {
-              <tr><td colspan="6" class="faint">No MCPToolSet exists.</td></tr>
+              <tr><td colspan="6" class="faint">{{ lists.toolSetItems().length ? 'No tool set matches.' : 'No MCPToolSet exists.' }}</td></tr>
             }
           </tbody>
         </table>
+        </div>
       </section>
     }
   `,
@@ -61,6 +70,30 @@ export class ToolSets {
   protected readonly lists = inject(Lists);
   private readonly router = inject(Router);
   protected readonly get = (c: Condition[], t: Condition['type']) => condition(c, t);
+  /** ?q= and ?sort=. */
+  readonly q = input<string>();
+  readonly sort = input<string>();
+  protected readonly rows = computed(() =>
+    sortRows(
+      searchRows(this.lists.toolSetItems(), this.q() ?? '', (t) => [
+        t.meta.name,
+        t.spec.serverRef,
+        t.spec.prefix,
+        ...t.spec.tools,
+        ...(t.spec.exclude ?? []),
+      ]),
+      parseSort(this.sort()),
+      {
+        name: (t) => t.meta.name,
+        server: (t) => t.spec.serverRef,
+        selection: (t) => t.spec.tools.join(', '),
+        tools: (t) => t.status.resolvedToolCount ?? undefined,
+        valid: (t) => conditionRank(condition(t.status.conditions, 'Valid')),
+        ready: (t) => conditionRank(condition(t.status.conditions, 'Ready')),
+      },
+      (t) => t.meta.name,
+    ),
+  );
 
   protected open(name: string): void {
     void this.router.navigate(['/toolsets', name]);

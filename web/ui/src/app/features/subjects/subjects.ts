@@ -3,21 +3,19 @@ import { Router, RouterLink } from '@angular/router';
 import { listSubjects } from '../../api/functions';
 import { SubjectSummary } from '../../api/models';
 import { Inspect, live } from '../../core/inspect';
-import { queryParams } from '../../core/query';
+import { parseSort, searchRows, sortRows } from '../../core/table';
+import { ListSearch } from '../../shared/list-search';
+import { SortHeader } from '../../shared/sort-header';
 import { LoadState } from '../../shared/load-state';
 
 /** Subjects whose name or grants contain the query, ignoring case. */
 export function filterSubjects(items: SubjectSummary[], query: string): SubjectSummary[] {
-  const q = query.trim().toLowerCase();
-  if (!q) {
-    return items;
-  }
-  return items.filter((s) => s.subject.toLowerCase().includes(q) || s.grants.some((g) => g.toLowerCase().includes(q)));
+  return searchRows(items, query, (s) => [s.subject, ...s.grants]);
 }
 
 @Component({
   selector: 'app-subjects',
-  imports: [RouterLink, LoadState],
+  imports: [RouterLink, LoadState, ListSearch, SortHeader],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <h1 class="mb-4 text-xl font-semibold tracking-tight">Subjects</h1>
@@ -25,28 +23,21 @@ export function filterSubjects(items: SubjectSummary[], query: string): SubjectS
     @if (subjects.hasValue()) {
       <section class="panel">
         <header class="panel-head">
-          <form class="w-full max-w-md" (submit)="open($event)">
-            <label for="subject" class="sr-only">Filter, or resolve any subject</label>
-            <input
-              id="subject"
-              name="subject"
-              class="input py-1"
-              placeholder="Filter, or resolve any subject"
-              [value]="query()"
-              (input)="search($any($event.target).value)"
-              autocomplete="off"
-              spellcheck="false"
-            />
-          </form>
-          <span class="faint text-xs">{{ rows().length }} of {{ all().length }}</span>
+          <app-list-search
+            placeholder="Filter, or resolve any subject"
+            [query]="query()"
+            [shown]="rows().length"
+            [total]="all().length"
+            (submitted)="open()"
+          />
         </header>
         <div class="overflow-x-auto">
           <table class="data-table">
             <thead>
               <tr>
-                <th>Subject</th>
-                <th>Grants</th>
-                <th class="text-right">Tools offered</th>
+                <th><app-sort key="name" [sort]="sort()">Subject</app-sort></th>
+                <th><app-sort key="grants" [sort]="sort()">Grants</app-sort></th>
+                <th class="text-right"><app-sort key="tools" [sort]="sort()">Tools offered</app-sort></th>
               </tr>
             </thead>
             <tbody>
@@ -87,30 +78,31 @@ export class Subjects {
     () => ({}),
     () => this.inspect.call(listSubjects, {}),
   );
-  /** ?q=, so a search can be linked to and survives a reload. */
+  /** ?q= and ?sort=. */
   readonly q = input<string>();
+  readonly sort = input<string>();
   protected readonly query = computed(() => this.q() ?? '');
-  private readonly setQuery = queryParams();
   protected readonly all = computed(() => (this.subjects.hasValue() ? (this.subjects.value()?.items ?? []) : []));
-  protected readonly rows = computed(() => filterSubjects(this.all(), this.query()));
+  protected readonly rows = computed(() =>
+    sortRows(
+      filterSubjects(this.all(), this.query()),
+      parseSort(this.sort()),
+      { name: (s) => s.subject, grants: (s) => s.grants.join(', '), tools: (s) => s.toolCount },
+      (s) => s.subject,
+    ),
+  );
   /** The typed text, when it is not a subject any grant names: it can still be resolved. */
   protected readonly unknown = computed(() => {
     const q = this.query().trim();
     return q && !this.all().some((s) => s.subject === q) ? q : '';
   });
 
-  /** Typing replaces the history entry rather than adding one per key. */
-  protected search(value: string): void {
-    this.setQuery({ q: value || null }, { replace: true });
-  }
-
   protected go(subject: string): void {
     void this.router.navigate(['/subjects/resolve'], { queryParams: { subject } });
   }
 
   /** Enter opens the one match, an exact match, or else resolves what was typed. */
-  protected open(event: Event): void {
-    event.preventDefault();
+  protected open(): void {
     const q = this.query().trim();
     if (!q) {
       return;
