@@ -35,12 +35,7 @@ import { LoadState } from '../../shared/load-state';
                 <td class="muted font-mono text-[12.5px]">{{ s.spec.endpoint }}</td>
                 <td>{{ s.spec.auth.type }}</td>
                 <td class="num">{{ s.discovery.toolCount ?? '—' }}</td>
-                <td class="muted whitespace-nowrap">
-                  {{ since(s.discovery.lastSuccess) }}
-                  @if (s.discovery.consecutiveFailures) {
-                    <span class="text-bad"> · {{ s.discovery.consecutiveFailures }} failed</span>
-                  }
-                </td>
+                <td class="muted whitespace-nowrap">{{ since(s.discovery.lastSuccess) }}</td>
                 <td><app-condition label="Ready" bare [condition]="ready(s.status.conditions)" /></td>
               </tr>
             } @empty {
