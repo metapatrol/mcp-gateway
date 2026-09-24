@@ -6,8 +6,8 @@ Grafana dashboard for mcp-gateway (deployed as a ConfigMap for the Grafana sidec
 
 | Field | Value |
 |---|---|
-| Version | `1.7.0` |
-| App Version | `1.7.0` |
+| Version | `1.7.1` |
+| App Version | `1.7.1` |
 | Type | `application` |
 
 ## Usage

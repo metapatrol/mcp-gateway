@@ -1,3 +1,10 @@
+## [1.7.1](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/compare/v1.7.0...v1.7.1) (2026-09-24)
+
+
+### Bug Fixes
+
+* **gateway:** serve the endpoint at / with protected resource metadata ([af80b06](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/commit/af80b06a30e0d6d9b43f869fe6cfb5877510e4f6))
+
 # [1.7.0](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/compare/v1.6.0...v1.7.0) (2026-09-24)
 
 
