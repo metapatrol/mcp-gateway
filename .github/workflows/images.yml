@@ -12,6 +12,10 @@
 #   ghcr.io/metapatrol/mcp-gateway{,-controller,-proxy,-ui}
 #     :1.9.0 :1.9 :latest   from a release tag
 #     :main :<short sha>    from main
+#
+# A release tagged before this workflow existed is built by running it by hand
+# with that tag: the tag's source, this commit's Dockerfile — an older one
+# pulls its base images from the internal registry, which GitHub cannot reach.
 name: images
 
 on:
@@ -19,13 +23,22 @@ on:
     branches: [main]
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to build, e.g. v1.9.0. Empty builds the branch it runs on.
+        required: false
+        default: ""
+      latest:
+        description: Also tag it latest — for the newest release only.
+        type: boolean
+        default: false
 
 permissions:
   contents: read
   packages: write
 
 concurrency:
-  group: images-${{ github.ref }}
+  group: images-${{ inputs.tag || github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -35,8 +48,33 @@ jobs:
       fail-fast: false
       matrix:
         binary: [mcp-gateway-controller, mcp-gateway, mcp-gateway-proxy, mcp-gateway-ui]
+    env:
+      TAG: ${{ inputs.tag }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Build arguments
+        id: args
+        run: |
+          # This workflow's own Dockerfile, which a tag built by hand may predate.
+          git fetch -q --depth=1 origin "$GITHUB_SHA"
+          git show "$GITHUB_SHA:Dockerfile" > "$RUNNER_TEMP/Dockerfile"
+
+          ref="${TAG:-$GITHUB_REF_NAME}"
+          commit=$(git rev-parse HEAD)
+          # ghcr.io wants the owner in lower case.
+          echo "image=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/${{ matrix.binary }}" >> "$GITHUB_OUTPUT"
+          echo "revision=$commit" >> "$GITHUB_OUTPUT"
+          echo "commit=${commit::7}" >> "$GITHUB_OUTPUT"
+          echo "built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+          if [[ -n "$TAG" || "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "tag=$ref" >> "$GITHUB_OUTPUT"
+            echo "version=${ref#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${commit::7}" >> "$GITHUB_OUTPUT"
+          fi
 
       - uses: docker/setup-buildx-action@v3
 
@@ -46,37 +84,27 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build arguments
-        id: args
-        run: |
-          # ghcr.io wants the owner in lower case.
-          echo "image=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/${{ matrix.binary }}" >> "$GITHUB_OUTPUT"
-          echo "commit=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
-          echo "built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
-          else
-            echo "version=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
-          fi
-
       - id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ steps.args.outputs.image }}
           flavor: latest=false
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
-            type=ref,event=branch
-            type=sha,prefix=,format=short
+            type=semver,pattern={{version}},value=${{ steps.args.outputs.tag }},enable=${{ steps.args.outputs.tag != '' }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.args.outputs.tag }},enable=${{ steps.args.outputs.tag != '' }}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') || inputs.latest == true }}
+            type=ref,event=branch,enable=${{ inputs.tag == '' }}
+            type=raw,value=${{ steps.args.outputs.commit }}
           labels: |
             org.opencontainers.image.title=${{ matrix.binary }}
             org.opencontainers.image.licenses=Apache-2.0
+            org.opencontainers.image.revision=${{ steps.args.outputs.revision }}
+            org.opencontainers.image.version=${{ steps.args.outputs.version }}
 
       - uses: docker/build-push-action@v6
         with:
           context: .
+          file: ${{ runner.temp }}/Dockerfile
           platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
