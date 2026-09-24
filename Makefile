@@ -1,5 +1,5 @@
 # Tool versions — single source of truth for local + CI
-CONTROLLER_GEN_VERSION ?= v0.20.1
+CONTROLLER_GEN_VERSION ?= v0.22.0
 # A full release tag, not a minor: the install script the lint job uses fetches a
 # GitHub release, and there is no release called v2.11.
 GOLANGCI_LINT_VERSION ?= v2.13.2
