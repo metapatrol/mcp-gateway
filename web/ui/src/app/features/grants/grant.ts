@@ -56,11 +56,8 @@ import { DetailView, ViewSwitch } from '../../shared/view-switch';
             @for (name of g.spec.capabilities; track name) {
               <div class="flex flex-wrap items-center justify-between gap-2 py-1.5">
                 @if (g.missingCapabilities.includes(name)) {
-                  <span>
-                    <span class="font-mono text-[13px] text-bad line-through">{{ name }}</span>
-                    <span class="ml-2 text-[12.5px] text-bad">does not exist, so it grants nothing</span>
-                  </span>
-                  <app-pill tone="bad">missing</app-pill>
+                  <span class="font-mono text-[13px] text-bad line-through">{{ name }}</span>
+                  <app-pill tone="bad">not found</app-pill>
                 } @else {
                   <span>
                     <a class="link" [routerLink]="['/capabilities', name]">{{ name }}</a>

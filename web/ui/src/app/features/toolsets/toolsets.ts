@@ -32,7 +32,9 @@ import { LoadState } from '../../shared/load-state';
             @for (t of lists.toolSetItems(); track t.meta.name) {
               <tr class="row-link" (click)="open(t.meta.name)">
                 <td><a class="link" [routerLink]="['/toolsets', t.meta.name]">{{ t.meta.name }}</a></td>
-                <td class="font-mono text-[12.5px]">{{ t.spec.serverRef }}</td>
+                <td>
+                  <a class="link text-[12.5px]" [routerLink]="['/servers', t.spec.serverRef]" (click)="$event.stopPropagation()">{{ t.spec.serverRef }}</a>
+                </td>
                 <td class="muted font-mono text-[12.5px]">
                   {{ t.spec.tools.join(', ') }}
                   @if (t.spec.exclude?.length) {
@@ -43,8 +45,8 @@ import { LoadState } from '../../shared/load-state';
                   }
                 </td>
                 <td class="num">{{ t.status.resolvedToolCount }}</td>
-                <td><app-condition label="Valid" [condition]="get(t.status.conditions, 'Valid')" /></td>
-                <td><app-condition label="Ready" [condition]="get(t.status.conditions, 'Ready')" /></td>
+                <td><app-condition label="Valid" bare [condition]="get(t.status.conditions, 'Valid')" /></td>
+                <td><app-condition label="Ready" bare [condition]="get(t.status.conditions, 'Ready')" /></td>
               </tr>
             } @empty {
               <tr><td colspan="6" class="faint">No MCPToolSet exists.</td></tr>

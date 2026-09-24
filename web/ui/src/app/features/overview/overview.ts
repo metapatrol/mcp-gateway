@@ -126,7 +126,7 @@ export class Overview {
   }
 
   protected nodeTitle(n: GraphNode): string {
-    return n.missing ? `${n.name} does not exist` : n.name;
+    return n.missing ? `${n.name}: not found` : n.name;
   }
 
   private layout(): void {

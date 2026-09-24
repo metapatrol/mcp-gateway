@@ -93,7 +93,7 @@
                         type="button"
                         class="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border px-2.5 py-1.5 text-left"
                         [class]="
-                          (e.outcome === 'ok' ? 'border-line' : 'border-bad/40 bg-bad-soft') +
+                          (e.outcome === 'ok' || !t.selection.catalogAvailable ? 'border-line' : 'border-bad/40 bg-bad-soft') +
                           (focus() === e.entry ? ' ring-2 ring-accent' : '')
                         "
                         [attr.aria-pressed]="focus() === e.entry"
@@ -107,8 +107,11 @@
                         </span>
                         <span
                           class="text-right text-xs"
-                          [class]="e.outcome === 'ok' ? 'text-ok' : 'font-medium text-bad'"
+                          [class]="!t.selection.catalogAvailable ? 'faint' : e.outcome === 'ok' ? 'text-ok' : 'font-medium text-bad'"
                         >
+                          @if (!t.selection.catalogAvailable) {
+                            no catalog
+                          } @else {
                           @switch (e.outcome) {
                             @case ('ok') {
                               ✓ {{ e.selects.length }}
@@ -123,6 +126,7 @@
                             @case ('excluded') {
                               ✕ excluded again
                             }
+                          }
                           }
                         </span>
                       </button>
@@ -255,7 +259,7 @@
                     <td class="muted hidden text-[12.5px] md:table-cell">{{ reason(row) }}</td>
                   </tr>
                 }
-                @if (filter() !== 'exposed') {
+                @if (filter() !== 'exposed' && t.selection.catalogAvailable) {
                   @for (m of t.selection.missing; track m) {
                     <tr class="bg-bad-soft">
                       <td class="text-center font-semibold text-bad">✕</td>
@@ -272,7 +276,11 @@
                     </tr>
                   }
                 }
-                @if (!rows().length && !(filter() !== 'exposed' && t.selection.missing.length)) {
+                @if (!t.selection.catalogAvailable) {
+                  <tr>
+                    <td colspan="4" class="faint">No catalog.</td>
+                  </tr>
+                } @else if (!rows().length && !(filter() !== 'exposed' && t.selection.missing.length)) {
                   <tr>
                     <td colspan="4" class="faint">Nothing here.</td>
                   </tr>

@@ -45,14 +45,14 @@
         <div class="overflow-x-auto">
           <table class="data-table">
             <thead>
-              <tr><th>Tool</th><th>Why</th><th>Granted through</th></tr>
+              <tr class="max-md:hidden"><th>Tool</th><th>Why</th><th>Granted through</th></tr>
             </thead>
             <tbody>
               @for (t of missing(); track t.name) {
                 <tr>
-                  <td class="font-mono text-[13px]">{{ t.name }}</td>
-                  <td class="text-[13px]" [class]="t.state === 'conflict' ? 'text-bad' : 'text-warn'">{{ why(t) }}</td>
-                  <td class="text-[12.5px]">
+                  <td class="font-mono text-[13px] max-md:block max-md:border-b-0">{{ t.name }}</td>
+                  <td class="text-[13px] max-md:block max-md:border-b-0 max-md:pt-0" [class]="t.state === 'conflict' ? 'text-bad' : 'text-warn'">{{ why(t) }}</td>
+                  <td class="text-[12.5px] max-md:block max-md:pt-0">
                     @for (c of t.claimants; track c.ref.server + c.ref.tool) {
                       @for (p of c.paths; track p.grant + p.capability + p.toolSet) {
                         <div class="flex flex-wrap items-center gap-1 py-0.5">
@@ -86,12 +86,12 @@
         <div class="overflow-x-auto">
           <table class="data-table">
             <thead>
-              <tr><th>Tool and description</th><th class="w-2/5">Granted through</th></tr>
+              <tr class="max-md:hidden"><th>Tool and description</th><th class="w-2/5">Granted through</th></tr>
             </thead>
             <tbody>
               @for (t of g.tools; track t.name) {
                 <tr>
-                  <td>
+                  <td class="max-md:block max-md:border-b-0">
                     <span class="font-mono text-[13px]">{{ t.name }}</span>
                     @if (t.claimants[0]; as c) {
                       @if (c.ref.tool !== t.name) {
@@ -102,7 +102,7 @@
                       }
                     }
                   </td>
-                  <td class="text-[12.5px]">
+                  <td class="text-[12.5px] max-md:block max-md:pt-0">
                     @for (p of t.claimants[0]?.paths ?? []; track p.grant + p.capability + p.toolSet) {
                       <div class="flex flex-wrap items-center gap-1 py-0.5">
                         <a class="link text-[12.5px]" [routerLink]="['/grants', p.grant]">{{ p.grant }}</a>

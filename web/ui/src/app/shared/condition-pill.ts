@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { booleanAttribute, ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { Condition } from '../api/models';
 import { tone } from '../core/conditions';
 
@@ -20,14 +20,18 @@ export const PILL: Record<string, string> = {
       [title]="condition()?.message ?? 'not reported yet'"
     >
       <span class="size-1.5 rounded-full bg-current" aria-hidden="true"></span>
-      {{ label() }}
-      <span class="font-normal opacity-80">{{ condition()?.reason ?? 'Unknown' }}</span>
+      @if (!bare()) {
+        {{ label() }}
+      }
+      <span [class.font-normal]="!bare()" [class.opacity-80]="!bare()">{{ condition()?.reason ?? 'Unknown' }}</span>
     </span>
   `,
 })
 export class ConditionPill {
   readonly condition = input<Condition | undefined>();
   readonly label = input.required<string>();
+  /** Only the reason, for a table column whose header already names the condition. */
+  readonly bare = input(false, { transform: booleanAttribute });
   protected readonly classes = computed(() => PILL[tone(this.condition())]);
 }
 

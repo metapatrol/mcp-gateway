@@ -58,7 +58,7 @@ export function buildGraph(
       id: id('toolset', t.meta.name),
       kind: 'toolset',
       name: t.meta.name,
-      detail: `${t.status.resolvedToolCount} tools`,
+      detail: `${t.status.resolvedToolCount} ${t.status.resolvedToolCount === 1 ? 'tool' : 'tools'}`,
       healthy: healthy(t.status.conditions, CONDITIONS),
       missing: false,
     })),

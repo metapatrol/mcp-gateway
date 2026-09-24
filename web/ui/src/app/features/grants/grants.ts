@@ -34,9 +34,17 @@ import { LoadState } from '../../shared/load-state';
                 <td>
                   <a class="link" [routerLink]="['/subjects/resolve']" [queryParams]="{ subject: g.spec.subject }" (click)="$event.stopPropagation()">{{ g.spec.subject }}</a>
                 </td>
-                <td class="font-mono text-[12.5px]">{{ g.spec.capabilities.join(', ') }}</td>
-                <td><app-condition label="Valid" [condition]="get(g.status.conditions, 'Valid')" /></td>
-                <td><app-condition label="Ready" [condition]="get(g.status.conditions, 'Ready')" /></td>
+                <td>
+                  @for (c of g.spec.capabilities; track c; let last = $last) {
+                    @if (lists.capability(c)) {
+                      <a class="link text-[12.5px]" [routerLink]="['/capabilities', c]" (click)="$event.stopPropagation()">{{ c }}</a>
+                    } @else {
+                      <span class="font-mono text-[12.5px] text-bad line-through" title="not found">{{ c }}</span>
+                    }@if (!last) {, }
+                  }
+                </td>
+                <td><app-condition label="Valid" bare [condition]="get(g.status.conditions, 'Valid')" /></td>
+                <td><app-condition label="Ready" bare [condition]="get(g.status.conditions, 'Ready')" /></td>
               </tr>
             } @empty {
               <tr><td colspan="5" class="faint">No MCPGrant exists.</td></tr>

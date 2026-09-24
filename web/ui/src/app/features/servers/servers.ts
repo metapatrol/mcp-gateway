@@ -41,7 +41,7 @@ import { LoadState } from '../../shared/load-state';
                     <span class="text-bad"> · {{ s.discovery.consecutiveFailures }} failed</span>
                   }
                 </td>
-                <td><app-condition label="Ready" [condition]="ready(s.status.conditions)" /></td>
+                <td><app-condition label="Ready" bare [condition]="ready(s.status.conditions)" /></td>
               </tr>
             } @empty {
               <tr><td colspan="6" class="faint">No MCPServer exists.</td></tr>

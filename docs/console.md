@@ -221,12 +221,12 @@ replayed. When the gateway refuses a stream (more than 100 open on a replica),
 the console polls every 30 seconds and asks again later. While the stream is up
 it still reads everything every five minutes, for what no event announces: a
 catalog that ages out of use after `--catalog-max-age` while its backend stays
-down. The sidebar says which of these is the case, and what changed last.
+down. The sidebar says which of these is the case.
 
 ### Replicas
 
 Each answer, and each stream, comes from one gateway replica, and says which
-(`source.replica`, shown in the sidebar). The Kubernetes side is the same on
+(`source.replica`, shown above a server's discovery comparison). The Kubernetes side is the same on
 every replica. The catalogs are each replica's own discovery, so two replicas
 can differ for up to a discovery interval; a tool set page says so when the
 controller's status and the answering replica disagree about what it resolves

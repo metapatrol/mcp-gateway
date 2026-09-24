@@ -32,9 +32,17 @@ import { LoadState } from '../../shared/load-state';
               <tr class="row-link" (click)="open(c.meta.name)">
                 <td><a class="link" [routerLink]="['/capabilities', c.meta.name]">{{ c.meta.name }}</a></td>
                 <td class="muted text-[13px]">{{ c.spec.description }}</td>
-                <td class="font-mono text-[12.5px]">{{ c.spec.toolSets.join(', ') }}</td>
-                <td><app-condition label="Valid" [condition]="get(c.status.conditions, 'Valid')" /></td>
-                <td><app-condition label="Ready" [condition]="get(c.status.conditions, 'Ready')" /></td>
+                <td>
+                  @for (t of c.spec.toolSets; track t; let last = $last) {
+                    @if (lists.toolSet(t)) {
+                      <a class="link text-[12.5px]" [routerLink]="['/toolsets', t]" (click)="$event.stopPropagation()">{{ t }}</a>
+                    } @else {
+                      <span class="font-mono text-[12.5px] text-bad line-through" title="not found">{{ t }}</span>
+                    }@if (!last) {, }
+                  }
+                </td>
+                <td><app-condition label="Valid" bare [condition]="get(c.status.conditions, 'Valid')" /></td>
+                <td><app-condition label="Ready" bare [condition]="get(c.status.conditions, 'Ready')" /></td>
               </tr>
             } @empty {
               <tr><td colspan="5" class="faint">No MCPCapability exists.</td></tr>

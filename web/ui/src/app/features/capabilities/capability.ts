@@ -91,7 +91,7 @@ import { DetailView, ViewSwitch } from '../../shared/view-switch';
                       }
                     </td>
                     <td>
-                      <app-pill [tone]="t.available ? 'ok' : 'warn'">{{ t.available ? 'yes' : 'not right now' }}</app-pill>
+                      <app-pill [tone]="t.available ? 'ok' : 'warn'">{{ t.available ? 'offered' : 'not offered' }}</app-pill>
                     </td>
                   </tr>
                 } @empty {
@@ -112,7 +112,7 @@ import { DetailView, ViewSwitch } from '../../shared/view-switch';
                 <div class="flex flex-wrap items-center justify-between gap-2 py-1.5">
                   @if (c.missingToolSets.includes(t)) {
                     <span class="font-mono text-[13px] text-bad line-through">{{ t }}</span>
-                    <app-pill tone="bad">does not exist</app-pill>
+                    <app-pill tone="bad">not found</app-pill>
                   } @else {
                     <a class="link" [routerLink]="['/toolsets', t]">{{ t }}</a>
                     <app-condition label="Ready" [condition]="toolSetReady(t)" />
