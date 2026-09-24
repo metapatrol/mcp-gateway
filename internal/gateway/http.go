@@ -143,6 +143,8 @@ func protectedResourceMetadataURL(resource string) (string, error) {
 
 // HTTPServer runs an http.Server as a manager.Runnable.
 type HTTPServer struct {
+	// Name says what is served, in the log line at startup. Defaults to MCP.
+	Name    string
 	Addr    string
 	Handler http.Handler
 	// ShutdownTimeout bounds the graceful shutdown. Open SSE streams do not
@@ -169,7 +171,11 @@ func (s *HTTPServer) Start(ctx context.Context) error {
 	errc := make(chan error, 1)
 	go func() {
 		if s.Log != nil {
-			s.Log("serving MCP", "address", s.Addr)
+			name := s.Name
+			if name == "" {
+				name = "MCP"
+			}
+			s.Log("serving "+name, "address", s.Addr)
 		}
 		errc <- srv.ListenAndServe()
 	}()

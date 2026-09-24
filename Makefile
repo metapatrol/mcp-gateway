@@ -5,12 +5,14 @@ CONTROLLER_GEN_VERSION ?= v0.20.1
 GOLANGCI_LINT_VERSION ?= v2.13.2
 GITLEAKS_VERSION ?= v8.30.1
 SETUP_ENVTEST_VERSION ?= v0.25.1
+# Lints the OpenAPI specs; run through npx, so it needs Node but no install.
+REDOCLY_CLI_VERSION ?= 2.54.2
 # The Kubernetes version integration tests run their API server at.
 ENVTEST_K8S_VERSION ?= 1.34.1
 
 BINARIES := mcp-gateway-controller mcp-gateway mcp-gateway-proxy
 
-.PHONY: secret-scan secret-scan-history generate generate-crds build test integration-test lint clean build-binaries build-all changelog helm-docs helm-lint helm-package install-tools $(addprefix build-,$(BINARIES))
+.PHONY: secret-scan secret-scan-history generate generate-api lint-api generate-crds build test integration-test lint clean build-binaries build-all changelog helm-docs helm-lint helm-package install-tools $(addprefix build-,$(BINARIES))
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
@@ -56,6 +58,15 @@ build-all:
 # Generate deepcopy
 generate:
 	controller-gen object paths="./..."
+
+# Generate the inspect API's types and server interface from its OpenAPI spec.
+# The spec is the source of truth; TestGeneratedCodeIsCurrent fails when the
+# generated code does not match it. oapi-codegen is a tool in go.mod.
+generate-api:
+	cd internal/inspect/api && go generate ./...
+
+lint-api:
+	npx -y @redocly/cli@$(REDOCLY_CLI_VERSION) lint api/openapi/inspect.yaml
 
 # Install pinned tool versions
 install-tools:

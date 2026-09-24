@@ -366,6 +366,19 @@ func (g *Gateway) desired(subject string) map[string]exposed {
 	return out
 }
 
+// Policy returns the policy snapshot the gateway currently enforces.
+func (g *Gateway) Policy() *policy.Snapshot { return g.policy.Load() }
+
+// UsableCatalog returns a backend's catalog while the gateway serves it: it has
+// been discovered, and has not been failing for longer than CatalogMaxAge.
+func (g *Gateway) UsableCatalog(server string) (*discovery.Catalog, bool) {
+	return g.usableCatalog(server)
+}
+
+// Instructions returns what the gateway sends a subject as instructions in its
+// server/discover answer, as of now.
+func (g *Gateway) Instructions(subject string) string { return g.instructionsFor(subject) }
+
 // catalogs gives policy resolution the tool names of every usable catalog, so
 // that tool set patterns expand against what the gateway would actually serve.
 func (g *Gateway) catalogs(server string) ([]string, bool) {

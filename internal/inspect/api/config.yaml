@@ -1,0 +1,10 @@
+# oapi-codegen settings for the inspect API. The spec is the source of truth:
+# change api/openapi/inspect.yaml, then `make generate-api`.
+package: api
+generate:
+  models: true
+  std-http-server: true
+  strict-server: true
+output: inspect.gen.go
+output-options:
+  skip-prune: false

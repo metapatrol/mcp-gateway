@@ -52,6 +52,13 @@ rules:
   - apiGroups: ["mcp-gateway.metapatrol.com"]
     resources: ["mcpservers", "mcptoolsets", "mcpcapabilities", "mcpgrants"]
     verbs: ["get", "list", "watch"]
+  {{- if .Values.gateway.inspect.enabled }}
+  # The inspect API asks the API server whose a reader's token is. A
+  # TokenReview is a question, not a change: nothing is stored.
+  - apiGroups: ["authentication.k8s.io"]
+    resources: ["tokenreviews"]
+    verbs: ["create"]
+  {{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

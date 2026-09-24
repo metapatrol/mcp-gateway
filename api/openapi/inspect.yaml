@@ -1,0 +1,864 @@
+openapi: 3.0.3
+info:
+  title: mcp-gateway inspect API
+  version: v1alpha1
+  description: |
+    A read-only view of what one mcp-gateway replica knows: the four kinds as it
+    watches them, the backend catalogs it discovered, and what its policy
+    resolves to. It is what the console reads, through mcp-gateway-ui.
+
+    The gateway serves it on a listener of its own (`--inspect-bind-address`),
+    off by default and never on the MCP listener. Agents must not reach it: it
+    shows every subject's grants and every backend's catalog.
+
+    Every answer describes the replica that gave it. Replicas watch and
+    discover independently, so two of them can differ for up to one discovery
+    interval; `source` says which replica answered and when.
+
+    Nothing here is written anywhere. The manifests are the desired state, and
+    status is what the controller wrote; this API adds what only a running
+    gateway has: catalogs with their definitions, and the resolution it
+    enforces.
+  license:
+    name: Apache-2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+
+servers:
+  - url: /api/v1alpha1
+
+security:
+  - serviceAccountToken: []
+
+tags:
+  - name: servers
+    description: MCPServer — the backends, and the catalogs discovered from them.
+  - name: toolsets
+    description: MCPToolSet — selections from one server, and why they select what they do.
+  - name: capabilities
+    description: MCPCapability — tool sets combined into an ability.
+  - name: grants
+    description: MCPGrant — capabilities bound to a subject.
+  - name: subjects
+    description: What a token subject is offered, resolved as the gateway does.
+
+paths:
+  /servers:
+    get:
+      tags: [servers]
+      operationId: listServers
+      summary: List the MCPServers
+      responses:
+        "200":
+          description: Every MCPServer, sorted by name.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ServerList" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        default: { $ref: "#/components/responses/Problem" }
+
+  /servers/{name}:
+    get:
+      tags: [servers]
+      operationId: getServer
+      summary: Get one MCPServer with its catalog
+      parameters:
+        - $ref: "#/components/parameters/Name"
+      responses:
+        "200":
+          description: The server, its catalog as this replica discovered it, and the tool sets that select from it.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Server" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        default: { $ref: "#/components/responses/Problem" }
+
+  /toolsets:
+    get:
+      tags: [toolsets]
+      operationId: listToolSets
+      summary: List the MCPToolSets
+      responses:
+        "200":
+          description: Every MCPToolSet, sorted by name.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ToolSetList" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        default: { $ref: "#/components/responses/Problem" }
+
+  /toolsets/{name}:
+    get:
+      tags: [toolsets]
+      operationId: getToolSet
+      summary: Get one MCPToolSet with an explanation of its selection
+      parameters:
+        - $ref: "#/components/parameters/Name"
+      responses:
+        "200":
+          description: The tool set, and for every tool of its server's catalog whether it is selected and which entry decided that.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ToolSet" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        default: { $ref: "#/components/responses/Problem" }
+
+  /capabilities:
+    get:
+      tags: [capabilities]
+      operationId: listCapabilities
+      summary: List the MCPCapabilities
+      responses:
+        "200":
+          description: Every MCPCapability, sorted by name.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CapabilityList" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        default: { $ref: "#/components/responses/Problem" }
+
+  /capabilities/{name}:
+    get:
+      tags: [capabilities]
+      operationId: getCapability
+      summary: Get one MCPCapability with the tools it comes to
+      parameters:
+        - $ref: "#/components/parameters/Name"
+      responses:
+        "200":
+          description: The capability, its resolved tools and its name conflicts.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Capability" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        default: { $ref: "#/components/responses/Problem" }
+
+  /grants:
+    get:
+      tags: [grants]
+      operationId: listGrants
+      summary: List the MCPGrants
+      responses:
+        "200":
+          description: Every MCPGrant, sorted by name.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GrantList" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        default: { $ref: "#/components/responses/Problem" }
+
+  /grants/{name}:
+    get:
+      tags: [grants]
+      operationId: getGrant
+      summary: Get one MCPGrant
+      parameters:
+        - $ref: "#/components/parameters/Name"
+      responses:
+        "200":
+          description: The grant and the other grants for the same subject.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Grant" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        default: { $ref: "#/components/responses/Problem" }
+
+  /subjects:
+    get:
+      tags: [subjects]
+      operationId: listSubjects
+      summary: List the subjects that grants name
+      responses:
+        "200":
+          description: Every subject at least one MCPGrant names, sorted.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SubjectList" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        default: { $ref: "#/components/responses/Problem" }
+
+  /subject:
+    get:
+      tags: [subjects]
+      operationId: getSubject
+      summary: Resolve what one subject gets
+      description: |
+        The resolution the gateway runs for this subject's tools/list, with the
+        path every tool is granted through, and the instructions the subject is
+        sent in its server/discover answer.
+
+        The subject is a query parameter rather than a path segment: it is the
+        token's sub claim, which may be a URL or contain slashes. A subject no
+        grant names is not an error; it resolves to nothing.
+      parameters:
+        - name: subject
+          in: query
+          required: true
+          schema: { type: string, minLength: 1 }
+          example: agent-coder
+      responses:
+        "200":
+          description: What the subject is offered right now.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Subject" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        default: { $ref: "#/components/responses/Problem" }
+
+components:
+  securitySchemes:
+    serviceAccountToken:
+      type: http
+      scheme: bearer
+      description: |
+        The Kubernetes ServiceAccount token of mcp-gateway-ui, which the gateway
+        checks with a TokenReview against the ServiceAccount the chart allows.
+
+  parameters:
+    Name:
+      name: name
+      in: path
+      required: true
+      description: The resource's name. All four kinds are cluster-scoped.
+      schema: { type: string, minLength: 1 }
+
+  responses:
+    Unauthorized:
+      description: The request carried no token, or one the TokenReview did not accept for the allowed ServiceAccount.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    NotFound:
+      description: No resource of this kind has that name.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Problem:
+      description: The request could not be answered.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+
+  schemas:
+    # ---------------------------------------------------------------- common
+
+    Problem:
+      description: RFC 9457 problem details.
+      type: object
+      required: [title, status]
+      properties:
+        type: { type: string, default: about:blank }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+
+    Source:
+      description: Which replica answered, and as of when.
+      type: object
+      required: [replica, observedAt]
+      properties:
+        replica:
+          type: string
+          description: The pod name of the gateway replica.
+          example: mcp-gateway-7c9f6d5b8-q2xkp
+        observedAt:
+          type: string
+          format: date-time
+
+    Meta:
+      type: object
+      required: [name, generation, creationTimestamp]
+      properties:
+        name: { type: string }
+        generation: { type: integer, format: int64 }
+        creationTimestamp: { type: string, format: date-time }
+        labels:
+          type: object
+          additionalProperties: { type: string }
+
+    Condition:
+      type: object
+      required: [type, status, reason, message, lastTransitionTime]
+      properties:
+        type:
+          type: string
+          enum: [Valid, Ready]
+        status:
+          type: string
+          enum: ["True", "False", Unknown]
+        reason:
+          type: string
+          description: One of the reasons in api/v1alpha1/conditions.go.
+          example: MissingTools
+        message: { type: string }
+        lastTransitionTime: { type: string, format: date-time }
+        observedGeneration: { type: integer, format: int64 }
+
+    ToolRef:
+      description: One tool of one backend, by the backend's name.
+      type: object
+      required: [server, tool]
+      properties:
+        server: { type: string }
+        tool: { type: string }
+
+    ToolDefinition:
+      description: A tool as the backend lists it in tools/list. The gateway passes it on unchanged, under the name agents see.
+      type: object
+      required: [name, inputSchema]
+      properties:
+        name: { type: string }
+        title: { type: string }
+        description:
+          type: string
+          description: What tells an agent when the tool is useful.
+        inputSchema:
+          type: object
+          description: The JSON Schema of the tool's arguments, as the backend sent it.
+          additionalProperties: true
+        outputSchema:
+          type: object
+          additionalProperties: true
+        annotations: { $ref: "#/components/schemas/ToolAnnotations" }
+
+    ToolAnnotations:
+      description: Hints from the backend. They are its claims, not something the gateway verifies.
+      type: object
+      properties:
+        title: { type: string }
+        readOnlyHint: { type: boolean }
+        destructiveHint: { type: boolean }
+        idempotentHint: { type: boolean }
+        openWorldHint: { type: boolean }
+
+    # ---------------------------------------------------------------- servers
+
+    SecretKeyRef:
+      type: object
+      required: [name, key]
+      properties:
+        name: { type: string }
+        key: { type: string }
+
+    APIKeyAuth:
+      type: object
+      required: [secretRef]
+      properties:
+        secretRef: { $ref: "#/components/schemas/SecretKeyRef" }
+        header: { type: string }
+        prefix: { type: string, nullable: true }
+
+    ClientCredentialsAuth:
+      type: object
+      required: [tokenURL, clientSecretRef]
+      properties:
+        tokenURL: { type: string }
+        clientID: { type: string }
+        clientIDRef: { $ref: "#/components/schemas/SecretKeyRef" }
+        clientSecretRef: { $ref: "#/components/schemas/SecretKeyRef" }
+        scopes: { type: array, items: { type: string } }
+        audience: { type: array, items: { type: string } }
+
+    DiscoveryAuth:
+      type: object
+      properties:
+        clientCredentials: { $ref: "#/components/schemas/ClientCredentialsAuth" }
+        apiKey: { $ref: "#/components/schemas/APIKeyAuth" }
+
+    PassthroughAuth:
+      type: object
+      properties:
+        discovery: { $ref: "#/components/schemas/DiscoveryAuth" }
+
+    BackendAuth:
+      description: spec.auth as written. It names Secrets; their contents are never read for this API.
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [None, Passthrough, ClientCredentials, APIKey]
+        passthrough: { $ref: "#/components/schemas/PassthroughAuth" }
+        clientCredentials: { $ref: "#/components/schemas/ClientCredentialsAuth" }
+        apiKey: { $ref: "#/components/schemas/APIKeyAuth" }
+
+    ServerSpec:
+      type: object
+      required: [endpoint, discoveryInterval, auth]
+      properties:
+        endpoint: { type: string }
+        discoveryInterval:
+          type: string
+          description: As written, a Go duration. The gateway clamps it to at least 10s.
+          example: 1m0s
+        auth: { $ref: "#/components/schemas/BackendAuth" }
+
+    ServerStatus:
+      description: status as the controller wrote it.
+      type: object
+      required: [available, conditions]
+      properties:
+        observedGeneration: { type: integer, format: int64 }
+        available: { type: boolean }
+        discoveredTools: { type: integer }
+        catalogRevision: { type: string }
+        lastDiscoveryTime: { type: string, format: date-time }
+        conditions:
+          type: array
+          items: { $ref: "#/components/schemas/Condition" }
+
+    Discovery:
+      description: |
+        What this replica knows about the backend, independent of status: the
+        gateway discovers for itself.
+      type: object
+      required: [discovered, usable, consecutiveFailures]
+      properties:
+        discovered:
+          type: boolean
+          description: Whether this replica has ever read the catalog.
+        usable:
+          type: boolean
+          description: Whether the gateway offers the catalog's tools right now — false once discovery has kept failing for longer than --catalog-max-age.
+        catalogRevision: { type: string }
+        toolCount: { type: integer }
+        lastSuccess: { type: string, format: date-time }
+        consecutiveFailures: { type: integer }
+        lastError:
+          type: string
+          description: The error of the most recent attempt, if it failed.
+
+    Catalog:
+      type: object
+      required: [revision, instructions, tools]
+      properties:
+        revision: { type: string }
+        instructions:
+          type: string
+          description: What the backend returned as instructions when the session was opened. Empty when it gave none.
+        tools:
+          type: array
+          description: Sorted by name.
+          items: { $ref: "#/components/schemas/ToolDefinition" }
+
+    ServerSummary:
+      type: object
+      required: [meta, spec, status, discovery]
+      properties:
+        meta: { $ref: "#/components/schemas/Meta" }
+        spec: { $ref: "#/components/schemas/ServerSpec" }
+        status: { $ref: "#/components/schemas/ServerStatus" }
+        discovery: { $ref: "#/components/schemas/Discovery" }
+
+    ServerList:
+      type: object
+      required: [items, source]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ServerSummary" }
+        source: { $ref: "#/components/schemas/Source" }
+
+    Server:
+      allOf:
+        - $ref: "#/components/schemas/ServerSummary"
+        - type: object
+          required: [usedBy, source]
+          properties:
+            catalog:
+              # Absent when this replica never read one. It is the last catalog
+              # read, however old; discovery.usable says whether it is offered.
+              $ref: "#/components/schemas/Catalog"
+            usedBy:
+              type: array
+              description: The tool sets whose serverRef names this server.
+              items: { type: string }
+            source: { $ref: "#/components/schemas/Source" }
+
+    # ---------------------------------------------------------------- tool sets
+
+    ToolSetSpec:
+      type: object
+      required: [serverRef, tools]
+      properties:
+        serverRef: { type: string }
+        tools: { type: array, items: { type: string } }
+        exclude: { type: array, items: { type: string } }
+        prefix: { type: string }
+        aliases:
+          type: object
+          additionalProperties: { type: string }
+
+    ToolSetStatus:
+      description: status as the controller wrote it.
+      type: object
+      required: [resolvedToolCount, conditions]
+      properties:
+        observedGeneration: { type: integer, format: int64 }
+        catalogRevision: { type: string }
+        resolvedTools: { type: array, items: { type: string } }
+        backendNames:
+          type: object
+          additionalProperties: { type: string }
+        resolvedToolCount: { type: integer }
+        missingTools: { type: array, items: { type: string } }
+        unmatchedPatterns: { type: array, items: { type: string } }
+        unusedAliases: { type: array, items: { type: string } }
+        conflictingNames: { type: array, items: { type: string } }
+        conditions:
+          type: array
+          items: { $ref: "#/components/schemas/Condition" }
+
+    ToolSetSummary:
+      type: object
+      required: [meta, spec, status]
+      properties:
+        meta: { $ref: "#/components/schemas/Meta" }
+        spec: { $ref: "#/components/schemas/ToolSetSpec" }
+        status: { $ref: "#/components/schemas/ToolSetStatus" }
+
+    ToolSetList:
+      type: object
+      required: [items, source]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ToolSetSummary" }
+        source: { $ref: "#/components/schemas/Source" }
+
+    ToolSet:
+      allOf:
+        - $ref: "#/components/schemas/ToolSetSummary"
+        - type: object
+          required: [usedBy, selection, source]
+          properties:
+            usedBy:
+              type: array
+              description: The capabilities that list this tool set.
+              items: { type: string }
+            selection: { $ref: "#/components/schemas/SelectionExplanation" }
+            source: { $ref: "#/components/schemas/Source" }
+
+    SelectionExplanation:
+      description: |
+        The tool set's spec checked against the catalog this replica holds for
+        its server — the same resolution as status, with the reasons kept.
+      type: object
+      required: [catalogAvailable, tools, entries, exclusions, aliases, missing, unmatched, unusedAliases, conflicts]
+      properties:
+        catalogAvailable:
+          type: boolean
+          description: |
+            False when this replica does not serve a catalog of the server —
+            never discovered, or failing for longer than --catalog-max-age.
+            tools is then empty, and every pattern selects nothing, as it
+            does for the gateway.
+        catalogRevision: { type: string }
+        tools:
+          type: array
+          description: Every tool of the catalog, sorted by the backend's name.
+          items: { $ref: "#/components/schemas/CatalogToolSelection" }
+        entries:
+          type: array
+          description: spec.tools, in order, with what each entry selects.
+          items: { $ref: "#/components/schemas/SelectionEntry" }
+        exclusions:
+          type: array
+          description: spec.exclude, in order, with what each entry removes.
+          items: { $ref: "#/components/schemas/ExclusionEntry" }
+        aliases:
+          type: array
+          description: spec.aliases, sorted by key.
+          items: { $ref: "#/components/schemas/AliasEntry" }
+        missing: { type: array, items: { type: string } }
+        unmatched: { type: array, items: { type: string } }
+        unusedAliases: { type: array, items: { type: string } }
+        conflicts: { type: array, items: { type: string } }
+
+    CatalogToolSelection:
+      type: object
+      required: [tool, state, selectedBy, excludedBy]
+      properties:
+        tool: { $ref: "#/components/schemas/ToolDefinition" }
+        state:
+          type: string
+          enum: [selected, excluded, unselected, conflict]
+          description: |
+            selected    exposed under exposedAs
+            excluded    matched by spec.tools, removed by spec.exclude
+            unselected  no entry of spec.tools matches it
+            conflict    selected, but the set would expose another tool under the same name, so neither is exposed
+        exposedAs:
+          type: string
+          description: The name agents see, after prefix and alias. Set when state is selected or conflict.
+        renamedBy:
+          type: string
+          enum: [prefix, alias]
+          description: Set when exposedAs differs from the backend's name.
+        selectedBy:
+          type: array
+          description: The entries of spec.tools that match it.
+          items: { type: string }
+        excludedBy:
+          type: array
+          description: The entries of spec.exclude that match it.
+          items: { type: string }
+
+    SelectionEntry:
+      type: object
+      required: [entry, kind, outcome, selects]
+      properties:
+        entry: { type: string }
+        kind:
+          type: string
+          enum: [name, pattern]
+        outcome:
+          type: string
+          enum: [ok, missing, unmatched, excluded]
+          description: |
+            ok         selects at least one tool
+            missing    an exact name the catalog lacks
+            unmatched  a pattern that selects nothing, after exclusion
+            excluded   an exact name spec.exclude removes again
+        selects:
+          type: array
+          description: Backend names this entry contributes, after exclusion.
+          items: { type: string }
+
+    ExclusionEntry:
+      type: object
+      required: [entry, kind, removes]
+      properties:
+        entry: { type: string }
+        kind:
+          type: string
+          enum: [name, pattern]
+        removes:
+          type: array
+          description: Backend names spec.tools would have selected and this entry removes.
+          items: { type: string }
+
+    AliasEntry:
+      type: object
+      required: [tool, alias, used]
+      properties:
+        tool: { type: string, description: The backend's name. }
+        alias: { type: string, description: The name agents see. }
+        used:
+          type: boolean
+          description: Whether the set selects the tool the key names.
+
+    # ---------------------------------------------------------------- capabilities
+
+    CapabilitySpec:
+      type: object
+      required: [toolSets]
+      properties:
+        description: { type: string }
+        toolSets: { type: array, items: { type: string } }
+
+    CapabilityStatus:
+      type: object
+      required: [conditions]
+      properties:
+        observedGeneration: { type: integer, format: int64 }
+        conditions:
+          type: array
+          items: { $ref: "#/components/schemas/Condition" }
+
+    CapabilitySummary:
+      type: object
+      required: [meta, spec, status]
+      properties:
+        meta: { $ref: "#/components/schemas/Meta" }
+        spec: { $ref: "#/components/schemas/CapabilitySpec" }
+        status: { $ref: "#/components/schemas/CapabilityStatus" }
+
+    CapabilityList:
+      type: object
+      required: [items, source]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/CapabilitySummary" }
+        source: { $ref: "#/components/schemas/Source" }
+
+    ResolvedTool:
+      description: A tool under the name agents see, and where it comes from.
+      type: object
+      required: [name, ref, toolSets, available]
+      properties:
+        name: { type: string }
+        ref: { $ref: "#/components/schemas/ToolRef" }
+        toolSets:
+          type: array
+          description: The tool sets that claim the tool under this name. Several tool sets reaching one backend tool under one name are one tool, not a conflict.
+          items: { type: string }
+        available:
+          type: boolean
+          description: Whether the gateway offers it right now — the server's catalog is usable and holds the tool. A tool set naming a tool claims it whether or not the backend has it.
+
+    NameConflict:
+      type: object
+      required: [name, claimants]
+      properties:
+        name: { type: string }
+        claimants:
+          type: array
+          items: { $ref: "#/components/schemas/ResolvedTool" }
+
+    Capability:
+      allOf:
+        - $ref: "#/components/schemas/CapabilitySummary"
+        - type: object
+          required: [grantedBy, tools, conflicts, missingToolSets, source]
+          properties:
+            grantedBy:
+              type: array
+              description: The grants that list this capability.
+              items: { type: string }
+            tools:
+              type: array
+              description: What the capability comes to, sorted by name. Names in conflicts are not here.
+              items: { $ref: "#/components/schemas/ResolvedTool" }
+            conflicts:
+              type: array
+              items: { $ref: "#/components/schemas/NameConflict" }
+            missingToolSets: { type: array, items: { type: string } }
+            source: { $ref: "#/components/schemas/Source" }
+
+    # ---------------------------------------------------------------- grants
+
+    GrantSpec:
+      type: object
+      required: [subject, capabilities]
+      properties:
+        subject: { type: string }
+        capabilities: { type: array, items: { type: string } }
+
+    GrantStatus:
+      type: object
+      required: [conditions]
+      properties:
+        observedGeneration: { type: integer, format: int64 }
+        conditions:
+          type: array
+          items: { $ref: "#/components/schemas/Condition" }
+
+    GrantSummary:
+      type: object
+      required: [meta, spec, status]
+      properties:
+        meta: { $ref: "#/components/schemas/Meta" }
+        spec: { $ref: "#/components/schemas/GrantSpec" }
+        status: { $ref: "#/components/schemas/GrantStatus" }
+
+    GrantList:
+      type: object
+      required: [items, source]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/GrantSummary" }
+        source: { $ref: "#/components/schemas/Source" }
+
+    Grant:
+      allOf:
+        - $ref: "#/components/schemas/GrantSummary"
+        - type: object
+          required: [missingCapabilities, sameSubject, source]
+          properties:
+            missingCapabilities:
+              type: array
+              description: Names in spec.capabilities no MCPCapability has. They grant nothing; the rest of the grant still applies.
+              items: { type: string }
+            sameSubject:
+              type: array
+              description: The other grants naming the same subject. A subject gets the union of all of them.
+              items: { type: string }
+            source: { $ref: "#/components/schemas/Source" }
+
+    # ---------------------------------------------------------------- subjects
+
+    SubjectSummary:
+      type: object
+      required: [subject, grants, toolCount]
+      properties:
+        subject: { type: string }
+        grants: { type: array, items: { type: string } }
+        toolCount:
+          type: integer
+          description: How many tools the subject is offered right now.
+
+    SubjectList:
+      type: object
+      required: [items, source]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/SubjectSummary" }
+        source: { $ref: "#/components/schemas/Source" }
+
+    GrantPath:
+      description: One way a tool reaches a subject.
+      type: object
+      required: [grant, capability, toolSet]
+      properties:
+        grant: { type: string }
+        capability: { type: string }
+        toolSet: { type: string }
+
+    SubjectTool:
+      type: object
+      required: [name, state, claimants]
+      properties:
+        name:
+          type: string
+          description: The name agents see.
+        state:
+          type: string
+          enum: [offered, conflict, unavailable]
+          description: |
+            offered      in the subject's tools/list
+            conflict     more than one backend tool claims the name, so neither is offered
+            unavailable  resolved, but the server's catalog is not usable, or no longer has the tool
+        claimants:
+          type: array
+          description: The backend tools behind the name — one unless state is conflict — each with every path it is granted through.
+          items: { $ref: "#/components/schemas/SubjectToolClaimant" }
+
+    SubjectToolClaimant:
+      type: object
+      required: [ref, paths]
+      properties:
+        ref: { $ref: "#/components/schemas/ToolRef" }
+        definition:
+          # Absent when the server's catalog is not usable, or lacks the tool.
+          $ref: "#/components/schemas/ToolDefinition"
+        paths:
+          type: array
+          items: { $ref: "#/components/schemas/GrantPath" }
+
+    Subject:
+      type: object
+      required: [subject, grants, tools, missingCapabilities, missingToolSets, missingServers, instructions, source]
+      properties:
+        subject: { type: string }
+        grants:
+          type: array
+          description: The grants naming this subject.
+          items: { type: string }
+        tools:
+          type: array
+          description: Sorted by name.
+          items: { $ref: "#/components/schemas/SubjectTool" }
+        missingCapabilities: { type: array, items: { type: string } }
+        missingToolSets: { type: array, items: { type: string } }
+        missingServers: { type: array, items: { type: string } }
+        instructions:
+          type: string
+          description: The instructions this subject is sent in its server/discover answer, exactly as the gateway assembles them.
+        source: { $ref: "#/components/schemas/Source" }

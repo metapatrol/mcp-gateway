@@ -54,6 +54,7 @@ graph TB
 | `internal/controller` | The control plane: verification and status |
 | `internal/proxy` | `mcp-gateway-proxy` |
 | `internal/metrics` | Prometheus metrics of all three binaries |
+| `internal/inspect` | The gateway's read-only inspect API; `internal/inspect/api` is generated from `api/openapi/inspect.yaml` |
 
 ## Why the controller is not in the request path
 
@@ -331,6 +332,36 @@ generation.
 | The OAuth provider is down | JWTs keep verifying against the last fetched key set. Introspection fails with 500, not 401, so clients do not start refetching tokens from the provider that is down. |
 | The controller is down | Nothing changes for agents. Status goes stale. |
 | The gateway starts before the API is readable | It is not ready until it has built its first policy snapshot, and serves no traffic before. |
+
+## Inspect API
+
+The console needs things only a running gateway has: backend catalogs with each
+tool's description and input schema, the instructions a subject is sent, and why
+a tool set selects what it does. Status cannot carry them, because a catalog can
+be megabytes. The gateway serves them itself, read-only, on a listener of its
+own (`--inspect-bind-address`, off by default), behind a Service of its own.
+The MCP listener never serves it: it shows every subject's grants and every
+backend's catalog, and agents must not read that.
+
+It is defined in [`api/openapi/inspect.yaml`](../api/openapi/inspect.yaml),
+and the spec comes first. `make generate-api` generates the types and the
+server interface from it, and `internal/inspect` implements that interface, so
+a handler that strays from the spec does not compile. A test regenerates the
+code and fails when the committed file is stale; another fails when a field of
+the four kinds is missing from the spec.
+
+Readers authenticate with a ServiceAccount token issued for the audience
+`mcp-gateway-inspect`, which the gateway checks by TokenReview against
+`--inspect-service-accounts`. The pod's default token is refused: it is good
+for the Kubernetes API, and a token that opened both would be worth more to
+whoever captured it.
+
+Every answer is one replica's view and says which (`source.replica`). Replicas
+discover independently, so two of them can differ for up to a discovery
+interval. Resolution goes through `internal/policy` against the catalogs the
+gateway serves, and `policy.Explain` keeps the reasons `policy.Select` drops;
+its selection is `Select`'s, so the explanation cannot disagree with
+enforcement.
 
 ## Network model
 

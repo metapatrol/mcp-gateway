@@ -45,6 +45,10 @@ Kubernetes-native access layer for MCP backends — one governed MCP endpoint, t
 | gateway.image.pullPolicy | string | `"IfNotPresent"` |  |
 | gateway.image.repository | string | `"zot.metapatrol.local/images/platform/mcp-gateway"` |  |
 | gateway.image.tag | string | `""` |  |
+| gateway.inspect.bindAddress | string | `":8095"` |  |
+| gateway.inspect.enabled | bool | `false` |  |
+| gateway.inspect.serviceAccounts | list | `[]` |  |
+| gateway.inspect.tokenAudience | string | `"mcp-gateway-inspect"` |  |
 | gateway.mcpBindAddress | string | `":8090"` |  |
 | gateway.mcpPath | string | `"/mcp"` |  |
 | gateway.metricsBindAddress | string | `":8080"` |  |
@@ -79,6 +83,8 @@ Kubernetes-native access layer for MCP backends — one governed MCP endpoint, t
 | networkPolicy.agentNamespaceSelector | object | `{}` |  |
 | networkPolicy.agentPodSelector | object | `{}` |  |
 | networkPolicy.enabled | bool | `false` |  |
+| networkPolicy.inspectNamespaceSelector | object | `{}` |  |
+| networkPolicy.inspectPodSelector | object | `{}` |  |
 | networkPolicy.monitoringNamespaceSelector | object | `{}` |  |
 | rbac.create | bool | `true` |  |
 | serviceMonitor.additionalLabels | object | `{}` |  |

@@ -22,6 +22,7 @@ import (
 	"forgejo.metapatrol.local/platform/mcp-gateway/internal/credentials"
 	"forgejo.metapatrol.local/platform/mcp-gateway/internal/discovery"
 	"forgejo.metapatrol.local/platform/mcp-gateway/internal/gateway"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/inspect"
 	"forgejo.metapatrol.local/platform/mcp-gateway/internal/metrics"
 )
 
@@ -57,6 +58,10 @@ func main() {
 	var connectTimeout time.Duration
 	var secretNamespace string
 
+	var inspectAddr string
+	var inspectAudience string
+	var inspectServiceAccounts string
+
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metrics endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the health probe endpoint binds to.")
 	flag.StringVar(&mcpAddr, "mcp-bind-address", ":8090", "The address the MCP endpoint binds to.")
@@ -79,7 +84,15 @@ func main() {
 	flag.DurationVar(&callTimeout, "call-timeout", 5*time.Minute, "Upper bound on a forwarded tool call.")
 	flag.DurationVar(&connectTimeout, "backend-connect-timeout", 10*time.Second, "How long the MCP handshake with a backend may take.")
 	flag.StringVar(&secretNamespace, "secret-namespace", "", "Namespace the Secrets named in MCPServer spec.auth are read from. Defaults to the namespace this pod runs in.")
+	flag.StringVar(&inspectAddr, "inspect-bind-address", "", "The address the read-only inspect API binds to. Empty turns it off.")
+	flag.StringVar(&inspectAudience, "inspect-token-audience", "mcp-gateway-inspect", "Audience a ServiceAccount token must have been issued for to read the inspect API.")
+	flag.StringVar(&inspectServiceAccounts, "inspect-service-accounts", "", "Comma-separated ServiceAccounts, as namespace/name, that may read the inspect API.")
 	flag.Parse()
+
+	if inspectAddr != "" && len(splitList(inspectServiceAccounts)) == 0 {
+		fmt.Fprintln(os.Stderr, "--inspect-bind-address needs --inspect-service-accounts: the inspect API is never open to whoever reaches the port")
+		os.Exit(1)
+	}
 
 	if logFormat != "text" && logFormat != "json" {
 		fmt.Fprintf(os.Stderr, "invalid --log-format %q: must be text or json\n", logFormat)
@@ -178,6 +191,27 @@ func main() {
 	if err := mgr.Add(&gateway.HTTPServer{Addr: mcpAddr, Handler: handler, Log: gatewayLog.Info}); err != nil {
 		setupLog.Error(err, "unable to add the MCP server")
 		os.Exit(1)
+	}
+
+	if inspectAddr != "" {
+		replica, _ := os.Hostname()
+		reviewer := &inspect.TokenReviewer{
+			Client:          mgr.GetClient(),
+			Audience:        inspectAudience,
+			ServiceAccounts: splitList(inspectServiceAccounts),
+		}
+		inspectLog := ctrl.Log.WithName("inspect")
+		api := inspect.Handler(&inspect.Server{
+			Reader:   mgr.GetClient(),
+			Gateway:  gw,
+			Registry: registry,
+			Replica:  replica,
+		}, reviewer.Middleware, inspectLog)
+		if err := mgr.Add(&gateway.HTTPServer{Name: "the inspect API", Addr: inspectAddr, Handler: api, Log: inspectLog.Info}); err != nil {
+			setupLog.Error(err, "unable to add the inspect API server")
+			os.Exit(1)
+		}
+		setupLog.Info("serving the inspect API", "address", inspectAddr, "serviceAccounts", reviewer.ServiceAccounts, "audience", inspectAudience)
 	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

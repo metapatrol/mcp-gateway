@@ -216,6 +216,19 @@ func (r *Registry) Catalog(name string) (*Catalog, Health, bool) {
 	return e.catalog, Health{LastSuccess: e.lastSuccess, Failures: e.failures, LastError: e.lastErr}, true
 }
 
+// Health returns what the registry knows about a backend's discoveries, also
+// for one that has never been discovered successfully. The bool is false for a
+// backend that is not registered.
+func (r *Registry) Health(name string) (Health, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	e, ok := r.entries[name]
+	if !ok {
+		return Health{}, false
+	}
+	return Health{LastSuccess: e.lastSuccess, Failures: e.failures, LastError: e.lastErr}, true
+}
+
 // Backend returns a registered backend.
 func (r *Registry) Backend(name string) (*Backend, bool) {
 	r.mu.RLock()

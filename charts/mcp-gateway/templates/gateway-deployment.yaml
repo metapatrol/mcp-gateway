@@ -2,6 +2,10 @@
 {{- if and (not $oauth.jwksURL) (not $oauth.introspection.url) -}}
 {{- fail "gateway.oauth: set jwksURL, introspection.url, or both — the gateway refuses to start without a way to verify tokens" -}}
 {{- end -}}
+{{- $inspect := .Values.gateway.inspect -}}
+{{- if and $inspect.enabled (not $inspect.serviceAccounts) -}}
+{{- fail "gateway.inspect: set serviceAccounts — the inspect API is never open to whoever reaches the port" -}}
+{{- end -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -74,6 +78,11 @@ spec:
             {{- end }}
             - --catalog-max-age={{ .Values.gateway.catalogMaxAge }}
             - --call-timeout={{ .Values.gateway.callTimeout }}
+            {{- if $inspect.enabled }}
+            - --inspect-bind-address={{ $inspect.bindAddress }}
+            - --inspect-token-audience={{ $inspect.tokenAudience }}
+            - --inspect-service-accounts={{ join "," $inspect.serviceAccounts }}
+            {{- end }}
           {{- if or $oauth.introspection.clientSecretRef.name .Values.gateway.env }}
           env:
             {{- with $oauth.introspection.clientSecretRef }}
@@ -99,6 +108,11 @@ spec:
             - name: health
               containerPort: {{ include "mcp-gateway.port" .Values.gateway.healthProbeBindAddress }}
               protocol: TCP
+            {{- if $inspect.enabled }}
+            - name: inspect
+              containerPort: {{ include "mcp-gateway.port" $inspect.bindAddress }}
+              protocol: TCP
+            {{- end }}
           livenessProbe:
             httpGet:
               path: /healthz

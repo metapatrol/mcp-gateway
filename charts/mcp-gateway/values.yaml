@@ -106,6 +106,20 @@ gateway:
   # Upper bound on a forwarded tool call.
   callTimeout: 5m
 
+  # The read-only inspect API: the four kinds, the backends' catalogs with their
+  # tool descriptions, and what each subject resolves to, as this replica sees
+  # them. The console reads it. It is served on a port of its own, behind a
+  # Service of its own, never on the MCP port: agents must not read it.
+  inspect:
+    enabled: false
+    bindAddress: ":8095"
+    # Audience the reader's ServiceAccount token must have been issued for.
+    # A token for any other audience — the pod's default one included — is
+    # refused.
+    tokenAudience: mcp-gateway-inspect
+    # ServiceAccounts, as namespace/name, that may read it.
+    serviceAccounts: []
+
   resources:
     requests:
       cpu: 100m
@@ -135,6 +149,10 @@ networkPolicy:
   agentPodSelector: {}
   # Namespaces allowed to scrape metrics and probe health.
   monitoringNamespaceSelector: {}
+  # Who may reach the inspect API's port, when gateway.inspect is enabled. The
+  # API checks every reader's token besides.
+  inspectNamespaceSelector: {}
+  inspectPodSelector: {}
 
 # Prometheus scraping of both components. The Services are always created; only
 # the ServiceMonitor is optional, because it needs a CRD the cluster may not have.

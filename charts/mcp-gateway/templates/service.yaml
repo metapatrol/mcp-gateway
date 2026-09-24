@@ -18,6 +18,30 @@ spec:
   selector:
     {{- include "mcp-gateway.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: gateway
+{{- if .Values.gateway.inspect.enabled }}
+---
+{{/*
+  The inspect API, apart from the MCP Service: the address agents are given
+  must not lead to it.
+*/}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "mcp-gateway.gateway.fullname" . }}-inspect
+  labels:
+    {{- include "mcp-gateway.labels" . | nindent 4 }}
+    app.kubernetes.io/component: gateway
+spec:
+  type: ClusterIP
+  ports:
+    - name: inspect
+      port: {{ include "mcp-gateway.port" .Values.gateway.inspect.bindAddress }}
+      targetPort: inspect
+      protocol: TCP
+  selector:
+    {{- include "mcp-gateway.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: gateway
+{{- end }}
 {{- range $component := list "controller" "gateway" }}
 {{- $values := index $.Values $component }}
 ---
