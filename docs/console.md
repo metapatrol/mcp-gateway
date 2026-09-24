@@ -75,6 +75,14 @@ server built as a subject's is, the same registration of each tool, the same
 instructions, asked through the same HTTP handler agents reach. A test compares
 a grant's view with what an agent holding that grant receives, byte for byte.
 
+Instructions are shown rendered as Markdown, which they usually are, or raw.
+They are written by whoever runs a backend, so the rendering does nothing a
+backend could use: HTML in them is escaped, never parsed; `javascript:`,
+`vbscript:`, `file:` and `data:` links are not made; Angular sanitizes the
+result again; and the console's Content-Security-Policy runs no inline script
+and loads no image from elsewhere. Links open in a new tab without an opener
+or a referrer. Agents receive the text as written; rendering is the console's.
+
 Tool hints — read-only, destructive, idempotent, open world — are shown only as
 far as the backend declares them, and marked as its claims: the gateway verifies
 none of them. A tool that declares nothing says "no hints declared"; MCP then

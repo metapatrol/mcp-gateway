@@ -1,19 +1,43 @@
-import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, signal } from '@angular/core';
+import { renderMarkdown } from '../core/markdown';
 
+/** Instructions, rendered as the Markdown they usually are, or raw. */
 @Component({
   selector: 'app-instructions',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="panel">
-      <header class="panel-head"><h2 class="panel-title">Instructions</h2></header>
-      @if (text()) {
-        <pre class="overflow-x-auto px-4 py-3 font-mono text-[12.5px] leading-relaxed whitespace-pre-wrap">{{ text() }}</pre>
-      } @else {
+      <header class="panel-head">
+        <h2 class="panel-title">Instructions</h2>
+        @if (text()) {
+          <div class="inline-flex overflow-hidden rounded-md border border-line text-xs" role="group" aria-label="Show as">
+            @for (m of modes; track m) {
+              <button
+                type="button"
+                class="px-2.5 py-1 capitalize not-first:border-l not-first:border-line"
+                [class]="mode() === m ? 'bg-accent-soft font-semibold text-accent-ink' : 'text-muted'"
+                [attr.aria-pressed]="mode() === m"
+                (click)="mode.set(m)"
+              >
+                {{ m }}
+              </button>
+            }
+          </div>
+        }
+      </header>
+      @if (!text()) {
         <p class="faint px-4 py-3 text-sm">No instructions.</p>
+      } @else if (mode() === 'rendered') {
+        <div class="markdown px-4 py-3" [innerHTML]="html()"></div>
+      } @else {
+        <pre class="overflow-x-auto px-4 py-3 font-mono text-[12.5px] leading-relaxed whitespace-pre-wrap">{{ text() }}</pre>
       }
     </section>
   `,
 })
 export class InstructionsPanel {
   readonly text = input<string | undefined>();
+  protected readonly modes = ['rendered', 'raw'] as const;
+  protected readonly mode = signal<'rendered' | 'raw'>('rendered');
+  protected readonly html = computed(() => renderMarkdown(this.text() ?? ''));
 }

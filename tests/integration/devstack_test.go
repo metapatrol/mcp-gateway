@@ -195,7 +195,14 @@ func devBackends(t *testing.T) map[string]*mcptest.Backend {
 			"Search and read the source of every repository this platform indexes. Every response carries a \"completeness\" field; treat a partial answer as incomplete evidence rather than as proof that something does not exist."),
 		"artifact": mcptest.NewBackendWithInstructions(t, "artifact",
 			"Before starting work, search whether somebody already published the answer. Publish results that are worth keeping."),
-		"memory":  mcptest.NewBackend(t, "memory"),
+		// Markdown, as instructions usually are — with HTML a backend should
+		// not be able to run in the console, which shows it as text.
+		"memory": mcptest.NewBackendWithInstructions(t, "memory", "## Memory\n\n"+
+			"**Search before you store.** Duplicates make recall worse.\n\n"+
+			"- `memory_search` first, with the user's words\n"+
+			"- `memory_store` only for facts that will matter later\n\n"+
+			"See the [memory guide](https://example.com/memory).\n\n"+
+			"<img src=x onerror=\"alert('xss')\"> <script>alert('xss')</script> [x](javascript:alert('xss'))"),
 		"tickets": mcptest.NewBackend(t, "tickets"),
 		"search":  mcptest.NewBackend(t, "search"),
 		"weather": mcptest.NewBackendWithInstructions(t, "weather", "Resolve a place with search first; the other tools take its location_id."),
