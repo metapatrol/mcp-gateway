@@ -49,6 +49,7 @@ Kubernetes-native access layer for MCP backends — one governed MCP endpoint, t
 | gateway.inspect.enabled | bool | `false` |  |
 | gateway.inspect.serviceAccounts | list | `[]` |  |
 | gateway.inspect.tokenAudience | string | `"mcp-gateway-inspect"` |  |
+| gateway.instructions | string | `""` |  |
 | gateway.mcpBindAddress | string | `":8090"` |  |
 | gateway.mcpPath | string | `"/mcp"` |  |
 | gateway.metricsBindAddress | string | `":8080"` |  |

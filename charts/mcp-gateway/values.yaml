@@ -106,6 +106,17 @@ gateway:
   # Upper bound on a forwarded tool call.
   callTimeout: 5m
 
+  # Instructions of the gateway's own, sent to every agent in its
+  # server/discover answer ahead of the instructions of the backends it
+  # reaches — what applies to every tool, whichever backend it comes from.
+  # Markdown is fine; the text goes to the model as written. Empty sends
+  # only the backends' instructions. A change rolls the gateway, which reads
+  # the text at startup.
+  instructions: ""
+  #  instructions: |
+  #    You reach the platform's tools through mcp-gateway. Prefer read-only
+  #    tools; ask before anything that publishes or deletes.
+
   # The read-only inspect API: the four kinds, the backends' catalogs with their
   # tool descriptions, and what each subject resolves to, as this replica sees
   # them. The console reads it. It is served on a port of its own, behind a

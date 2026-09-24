@@ -210,9 +210,11 @@ reports describe what the gateway enforces.
 Backends tell clients how to use their tools in their `instructions`. The
 gateway reads them at discovery and passes them on in its own `server/discover`
 answer — assembled per request, from the backends the subject holds at least one
-tool from:
+tool from, after a text of the gateway's own if one is configured:
 
 ```text
+<the gateway's own instructions, if any>
+
 ## artifact
 
 Tools from this server: artifact_get, artifact_search
@@ -225,6 +227,13 @@ Tools from this server: code.search, code.symbol
 
 <the source-intelligence backend's instructions>
 ```
+
+The gateway's own text is for what applies to every tool, whichever backend it
+comes from — house rules, the platform's conventions. It is set with
+`--instructions`, or `--instructions-file` for more than a line; the chart takes
+it as `gateway.instructions`, puts it in a ConfigMap, and rolls the gateway when
+it changes, since it is read at startup. Every agent gets it, including one
+whose grants reach no backend.
 
 A backend the subject has no tool from contributes nothing, so its instructions
 reveal nothing about it. The tool line is there because tools are exposed under

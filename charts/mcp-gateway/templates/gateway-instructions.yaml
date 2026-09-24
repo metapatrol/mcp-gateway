@@ -1,0 +1,15 @@
+{{- if .Values.gateway.instructions }}
+{{/*
+  The gateway's own instructions, as a file: they run to several lines, and a
+  flag would put them in the process list.
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "mcp-gateway.gateway.fullname" . }}-instructions
+  labels:
+    {{- include "mcp-gateway.labels" . | nindent 4 }}
+    app.kubernetes.io/component: gateway
+data:
+  instructions.md: {{ .Values.gateway.instructions | toYaml | indent 2 | trim }}
+{{- end }}

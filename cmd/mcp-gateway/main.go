@@ -57,6 +57,8 @@ func main() {
 	var callTimeout time.Duration
 	var connectTimeout time.Duration
 	var secretNamespace string
+	var instructions string
+	var instructionsFile string
 
 	var inspectAddr string
 	var inspectAudience string
@@ -84,10 +86,25 @@ func main() {
 	flag.DurationVar(&callTimeout, "call-timeout", 5*time.Minute, "Upper bound on a forwarded tool call.")
 	flag.DurationVar(&connectTimeout, "backend-connect-timeout", 10*time.Second, "How long the MCP handshake with a backend may take.")
 	flag.StringVar(&secretNamespace, "secret-namespace", "", "Namespace the Secrets named in MCPServer spec.auth are read from. Defaults to the namespace this pod runs in.")
+	flag.StringVar(&instructions, "instructions", "", "Text sent to every agent in its server/discover answer, ahead of the instructions of the backends it reaches.")
+	flag.StringVar(&instructionsFile, "instructions-file", "", "File holding that text, for more than a line. Set one of --instructions and --instructions-file.")
 	flag.StringVar(&inspectAddr, "inspect-bind-address", "", "The address the read-only inspect API binds to. Empty turns it off.")
 	flag.StringVar(&inspectAudience, "inspect-token-audience", "mcp-gateway-inspect", "Audience a ServiceAccount token must have been issued for to read the inspect API.")
 	flag.StringVar(&inspectServiceAccounts, "inspect-service-accounts", "", "Comma-separated ServiceAccounts, as namespace/name, that may read the inspect API.")
 	flag.Parse()
+
+	if instructions != "" && instructionsFile != "" {
+		fmt.Fprintln(os.Stderr, "set one of --instructions and --instructions-file, not both")
+		os.Exit(1)
+	}
+	if instructionsFile != "" {
+		b, err := os.ReadFile(instructionsFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "reading --instructions-file: %v\n", err)
+			os.Exit(1)
+		}
+		instructions = string(b)
+	}
 
 	if inspectAddr != "" && len(splitList(inspectServiceAccounts)) == 0 {
 		fmt.Fprintln(os.Stderr, "--inspect-bind-address needs --inspect-service-accounts: the inspect API is never open to whoever reaches the port")
@@ -153,10 +170,14 @@ func main() {
 	gw := gateway.New(gateway.Options{
 		Registry:       registry,
 		Implementation: &mcp.Implementation{Name: "mcp-gateway", Version: version},
+		Instructions:   instructions,
 		CatalogMaxAge:  catalogMaxAge,
 		CallTimeout:    callTimeout,
 		Logger:         gatewayLog,
 	})
+	if text := strings.TrimSpace(instructions); text != "" {
+		setupLog.Info("sending instructions of its own to agents", "bytes", len(text))
+	}
 	catalogs = gateway.NewCatalogReconciler(mgr.GetClient(), registry, gw)
 
 	controllers := []interface {

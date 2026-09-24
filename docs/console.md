@@ -58,7 +58,7 @@ like read access to the four kinds.
 | Tool sets | The entries of `tools`, `exclude`, `prefix` and `aliases` beside the whole catalog, and for every tool whether it is exposed, under which name, and which entry decided it. Selecting an entry marks the tools it selected or removed |
 | Capabilities | Its tool sets, the grants that use it, the tools it comes to, and name conflicts |
 | Grants | Its subject, its capabilities, the ones that do not exist, and the other grants for the same subject |
-| Subjects | For any subject — typed in, or picked from those grants name — every tool it is offered with every path it is granted through, the tools it is not offered and why, and the instructions text it is sent at start |
+| Subjects | For any subject — typed in, or picked from those grants name — every tool it is offered with every path it is granted through, the tools it is not offered and why, and the instructions text it is sent at start: the gateway's own (`gateway.instructions`) followed by those of the backends it holds tools from |
 
 Small tags mark where a value comes from: `spec` as written, `status` as the
 controller reported it, `gateway` live from the replica that answered. They can
