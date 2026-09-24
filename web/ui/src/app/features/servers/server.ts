@@ -9,13 +9,13 @@ import { ago, shortRevision } from '../../core/time';
 import { ConditionPill, Pill } from '../../shared/condition-pill';
 import { ConditionsTable } from '../../shared/conditions-table';
 import { LoadState } from '../../shared/load-state';
-import { RawTools } from '../../shared/raw-tools';
+import { McpView } from '../../shared/mcp-view';
 import { DetailView, ViewSwitch } from '../../shared/view-switch';
 import { ToolDoc } from '../../shared/tool-doc';
 
 @Component({
   selector: 'app-server',
-  imports: [RouterLink, ConditionPill, Pill, ConditionsTable, LoadState, ToolDoc, RawTools, ViewSwitch],
+  imports: [RouterLink, ConditionPill, Pill, ConditionsTable, LoadState, ToolDoc, McpView, ViewSwitch],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './server.html',
 })

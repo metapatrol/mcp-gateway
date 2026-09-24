@@ -8,14 +8,14 @@ import { shortRevision } from '../../core/time';
 import { ConditionPill } from '../../shared/condition-pill';
 import { ConditionsTable } from '../../shared/conditions-table';
 import { LoadState } from '../../shared/load-state';
-import { RawTools } from '../../shared/raw-tools';
+import { McpView } from '../../shared/mcp-view';
 import { DetailView, ViewSwitch } from '../../shared/view-switch';
 import { ToolDoc } from '../../shared/tool-doc';
 import { disagreement, Filter, filtered, reason, touchedBy } from './selection';
 
 @Component({
   selector: 'app-toolset',
-  imports: [RouterLink, ConditionPill, ConditionsTable, LoadState, ToolDoc, RawTools, ViewSwitch],
+  imports: [RouterLink, ConditionPill, ConditionsTable, LoadState, ToolDoc, McpView, ViewSwitch],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './toolset.html',
 })

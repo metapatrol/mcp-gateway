@@ -235,6 +235,24 @@ type APIKeyAuth struct {
 	SecretRef SecretKeyRef `json:"secretRef"`
 }
 
+// AgentExchange What an agent receives from the gateway, as it receives it: the
+// JSON-RPC responses to server/discover and to tools/list, written by
+// the same server construction and HTTP handler agents reach — envelope,
+// server info, cache hints, instructions and tools included.
+//
+// For a tool set, a capability and a grant it is what an agent holding
+// that resource alone would receive; for a subject, what it receives,
+// all of its grants together. Tools are under the names agents call
+// them by; conflicting names and tools of catalogs not served are not
+// in it, as they are not for agents.
+type AgentExchange struct {
+	// Discover The JSON-RPC response to server/discover.
+	Discover json.RawMessage `json:"discover"`
+
+	// ToolsList The JSON-RPC responses to tools/list, one per page, following nextCursor.
+	ToolsList []json.RawMessage `json:"toolsList"`
+}
+
 // AliasEntry defines model for AliasEntry.
 type AliasEntry struct {
 	// Alias The name agents see.
@@ -257,6 +275,18 @@ type BackendAuth struct {
 
 // BackendAuthType defines model for BackendAuth.Type.
 type BackendAuthType string
+
+// BackendExchange What a backend answered this replica's discovery, as the MCP SDK read
+// it: the result of opening the session (server info, protocol version,
+// capabilities, instructions) and each tools/list result. Re-encoded
+// from what the SDK parsed, not the bytes on the wire — readOnlyHint
+// and idempotentHint, for one, read false when the backend left them
+// out. Absent parts were never read: the replica has not discovered the
+// backend yet.
+type BackendExchange struct {
+	Handshake *json.RawMessage  `json:"handshake,omitempty"`
+	ToolsList []json.RawMessage `json:"toolsList"`
+}
 
 // Capability defines model for Capability.
 type Capability struct {
@@ -821,20 +851,6 @@ type ToolSetSummary struct {
 	Status ToolSetStatus `json:"status"`
 }
 
-// ToolsList A tools/list result, as an MCP client receives it: every tool as MCP
-// defines a tool, under the name an agent calls it by.
-//
-// For a server it is the catalog as the backend lists it, read by this
-// replica, however old. For a tool set, a capability and a grant it is
-// what that resource hands out, on its own, as this replica serves it:
-// prefixes and aliases applied, the backends' definitions otherwise
-// unchanged, conflicting names and tools of catalogs not served left
-// out. A subject is offered the union of its grants.
-type ToolsList struct {
-	// Tools Sorted by name.
-	Tools []map[string]interface{} `json:"tools"`
-}
-
 // Name defines model for Name.
 type Name = string
 
@@ -849,6 +865,11 @@ type GetSubjectParams struct {
 	Subject string `form:"subject" json:"subject"`
 }
 
+// GetSubjectMCPParams defines parameters for GetSubjectMCP.
+type GetSubjectMCPParams struct {
+	Subject string `form:"subject" json:"subject"`
+}
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// ListCapabilities List the MCPCapabilities
@@ -857,9 +878,9 @@ type ServerInterface interface {
 	// GetCapability Get one MCPCapability with the tools it comes to
 	// (GET /capabilities/{name})
 	GetCapability(w http.ResponseWriter, r *http.Request, name Name)
-	// ListCapabilityTools What the capability hands out, as tools/list
-	// (GET /capabilities/{name}/tools)
-	ListCapabilityTools(w http.ResponseWriter, r *http.Request, name Name)
+	// GetCapabilityMCP What an agent holding the capability receives
+	// (GET /capabilities/{name}/mcp)
+	GetCapabilityMCP(w http.ResponseWriter, r *http.Request, name Name)
 	// WatchEvents Stream notifications of changes
 	// (GET /events)
 	WatchEvents(w http.ResponseWriter, r *http.Request)
@@ -869,21 +890,24 @@ type ServerInterface interface {
 	// GetGrant Get one MCPGrant
 	// (GET /grants/{name})
 	GetGrant(w http.ResponseWriter, r *http.Request, name Name)
-	// ListGrantTools What the grant hands out, as tools/list
-	// (GET /grants/{name}/tools)
-	ListGrantTools(w http.ResponseWriter, r *http.Request, name Name)
+	// GetGrantMCP What an agent holding the grant receives
+	// (GET /grants/{name}/mcp)
+	GetGrantMCP(w http.ResponseWriter, r *http.Request, name Name)
 	// ListServers List the MCPServers
 	// (GET /servers)
 	ListServers(w http.ResponseWriter, r *http.Request)
 	// GetServer Get one MCPServer with its catalog
 	// (GET /servers/{name})
 	GetServer(w http.ResponseWriter, r *http.Request, name Name)
-	// ListServerTools The server's catalog, as tools/list
-	// (GET /servers/{name}/tools)
-	ListServerTools(w http.ResponseWriter, r *http.Request, name Name)
+	// GetServerMCP What the backend answered the gateway
+	// (GET /servers/{name}/mcp)
+	GetServerMCP(w http.ResponseWriter, r *http.Request, name Name)
 	// GetSubject Resolve what one subject gets
 	// (GET /subject)
 	GetSubject(w http.ResponseWriter, r *http.Request, params GetSubjectParams)
+	// GetSubjectMCP What the subject receives
+	// (GET /subject/mcp)
+	GetSubjectMCP(w http.ResponseWriter, r *http.Request, params GetSubjectMCPParams)
 	// ListSubjects List the subjects that grants name
 	// (GET /subjects)
 	ListSubjects(w http.ResponseWriter, r *http.Request)
@@ -893,9 +917,9 @@ type ServerInterface interface {
 	// GetToolSet Get one MCPToolSet with an explanation of its selection
 	// (GET /toolsets/{name})
 	GetToolSet(w http.ResponseWriter, r *http.Request, name Name)
-	// ListToolSetTools What the tool set hands out, as tools/list
-	// (GET /toolsets/{name}/tools)
-	ListToolSetTools(w http.ResponseWriter, r *http.Request, name Name)
+	// GetToolSetMCP What an agent holding the tool set receives
+	// (GET /toolsets/{name}/mcp)
+	GetToolSetMCP(w http.ResponseWriter, r *http.Request, name Name)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -947,8 +971,8 @@ func (siw *ServerInterfaceWrapper) GetCapability(w http.ResponseWriter, r *http.
 	handler.ServeHTTP(w, r)
 }
 
-// ListCapabilityTools operation middleware
-func (siw *ServerInterfaceWrapper) ListCapabilityTools(w http.ResponseWriter, r *http.Request) {
+// GetCapabilityMCP operation middleware
+func (siw *ServerInterfaceWrapper) GetCapabilityMCP(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 	_ = err
@@ -963,7 +987,7 @@ func (siw *ServerInterfaceWrapper) ListCapabilityTools(w http.ResponseWriter, r 
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListCapabilityTools(w, r, name)
+		siw.Handler.GetCapabilityMCP(w, r, name)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1027,8 +1051,8 @@ func (siw *ServerInterfaceWrapper) GetGrant(w http.ResponseWriter, r *http.Reque
 	handler.ServeHTTP(w, r)
 }
 
-// ListGrantTools operation middleware
-func (siw *ServerInterfaceWrapper) ListGrantTools(w http.ResponseWriter, r *http.Request) {
+// GetGrantMCP operation middleware
+func (siw *ServerInterfaceWrapper) GetGrantMCP(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 	_ = err
@@ -1043,7 +1067,7 @@ func (siw *ServerInterfaceWrapper) ListGrantTools(w http.ResponseWriter, r *http
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListGrantTools(w, r, name)
+		siw.Handler.GetGrantMCP(w, r, name)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1093,8 +1117,8 @@ func (siw *ServerInterfaceWrapper) GetServer(w http.ResponseWriter, r *http.Requ
 	handler.ServeHTTP(w, r)
 }
 
-// ListServerTools operation middleware
-func (siw *ServerInterfaceWrapper) ListServerTools(w http.ResponseWriter, r *http.Request) {
+// GetServerMCP operation middleware
+func (siw *ServerInterfaceWrapper) GetServerMCP(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 	_ = err
@@ -1109,7 +1133,7 @@ func (siw *ServerInterfaceWrapper) ListServerTools(w http.ResponseWriter, r *htt
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListServerTools(w, r, name)
+		siw.Handler.GetServerMCP(w, r, name)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1143,6 +1167,39 @@ func (siw *ServerInterfaceWrapper) GetSubject(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetSubject(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetSubjectMCP operation middleware
+func (siw *ServerInterfaceWrapper) GetSubjectMCP(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetSubjectMCPParams
+
+	// ------------- Required query parameter "subject" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "subject", r.URL.Query(), &params.Subject, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "subject"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "subject", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSubjectMCP(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1206,8 +1263,8 @@ func (siw *ServerInterfaceWrapper) GetToolSet(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
-// ListToolSetTools operation middleware
-func (siw *ServerInterfaceWrapper) ListToolSetTools(w http.ResponseWriter, r *http.Request) {
+// GetToolSetMCP operation middleware
+func (siw *ServerInterfaceWrapper) GetToolSetMCP(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 	_ = err
@@ -1222,7 +1279,7 @@ func (siw *ServerInterfaceWrapper) ListToolSetTools(w http.ResponseWriter, r *ht
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListToolSetTools(w, r, name)
+		siw.Handler.GetToolSetMCP(w, r, name)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1354,18 +1411,19 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/servers", wrapper.ListServers)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/servers/{name}", wrapper.GetServer)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/servers/{name}/tools", wrapper.ListServerTools)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/servers/{name}/mcp", wrapper.GetServerMCP)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/toolsets", wrapper.ListToolSets)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/toolsets/{name}", wrapper.GetToolSet)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/toolsets/{name}/tools", wrapper.ListToolSetTools)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/toolsets/{name}/mcp", wrapper.GetToolSetMCP)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/capabilities", wrapper.ListCapabilities)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/capabilities/{name}", wrapper.GetCapability)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/capabilities/{name}/tools", wrapper.ListCapabilityTools)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/capabilities/{name}/mcp", wrapper.GetCapabilityMCP)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/grants", wrapper.ListGrants)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/grants/{name}", wrapper.GetGrant)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/grants/{name}/tools", wrapper.ListGrantTools)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/grants/{name}/mcp", wrapper.GetGrantMCP)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/subjects", wrapper.ListSubjects)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/subject", wrapper.GetSubject)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/subject/mcp", wrapper.GetSubjectMCP)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/events", wrapper.WatchEvents)
 
 	return m
@@ -1502,17 +1560,17 @@ func (response GetCapabilitydefaultApplicationProblemPlusJSONResponse) VisitGetC
 	return err
 }
 
-type ListCapabilityToolsRequestObject struct {
+type GetCapabilityMCPRequestObject struct {
 	Name Name `json:"name"`
 }
 
-type ListCapabilityToolsResponseObject interface {
-	VisitListCapabilityToolsResponse(w http.ResponseWriter) error
+type GetCapabilityMCPResponseObject interface {
+	VisitGetCapabilityMCPResponse(w http.ResponseWriter) error
 }
 
-type ListCapabilityTools200JSONResponse ToolsList
+type GetCapabilityMCP200JSONResponse AgentExchange
 
-func (response ListCapabilityTools200JSONResponse) VisitListCapabilityToolsResponse(w http.ResponseWriter) error {
+func (response GetCapabilityMCP200JSONResponse) VisitGetCapabilityMCPResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -1524,11 +1582,11 @@ func (response ListCapabilityTools200JSONResponse) VisitListCapabilityToolsRespo
 	return err
 }
 
-type ListCapabilityTools401ApplicationProblemPlusJSONResponse struct {
+type GetCapabilityMCP401ApplicationProblemPlusJSONResponse struct {
 	UnauthorizedApplicationProblemPlusJSONResponse
 }
 
-func (response ListCapabilityTools401ApplicationProblemPlusJSONResponse) VisitListCapabilityToolsResponse(w http.ResponseWriter) error {
+func (response GetCapabilityMCP401ApplicationProblemPlusJSONResponse) VisitGetCapabilityMCPResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -1540,11 +1598,11 @@ func (response ListCapabilityTools401ApplicationProblemPlusJSONResponse) VisitLi
 	return err
 }
 
-type ListCapabilityTools404ApplicationProblemPlusJSONResponse struct {
+type GetCapabilityMCP404ApplicationProblemPlusJSONResponse struct {
 	NotFoundApplicationProblemPlusJSONResponse
 }
 
-func (response ListCapabilityTools404ApplicationProblemPlusJSONResponse) VisitListCapabilityToolsResponse(w http.ResponseWriter) error {
+func (response GetCapabilityMCP404ApplicationProblemPlusJSONResponse) VisitGetCapabilityMCPResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -1556,12 +1614,12 @@ func (response ListCapabilityTools404ApplicationProblemPlusJSONResponse) VisitLi
 	return err
 }
 
-type ListCapabilityToolsdefaultApplicationProblemPlusJSONResponse struct {
+type GetCapabilityMCPdefaultApplicationProblemPlusJSONResponse struct {
 	Body       Problem
 	StatusCode int
 }
 
-func (response ListCapabilityToolsdefaultApplicationProblemPlusJSONResponse) VisitListCapabilityToolsResponse(w http.ResponseWriter) error {
+func (response GetCapabilityMCPdefaultApplicationProblemPlusJSONResponse) VisitGetCapabilityMCPResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -1795,17 +1853,17 @@ func (response GetGrantdefaultApplicationProblemPlusJSONResponse) VisitGetGrantR
 	return err
 }
 
-type ListGrantToolsRequestObject struct {
+type GetGrantMCPRequestObject struct {
 	Name Name `json:"name"`
 }
 
-type ListGrantToolsResponseObject interface {
-	VisitListGrantToolsResponse(w http.ResponseWriter) error
+type GetGrantMCPResponseObject interface {
+	VisitGetGrantMCPResponse(w http.ResponseWriter) error
 }
 
-type ListGrantTools200JSONResponse ToolsList
+type GetGrantMCP200JSONResponse AgentExchange
 
-func (response ListGrantTools200JSONResponse) VisitListGrantToolsResponse(w http.ResponseWriter) error {
+func (response GetGrantMCP200JSONResponse) VisitGetGrantMCPResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -1817,11 +1875,11 @@ func (response ListGrantTools200JSONResponse) VisitListGrantToolsResponse(w http
 	return err
 }
 
-type ListGrantTools401ApplicationProblemPlusJSONResponse struct {
+type GetGrantMCP401ApplicationProblemPlusJSONResponse struct {
 	UnauthorizedApplicationProblemPlusJSONResponse
 }
 
-func (response ListGrantTools401ApplicationProblemPlusJSONResponse) VisitListGrantToolsResponse(w http.ResponseWriter) error {
+func (response GetGrantMCP401ApplicationProblemPlusJSONResponse) VisitGetGrantMCPResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -1833,11 +1891,11 @@ func (response ListGrantTools401ApplicationProblemPlusJSONResponse) VisitListGra
 	return err
 }
 
-type ListGrantTools404ApplicationProblemPlusJSONResponse struct {
+type GetGrantMCP404ApplicationProblemPlusJSONResponse struct {
 	NotFoundApplicationProblemPlusJSONResponse
 }
 
-func (response ListGrantTools404ApplicationProblemPlusJSONResponse) VisitListGrantToolsResponse(w http.ResponseWriter) error {
+func (response GetGrantMCP404ApplicationProblemPlusJSONResponse) VisitGetGrantMCPResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -1849,12 +1907,12 @@ func (response ListGrantTools404ApplicationProblemPlusJSONResponse) VisitListGra
 	return err
 }
 
-type ListGrantToolsdefaultApplicationProblemPlusJSONResponse struct {
+type GetGrantMCPdefaultApplicationProblemPlusJSONResponse struct {
 	Body       Problem
 	StatusCode int
 }
 
-func (response ListGrantToolsdefaultApplicationProblemPlusJSONResponse) VisitListGrantToolsResponse(w http.ResponseWriter) error {
+func (response GetGrantMCPdefaultApplicationProblemPlusJSONResponse) VisitGetGrantMCPResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -1991,17 +2049,17 @@ func (response GetServerdefaultApplicationProblemPlusJSONResponse) VisitGetServe
 	return err
 }
 
-type ListServerToolsRequestObject struct {
+type GetServerMCPRequestObject struct {
 	Name Name `json:"name"`
 }
 
-type ListServerToolsResponseObject interface {
-	VisitListServerToolsResponse(w http.ResponseWriter) error
+type GetServerMCPResponseObject interface {
+	VisitGetServerMCPResponse(w http.ResponseWriter) error
 }
 
-type ListServerTools200JSONResponse ToolsList
+type GetServerMCP200JSONResponse BackendExchange
 
-func (response ListServerTools200JSONResponse) VisitListServerToolsResponse(w http.ResponseWriter) error {
+func (response GetServerMCP200JSONResponse) VisitGetServerMCPResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -2013,11 +2071,11 @@ func (response ListServerTools200JSONResponse) VisitListServerToolsResponse(w ht
 	return err
 }
 
-type ListServerTools401ApplicationProblemPlusJSONResponse struct {
+type GetServerMCP401ApplicationProblemPlusJSONResponse struct {
 	UnauthorizedApplicationProblemPlusJSONResponse
 }
 
-func (response ListServerTools401ApplicationProblemPlusJSONResponse) VisitListServerToolsResponse(w http.ResponseWriter) error {
+func (response GetServerMCP401ApplicationProblemPlusJSONResponse) VisitGetServerMCPResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -2029,11 +2087,11 @@ func (response ListServerTools401ApplicationProblemPlusJSONResponse) VisitListSe
 	return err
 }
 
-type ListServerTools404ApplicationProblemPlusJSONResponse struct {
+type GetServerMCP404ApplicationProblemPlusJSONResponse struct {
 	NotFoundApplicationProblemPlusJSONResponse
 }
 
-func (response ListServerTools404ApplicationProblemPlusJSONResponse) VisitListServerToolsResponse(w http.ResponseWriter) error {
+func (response GetServerMCP404ApplicationProblemPlusJSONResponse) VisitGetServerMCPResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -2045,12 +2103,12 @@ func (response ListServerTools404ApplicationProblemPlusJSONResponse) VisitListSe
 	return err
 }
 
-type ListServerToolsdefaultApplicationProblemPlusJSONResponse struct {
+type GetServerMCPdefaultApplicationProblemPlusJSONResponse struct {
 	Body       Problem
 	StatusCode int
 }
 
-func (response ListServerToolsdefaultApplicationProblemPlusJSONResponse) VisitListServerToolsResponse(w http.ResponseWriter) error {
+func (response GetServerMCPdefaultApplicationProblemPlusJSONResponse) VisitGetServerMCPResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -2106,6 +2164,61 @@ type GetSubjectdefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response GetSubjectdefaultApplicationProblemPlusJSONResponse) VisitGetSubjectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSubjectMCPRequestObject struct {
+	Params GetSubjectMCPParams
+}
+
+type GetSubjectMCPResponseObject interface {
+	VisitGetSubjectMCPResponse(w http.ResponseWriter) error
+}
+
+type GetSubjectMCP200JSONResponse AgentExchange
+
+func (response GetSubjectMCP200JSONResponse) VisitGetSubjectMCPResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSubjectMCP401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response GetSubjectMCP401ApplicationProblemPlusJSONResponse) VisitGetSubjectMCPResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSubjectMCPdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetSubjectMCPdefaultApplicationProblemPlusJSONResponse) VisitGetSubjectMCPResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -2296,17 +2409,17 @@ func (response GetToolSetdefaultApplicationProblemPlusJSONResponse) VisitGetTool
 	return err
 }
 
-type ListToolSetToolsRequestObject struct {
+type GetToolSetMCPRequestObject struct {
 	Name Name `json:"name"`
 }
 
-type ListToolSetToolsResponseObject interface {
-	VisitListToolSetToolsResponse(w http.ResponseWriter) error
+type GetToolSetMCPResponseObject interface {
+	VisitGetToolSetMCPResponse(w http.ResponseWriter) error
 }
 
-type ListToolSetTools200JSONResponse ToolsList
+type GetToolSetMCP200JSONResponse AgentExchange
 
-func (response ListToolSetTools200JSONResponse) VisitListToolSetToolsResponse(w http.ResponseWriter) error {
+func (response GetToolSetMCP200JSONResponse) VisitGetToolSetMCPResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -2318,11 +2431,11 @@ func (response ListToolSetTools200JSONResponse) VisitListToolSetToolsResponse(w 
 	return err
 }
 
-type ListToolSetTools401ApplicationProblemPlusJSONResponse struct {
+type GetToolSetMCP401ApplicationProblemPlusJSONResponse struct {
 	UnauthorizedApplicationProblemPlusJSONResponse
 }
 
-func (response ListToolSetTools401ApplicationProblemPlusJSONResponse) VisitListToolSetToolsResponse(w http.ResponseWriter) error {
+func (response GetToolSetMCP401ApplicationProblemPlusJSONResponse) VisitGetToolSetMCPResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -2334,11 +2447,11 @@ func (response ListToolSetTools401ApplicationProblemPlusJSONResponse) VisitListT
 	return err
 }
 
-type ListToolSetTools404ApplicationProblemPlusJSONResponse struct {
+type GetToolSetMCP404ApplicationProblemPlusJSONResponse struct {
 	NotFoundApplicationProblemPlusJSONResponse
 }
 
-func (response ListToolSetTools404ApplicationProblemPlusJSONResponse) VisitListToolSetToolsResponse(w http.ResponseWriter) error {
+func (response GetToolSetMCP404ApplicationProblemPlusJSONResponse) VisitGetToolSetMCPResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -2350,12 +2463,12 @@ func (response ListToolSetTools404ApplicationProblemPlusJSONResponse) VisitListT
 	return err
 }
 
-type ListToolSetToolsdefaultApplicationProblemPlusJSONResponse struct {
+type GetToolSetMCPdefaultApplicationProblemPlusJSONResponse struct {
 	Body       Problem
 	StatusCode int
 }
 
-func (response ListToolSetToolsdefaultApplicationProblemPlusJSONResponse) VisitListToolSetToolsResponse(w http.ResponseWriter) error {
+func (response GetToolSetMCPdefaultApplicationProblemPlusJSONResponse) VisitGetToolSetMCPResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -2375,9 +2488,9 @@ type StrictServerInterface interface {
 	// GetCapability Get one MCPCapability with the tools it comes to
 	// (GET /capabilities/{name})
 	GetCapability(ctx context.Context, request GetCapabilityRequestObject) (GetCapabilityResponseObject, error)
-	// ListCapabilityTools What the capability hands out, as tools/list
-	// (GET /capabilities/{name}/tools)
-	ListCapabilityTools(ctx context.Context, request ListCapabilityToolsRequestObject) (ListCapabilityToolsResponseObject, error)
+	// GetCapabilityMCP What an agent holding the capability receives
+	// (GET /capabilities/{name}/mcp)
+	GetCapabilityMCP(ctx context.Context, request GetCapabilityMCPRequestObject) (GetCapabilityMCPResponseObject, error)
 	// WatchEvents Stream notifications of changes
 	// (GET /events)
 	WatchEvents(ctx context.Context, request WatchEventsRequestObject) (WatchEventsResponseObject, error)
@@ -2387,21 +2500,24 @@ type StrictServerInterface interface {
 	// GetGrant Get one MCPGrant
 	// (GET /grants/{name})
 	GetGrant(ctx context.Context, request GetGrantRequestObject) (GetGrantResponseObject, error)
-	// ListGrantTools What the grant hands out, as tools/list
-	// (GET /grants/{name}/tools)
-	ListGrantTools(ctx context.Context, request ListGrantToolsRequestObject) (ListGrantToolsResponseObject, error)
+	// GetGrantMCP What an agent holding the grant receives
+	// (GET /grants/{name}/mcp)
+	GetGrantMCP(ctx context.Context, request GetGrantMCPRequestObject) (GetGrantMCPResponseObject, error)
 	// ListServers List the MCPServers
 	// (GET /servers)
 	ListServers(ctx context.Context, request ListServersRequestObject) (ListServersResponseObject, error)
 	// GetServer Get one MCPServer with its catalog
 	// (GET /servers/{name})
 	GetServer(ctx context.Context, request GetServerRequestObject) (GetServerResponseObject, error)
-	// ListServerTools The server's catalog, as tools/list
-	// (GET /servers/{name}/tools)
-	ListServerTools(ctx context.Context, request ListServerToolsRequestObject) (ListServerToolsResponseObject, error)
+	// GetServerMCP What the backend answered the gateway
+	// (GET /servers/{name}/mcp)
+	GetServerMCP(ctx context.Context, request GetServerMCPRequestObject) (GetServerMCPResponseObject, error)
 	// GetSubject Resolve what one subject gets
 	// (GET /subject)
 	GetSubject(ctx context.Context, request GetSubjectRequestObject) (GetSubjectResponseObject, error)
+	// GetSubjectMCP What the subject receives
+	// (GET /subject/mcp)
+	GetSubjectMCP(ctx context.Context, request GetSubjectMCPRequestObject) (GetSubjectMCPResponseObject, error)
 	// ListSubjects List the subjects that grants name
 	// (GET /subjects)
 	ListSubjects(ctx context.Context, request ListSubjectsRequestObject) (ListSubjectsResponseObject, error)
@@ -2411,9 +2527,9 @@ type StrictServerInterface interface {
 	// GetToolSet Get one MCPToolSet with an explanation of its selection
 	// (GET /toolsets/{name})
 	GetToolSet(ctx context.Context, request GetToolSetRequestObject) (GetToolSetResponseObject, error)
-	// ListToolSetTools What the tool set hands out, as tools/list
-	// (GET /toolsets/{name}/tools)
-	ListToolSetTools(ctx context.Context, request ListToolSetToolsRequestObject) (ListToolSetToolsResponseObject, error)
+	// GetToolSetMCP What an agent holding the tool set receives
+	// (GET /toolsets/{name}/mcp)
+	GetToolSetMCP(ctx context.Context, request GetToolSetMCPRequestObject) (GetToolSetMCPResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -2505,25 +2621,25 @@ func (sh *strictHandler) GetCapability(w http.ResponseWriter, r *http.Request, n
 	}
 }
 
-// ListCapabilityTools operation middleware
-func (sh *strictHandler) ListCapabilityTools(w http.ResponseWriter, r *http.Request, name Name) {
-	var request ListCapabilityToolsRequestObject
+// GetCapabilityMCP operation middleware
+func (sh *strictHandler) GetCapabilityMCP(w http.ResponseWriter, r *http.Request, name Name) {
+	var request GetCapabilityMCPRequestObject
 
 	request.Name = name
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.ListCapabilityTools(ctx, request.(ListCapabilityToolsRequestObject))
+		return sh.ssi.GetCapabilityMCP(ctx, request.(GetCapabilityMCPRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ListCapabilityTools")
+		handler = middleware(handler, "GetCapabilityMCP")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(ListCapabilityToolsResponseObject); ok {
-		if err := validResponse.VisitListCapabilityToolsResponse(w); err != nil {
+	} else if validResponse, ok := response.(GetCapabilityMCPResponseObject); ok {
+		if err := validResponse.VisitGetCapabilityMCPResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -2605,25 +2721,25 @@ func (sh *strictHandler) GetGrant(w http.ResponseWriter, r *http.Request, name N
 	}
 }
 
-// ListGrantTools operation middleware
-func (sh *strictHandler) ListGrantTools(w http.ResponseWriter, r *http.Request, name Name) {
-	var request ListGrantToolsRequestObject
+// GetGrantMCP operation middleware
+func (sh *strictHandler) GetGrantMCP(w http.ResponseWriter, r *http.Request, name Name) {
+	var request GetGrantMCPRequestObject
 
 	request.Name = name
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.ListGrantTools(ctx, request.(ListGrantToolsRequestObject))
+		return sh.ssi.GetGrantMCP(ctx, request.(GetGrantMCPRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ListGrantTools")
+		handler = middleware(handler, "GetGrantMCP")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(ListGrantToolsResponseObject); ok {
-		if err := validResponse.VisitListGrantToolsResponse(w); err != nil {
+	} else if validResponse, ok := response.(GetGrantMCPResponseObject); ok {
+		if err := validResponse.VisitGetGrantMCPResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -2681,25 +2797,25 @@ func (sh *strictHandler) GetServer(w http.ResponseWriter, r *http.Request, name 
 	}
 }
 
-// ListServerTools operation middleware
-func (sh *strictHandler) ListServerTools(w http.ResponseWriter, r *http.Request, name Name) {
-	var request ListServerToolsRequestObject
+// GetServerMCP operation middleware
+func (sh *strictHandler) GetServerMCP(w http.ResponseWriter, r *http.Request, name Name) {
+	var request GetServerMCPRequestObject
 
 	request.Name = name
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.ListServerTools(ctx, request.(ListServerToolsRequestObject))
+		return sh.ssi.GetServerMCP(ctx, request.(GetServerMCPRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ListServerTools")
+		handler = middleware(handler, "GetServerMCP")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(ListServerToolsResponseObject); ok {
-		if err := validResponse.VisitListServerToolsResponse(w); err != nil {
+	} else if validResponse, ok := response.(GetServerMCPResponseObject); ok {
+		if err := validResponse.VisitGetServerMCPResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -2726,6 +2842,32 @@ func (sh *strictHandler) GetSubject(w http.ResponseWriter, r *http.Request, para
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetSubjectResponseObject); ok {
 		if err := validResponse.VisitGetSubjectResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetSubjectMCP operation middleware
+func (sh *strictHandler) GetSubjectMCP(w http.ResponseWriter, r *http.Request, params GetSubjectMCPParams) {
+	var request GetSubjectMCPRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetSubjectMCP(ctx, request.(GetSubjectMCPRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetSubjectMCP")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetSubjectMCPResponseObject); ok {
+		if err := validResponse.VisitGetSubjectMCPResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -2807,25 +2949,25 @@ func (sh *strictHandler) GetToolSet(w http.ResponseWriter, r *http.Request, name
 	}
 }
 
-// ListToolSetTools operation middleware
-func (sh *strictHandler) ListToolSetTools(w http.ResponseWriter, r *http.Request, name Name) {
-	var request ListToolSetToolsRequestObject
+// GetToolSetMCP operation middleware
+func (sh *strictHandler) GetToolSetMCP(w http.ResponseWriter, r *http.Request, name Name) {
+	var request GetToolSetMCPRequestObject
 
 	request.Name = name
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.ListToolSetTools(ctx, request.(ListToolSetToolsRequestObject))
+		return sh.ssi.GetToolSetMCP(ctx, request.(GetToolSetMCPRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ListToolSetTools")
+		handler = middleware(handler, "GetToolSetMCP")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(ListToolSetToolsResponseObject); ok {
-		if err := validResponse.VisitListToolSetToolsResponse(w); err != nil {
+	} else if validResponse, ok := response.(GetToolSetMCPResponseObject); ok {
+		if err := validResponse.VisitGetToolSetMCPResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

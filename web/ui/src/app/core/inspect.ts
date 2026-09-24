@@ -49,7 +49,7 @@ export type Liveness = 'connecting' | 'live' | 'reconnecting' | 'polling';
  */
 @Injectable({ providedIn: 'root' })
 export class Inspect {
-  /** The generated client, for answers without a source: tools/list. */
+  /** The generated client, for answers without a source: the MCP views. */
   readonly api = inject(Api);
   private readonly config = inject(ApiConfiguration);
   private readonly document = inject(DOCUMENT);

@@ -1,8 +1,8 @@
 import { ChangeDetectionStrategy, Component, model } from '@angular/core';
 
-export type DetailView = 'details' | 'tools';
+export type DetailView = 'details' | 'mcp';
 
-/** Tabs between a resource's page and what it hands out as tools/list. */
+/** Tabs between a resource's page and what it comes to over MCP, as JSON. */
 @Component({
   selector: 'app-view-switch',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -27,6 +27,6 @@ export class ViewSwitch {
   readonly view = model<DetailView>('details');
   protected readonly tabs: { key: DetailView; label: string }[] = [
     { key: 'details', label: 'Details' },
-    { key: 'tools', label: 'tools/list' },
+    { key: 'mcp', label: 'MCP' },
   ];
 }

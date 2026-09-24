@@ -445,17 +445,28 @@ func (b *Backend) ReadCatalog(ctx context.Context) (*Catalog, error) {
 	b.sweepCallers(time.Now())
 	return withSession(ctx, b.shared, func(session *mcp.ClientSession) (*Catalog, error) {
 		var tools []*mcp.Tool
-		for tool, err := range session.Tools(ctx, nil) {
+		var pages []*mcp.ListToolsResult
+		params := &mcp.ListToolsParams{}
+		for {
+			page, err := session.ListTools(ctx, params)
 			if err != nil {
 				return nil, err
 			}
-			tools = append(tools, tool)
+			pages = append(pages, page)
+			tools = append(tools, page.Tools...)
+			if page.NextCursor == "" || page.NextCursor == params.Cursor {
+				break
+			}
+			params = &mcp.ListToolsParams{Cursor: page.NextCursor}
 		}
 		var instructions string
-		if res := session.InitializeResult(); res != nil {
+		res := session.InitializeResult()
+		if res != nil {
 			instructions = res.Instructions
 		}
-		return NewCatalog(tools, instructions), nil
+		c := NewCatalog(tools, instructions)
+		c.Handshake, c.Pages = res, pages
+		return c, nil
 	})
 }
 

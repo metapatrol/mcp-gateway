@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { getSubject } from '../../api/functions';
 import { SubjectTool } from '../../api/models';
@@ -6,16 +6,19 @@ import { Inspect, live } from '../../core/inspect';
 import { Lists } from '../../core/lists';
 import { Pill } from '../../shared/condition-pill';
 import { LoadState } from '../../shared/load-state';
+import { McpView } from '../../shared/mcp-view';
+import { DetailView, ViewSwitch } from '../../shared/view-switch';
 import { ToolDoc } from '../../shared/tool-doc';
 import { byServer, notOffered } from './grouping';
 
 @Component({
   selector: 'app-subject',
-  imports: [RouterLink, Pill, LoadState, ToolDoc],
+  imports: [RouterLink, Pill, LoadState, ToolDoc, McpView, ViewSwitch],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './subject.html',
 })
 export class SubjectDetail {
+  protected readonly view = signal<DetailView>('details');
   private readonly inspect = inject(Inspect);
   private readonly lists = inject(Lists);
 

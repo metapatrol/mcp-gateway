@@ -22,6 +22,7 @@ import (
 
 	mcpv1alpha1 "forgejo.metapatrol.local/platform/mcp-gateway/api/v1alpha1"
 	"forgejo.metapatrol.local/platform/mcp-gateway/internal/discovery"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/gateway"
 	"forgejo.metapatrol.local/platform/mcp-gateway/internal/inspect/api"
 	"forgejo.metapatrol.local/platform/mcp-gateway/internal/policy"
 )
@@ -31,6 +32,9 @@ type Gateway interface {
 	Policy() *policy.Snapshot
 	UsableCatalog(server string) (*discovery.Catalog, bool)
 	Instructions(subject string) string
+	// Preview answers server/discover and tools/list as the gateway does
+	// for an agent offered res.
+	Preview(ctx context.Context, res policy.Resolution) (gateway.Preview, error)
 }
 
 // Registry is what the API reads from the discovery registry.

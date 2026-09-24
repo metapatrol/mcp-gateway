@@ -32,8 +32,8 @@
     </p>
   }
 
-  @if (view() === 'tools') {
-    <app-raw-tools kind="toolset" [name]="name()" />
+  @if (view() === 'mcp') {
+    <app-mcp-view kind="toolset" [name]="name()" />
   } @else {
   <div class="flex flex-col gap-4">
     <div class="grid items-start gap-4 2xl:grid-cols-[minmax(20rem,0.7fr)_minmax(0,1.3fr)]">

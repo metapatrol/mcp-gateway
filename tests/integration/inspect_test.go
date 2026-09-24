@@ -3,8 +3,10 @@ package integration
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -123,15 +125,16 @@ func TestInspectEvents(t *testing.T) {
 	waitFor(api.Change{Kind: api.ChangeKindServer, Name: "events-server"})
 }
 
-// TestInspectToolsListIsWhatAgentsGet compares a grant's tools/list in the
-// inspect API with the tools/list an agent holding only that grant receives
-// from the gateway: the console's JSON view has to be the real thing, prefix,
-// aliases, descriptions, schemas and hints included.
-func TestInspectToolsListIsWhatAgentsGet(t *testing.T) {
+// TestInspectMCPIsWhatAgentsGet compares a grant's MCP view in the inspect API
+// with what the gateway answers an agent holding only that grant: the same
+// JSON-RPC responses to server/discover and tools/list, key for key — prefix,
+// aliases, descriptions, schemas, hints, cache scope and instructions
+// included.
+func TestInspectMCPIsWhatAgentsGet(t *testing.T) {
 	ctx := context.Background()
 	mcpURL, inspectURL, _ := startGatewayWithInspect(t)
 
-	backend := mcptest.NewBackend(t, "fidelity", "plain")
+	backend := mcptest.NewBackendWithInstructions(t, "fidelity", "Search first.", "plain")
 	backend.AddDefinedTool(&mcp.Tool{
 		Name:        "search",
 		Title:       "Search",
@@ -151,27 +154,61 @@ func TestInspectToolsListIsWhatAgentsGet(t *testing.T) {
 		t.Cleanup(func() { _ = k8sClient.Delete(ctx, obj) })
 	}
 
-	session := connect(t, mcpURL, "fidelity-agent", nil)
-	var agent []byte
-	require.Eventually(t, func() bool {
-		res, err := session.ListTools(ctx, nil)
-		if err != nil || len(res.Tools) != 2 {
-			return false
+	// What the agent receives, as raw as it arrives.
+	call := func(method string) string {
+		body := `{"jsonrpc":"2.0","id":1,"method":"` + method + `","params":{"_meta":{` +
+			`"io.modelcontextprotocol/protocolVersion":"2026-07-28",` +
+			`"io.modelcontextprotocol/clientInfo":{"name":"mcp-gateway-inspect","version":"preview"},` +
+			`"io.modelcontextprotocol/clientCapabilities":{}}}}`
+		req, _ := http.NewRequest(http.MethodPost, mcpURL, strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer fidelity-agent")
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json, text/event-stream")
+		req.Header.Set("MCP-Protocol-Version", "2026-07-28")
+		req.Header.Set("Mcp-Method", method)
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		defer func() { _ = resp.Body.Close() }()
+		raw, _ := io.ReadAll(resp.Body)
+		out := string(raw)
+		for line := range strings.SplitSeq(out, "\n") {
+			if data, ok := strings.CutPrefix(line, "data:"); ok {
+				out = strings.TrimSpace(data)
+			}
 		}
-		agent, err = json.Marshal(res.Tools)
-		return err == nil
+		return out
+	}
+	var agentList string
+	require.Eventually(t, func() bool {
+		agentList = call("tools/list")
+		return strings.Contains(agentList, `"name":"find"`)
 	}, 10*time.Second, 100*time.Millisecond)
 
-	resp, err := http.Get(inspectURL + "/api/v1alpha1/grants/fidelity/tools")
+	resp, err := http.Get(inspectURL + "/api/v1alpha1/grants/fidelity/mcp")
 	require.NoError(t, err)
 	defer func() { _ = resp.Body.Close() }()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
-	var doc struct {
-		Tools json.RawMessage `json:"tools"`
+	var ex struct {
+		Discover  json.RawMessage   `json:"discover"`
+		ToolsList []json.RawMessage `json:"toolsList"`
 	}
-	require.NoError(t, json.NewDecoder(resp.Body).Decode(&doc))
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&ex))
+	require.Len(t, ex.ToolsList, 1)
 
-	assert.JSONEq(t, string(agent), string(doc.Tools))
-	assert.Contains(t, string(doc.Tools), `"name":"find"`)
-	assert.Contains(t, string(doc.Tools), `"name":"f_plain"`)
+	assert.Equal(t, call("server/discover"), string(ex.Discover), "byte for byte")
+	assert.Equal(t, agentList, string(ex.ToolsList[0]), "byte for byte")
+	assert.Contains(t, string(ex.Discover), "Search first.")
+	assert.Contains(t, agentList, `"name":"f_plain"`)
+
+	server, err := http.Get(inspectURL + "/api/v1alpha1/servers/fidelity/mcp")
+	require.NoError(t, err)
+	defer func() { _ = server.Body.Close() }()
+	var backendView struct {
+		Handshake json.RawMessage   `json:"handshake"`
+		ToolsList []json.RawMessage `json:"toolsList"`
+	}
+	require.NoError(t, json.NewDecoder(server.Body).Decode(&backendView))
+	assert.Contains(t, string(backendView.Handshake), `"name":"fidelity"`, "the backend's own server info")
+	require.NotEmpty(t, backendView.ToolsList)
+	assert.Contains(t, string(backendView.ToolsList[0]), `"name":"search"`, "the backend's names")
 }

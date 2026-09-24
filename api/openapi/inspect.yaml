@@ -75,19 +75,19 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         default: { $ref: "#/components/responses/Problem" }
 
-  /servers/{name}/tools:
+  /servers/{name}/mcp:
     get:
       tags: [servers]
-      operationId: listServerTools
-      summary: The server's catalog, as tools/list
+      operationId: getServerMCP
+      summary: What the backend answered the gateway
       parameters:
         - $ref: "#/components/parameters/Name"
       responses:
         "200":
-          description: The result of an MCP tools/list request, as MCP 2026-07-28 writes it.
+          description: The backend's answers, as this replica's discovery read them.
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/ToolsList" }
+              schema: { $ref: "#/components/schemas/BackendExchange" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
         default: { $ref: "#/components/responses/Problem" }
@@ -123,19 +123,19 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         default: { $ref: "#/components/responses/Problem" }
 
-  /toolsets/{name}/tools:
+  /toolsets/{name}/mcp:
     get:
       tags: [toolsets]
-      operationId: listToolSetTools
-      summary: What the tool set hands out, as tools/list
+      operationId: getToolSetMCP
+      summary: What an agent holding the tool set receives
       parameters:
         - $ref: "#/components/parameters/Name"
       responses:
         "200":
-          description: The result of an MCP tools/list request, as MCP 2026-07-28 writes it.
+          description: What an agent offered exactly this resource receives from this replica.
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/ToolsList" }
+              schema: { $ref: "#/components/schemas/AgentExchange" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
         default: { $ref: "#/components/responses/Problem" }
@@ -171,19 +171,19 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         default: { $ref: "#/components/responses/Problem" }
 
-  /capabilities/{name}/tools:
+  /capabilities/{name}/mcp:
     get:
       tags: [capabilities]
-      operationId: listCapabilityTools
-      summary: What the capability hands out, as tools/list
+      operationId: getCapabilityMCP
+      summary: What an agent holding the capability receives
       parameters:
         - $ref: "#/components/parameters/Name"
       responses:
         "200":
-          description: The result of an MCP tools/list request, as MCP 2026-07-28 writes it.
+          description: What an agent offered exactly this resource receives from this replica.
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/ToolsList" }
+              schema: { $ref: "#/components/schemas/AgentExchange" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
         default: { $ref: "#/components/responses/Problem" }
@@ -219,19 +219,19 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         default: { $ref: "#/components/responses/Problem" }
 
-  /grants/{name}/tools:
+  /grants/{name}/mcp:
     get:
       tags: [grants]
-      operationId: listGrantTools
-      summary: What the grant hands out, as tools/list
+      operationId: getGrantMCP
+      summary: What an agent holding the grant receives
       parameters:
         - $ref: "#/components/parameters/Name"
       responses:
         "200":
-          description: The result of an MCP tools/list request, as MCP 2026-07-28 writes it.
+          description: What an agent offered exactly this resource receives from this replica.
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/ToolsList" }
+              schema: { $ref: "#/components/schemas/AgentExchange" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
         default: { $ref: "#/components/responses/Problem" }
@@ -275,6 +275,25 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Subject" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        default: { $ref: "#/components/responses/Problem" }
+
+  /subject/mcp:
+    get:
+      tags: [subjects]
+      operationId: getSubjectMCP
+      summary: What the subject receives
+      parameters:
+        - name: subject
+          in: query
+          required: true
+          schema: { type: string, minLength: 1 }
+      responses:
+        "200":
+          description: What the subject receives from this replica, all of its grants together.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AgentExchange" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         default: { $ref: "#/components/responses/Problem" }
 
@@ -455,29 +474,58 @@ components:
         idempotentHint: { type: boolean }
         openWorldHint: { type: boolean }
 
-    # ---------------------------------------------------------------- tools/list
+    # ---------------------------------------------------------------- MCP
 
-    ToolsList:
+    AgentExchange:
       description: |
-        A tools/list result, as an MCP client receives it: every tool as MCP
-        defines a tool, under the name an agent calls it by.
+        What an agent receives from the gateway, as it receives it: the
+        JSON-RPC responses to server/discover and to tools/list, written by
+        the same server construction and HTTP handler agents reach — envelope,
+        server info, cache hints, instructions and tools included.
 
-        For a server it is the catalog as the backend lists it, read by this
-        replica, however old. For a tool set, a capability and a grant it is
-        what that resource hands out, on its own, as this replica serves it:
-        prefixes and aliases applied, the backends' definitions otherwise
-        unchanged, conflicting names and tools of catalogs not served left
-        out. A subject is offered the union of its grants.
+        For a tool set, a capability and a grant it is what an agent holding
+        that resource alone would receive; for a subject, what it receives,
+        all of its grants together. Tools are under the names agents call
+        them by; conflicting names and tools of catalogs not served are not
+        in it, as they are not for agents.
       type: object
-      required: [tools]
+      required: [discover, toolsList]
       properties:
-        tools:
+        discover:
+          type: object
+          description: The JSON-RPC response to server/discover.
+          additionalProperties: true
+          x-go-type: json.RawMessage
+        toolsList:
           type: array
-          description: Sorted by name.
+          description: The JSON-RPC responses to tools/list, one per page, following nextCursor.
           items:
             type: object
-            description: An MCP Tool, as the gateway writes it.
             additionalProperties: true
+            x-go-type: json.RawMessage
+
+    BackendExchange:
+      description: |
+        What a backend answered this replica's discovery, as the MCP SDK read
+        it: the result of opening the session (server info, protocol version,
+        capabilities, instructions) and each tools/list result. Re-encoded
+        from what the SDK parsed, not the bytes on the wire — readOnlyHint
+        and idempotentHint, for one, read false when the backend left them
+        out. Absent parts were never read: the replica has not discovered the
+        backend yet.
+      type: object
+      required: [toolsList]
+      properties:
+        handshake:
+          type: object
+          additionalProperties: true
+          x-go-type: json.RawMessage
+        toolsList:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+            x-go-type: json.RawMessage
 
     # ---------------------------------------------------------------- events
 

@@ -2,10 +2,12 @@ package inspect
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"sort"
 	"testing"
 	"time"
 
@@ -21,6 +23,7 @@ import (
 
 	mcpv1alpha1 "forgejo.metapatrol.local/platform/mcp-gateway/api/v1alpha1"
 	"forgejo.metapatrol.local/platform/mcp-gateway/internal/discovery"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/gateway"
 	"forgejo.metapatrol.local/platform/mcp-gateway/internal/inspect/api"
 	"forgejo.metapatrol.local/platform/mcp-gateway/internal/policy"
 )
@@ -39,6 +42,10 @@ func (g *fakeGateway) UsableCatalog(server string) (*discovery.Catalog, bool) {
 	return c, ok
 }
 func (g *fakeGateway) Instructions(subject string) string { return g.instructions[subject] }
+func (g *fakeGateway) Preview(_ context.Context, res policy.Resolution) (gateway.Preview, error) {
+	list, _ := json.Marshal(map[string]any{"tools": resolved(res)})
+	return gateway.Preview{Discover: json.RawMessage(`{"previewed":true}`), ToolsList: []json.RawMessage{list}}, nil
+}
 
 type fakeRegistry struct {
 	catalogs map[string]*discovery.Catalog
@@ -113,6 +120,12 @@ func newTestServer(t *testing.T) http.Handler {
 	}, "Treat a partial answer as incomplete.")
 	search := discovery.NewCatalog([]*mcp.Tool{tool("search", "Search the web."), tool("fetch", "Fetch a page.")}, "")
 	weather := discovery.NewCatalog([]*mcp.Tool{tool("search", "Find a location."), tool("get_forecast", "Forecast.")}, "Resolve a place first.")
+	weather.Handshake = &mcp.InitializeResult{
+		ProtocolVersion: "2026-07-28",
+		ServerInfo:      &mcp.Implementation{Name: "weather", Version: "1"},
+		Capabilities:    &mcp.ServerCapabilities{Tools: &mcp.ToolCapabilities{}},
+	}
+	weather.Pages = []*mcp.ListToolsResult{{Tools: []*mcp.Tool{tool("get_forecast", "Forecast.")}}}
 	tickets := discovery.NewCatalog([]*mcp.Tool{tool("tickets_list", "List tickets.")}, "")
 
 	scheme := runtime.NewScheme()
@@ -376,36 +389,53 @@ func TestAPIMirrorsTheCRDs(t *testing.T) {
 	}
 }
 
-func names(doc api.ToolsList) []string {
+
+// resolved lists the tools a resolution comes to, sorted, for the fake
+// Preview to report back.
+func resolved(res policy.Resolution) []string {
 	var out []string
-	for _, t := range doc.Tools {
-		out = append(out, t["name"].(string))
+	for name := range res.Tools {
+		out = append(out, name)
 	}
+	sort.Strings(out)
 	return out
 }
 
-func TestToolsLists(t *testing.T) {
+func TestMCPViews(t *testing.T) {
 	h := newTestServer(t)
+	agentTools := func(ex api.AgentExchange) []string {
+		var got struct {
+			Tools []string `json:"tools"`
+		}
+		require.NoError(t, json.Unmarshal(ex.ToolsList[0], &got))
+		return got.Tools
+	}
 
-	srv := get[api.ToolsList](t, h, "/servers/source-intelligence/tools", http.StatusOK)
-	assert.Equal(t, []string{"admin.reindex", "code.search", "code.symbol", "refs.list", "repositories.list", "repositories.read_file"}, names(srv))
-	assert.Equal(t, "Search the source.", srv.Tools[1]["description"])
-	assert.Equal(t, "object", srv.Tools[1]["inputSchema"].(map[string]any)["type"])
-	assert.Equal(t, true, srv.Tools[1]["annotations"].(map[string]any)["readOnlyHint"])
+	// The agent's side is the gateway's own answer; what matters here is
+	// which resolution each resource hands it.
+	ts := get[api.AgentExchange](t, h, "/toolsets/si-analysis/mcp", http.StatusOK)
+	assert.Equal(t, []string{"code.search", "code.symbol", "refs.list", "repositories.list"}, agentTools(ts))
+	assert.JSONEq(t, `{"previewed":true}`, string(ts.Discover))
 
-	ts := get[api.ToolsList](t, h, "/toolsets/si-analysis/tools", http.StatusOK)
-	assert.Equal(t, []string{"code.search", "code.symbol", "refs.list", "repositories.list"}, names(ts), "excluded and unselected tools are not handed out")
+	c := get[api.AgentExchange](t, h, "/capabilities/field-ops/mcp", http.StatusOK)
+	assert.Equal(t, []string{"fetch_page", "get_forecast"}, agentTools(c), "the resolution, before the catalog check the gateway makes")
 
-	c := get[api.ToolsList](t, h, "/capabilities/field-ops/tools", http.StatusOK)
-	assert.Equal(t, []string{"get_forecast"}, names(c), "neither search is handed out, and fetch_page does not exist")
+	g := get[api.AgentExchange](t, h, "/grants/coder/mcp", http.StatusOK)
+	assert.Contains(t, agentTools(g), "tickets_list")
 
-	g := get[api.ToolsList](t, h, "/grants/coder/tools", http.StatusOK)
-	assert.Equal(t, []string{"code.search", "code.symbol", "refs.list", "repositories.list"}, names(g), "tickets is not served")
+	sub := get[api.AgentExchange](t, h, "/subject/mcp?subject=agent-coder", http.StatusOK)
+	assert.Equal(t, agentTools(g), agentTools(sub), "coder-web adds nothing")
 
-	empty := get[api.ToolsList](t, h, "/grants/coder-web/tools", http.StatusOK)
-	assert.Empty(t, empty.Tools, "a grant of a capability that does not exist hands out nothing")
+	srv := get[api.BackendExchange](t, h, "/servers/weather/mcp", http.StatusOK)
+	require.NotNil(t, srv.Handshake)
+	assert.JSONEq(t, `{"capabilities":{"tools":{}},"protocolVersion":"2026-07-28","serverInfo":{"name":"weather","version":"1"}}`, string(*srv.Handshake))
+	require.Len(t, srv.ToolsList, 1)
+	assert.Contains(t, string(srv.ToolsList[0]), `"name":"get_forecast"`)
 
-	for _, path := range []string{"/servers/nope/tools", "/toolsets/nope/tools", "/capabilities/nope/tools", "/grants/nope/tools"} {
+	never := get[api.BackendExchange](t, h, "/servers/search/mcp", http.StatusOK)
+	assert.Nil(t, never.Handshake, "a catalog without a handshake read")
+
+	for _, path := range []string{"/servers/nope/mcp", "/toolsets/nope/mcp", "/capabilities/nope/mcp", "/grants/nope/mcp"} {
 		get[api.Problem](t, h, path, http.StatusNotFound)
 	}
 }

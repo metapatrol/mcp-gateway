@@ -32,6 +32,13 @@ type Catalog struct {
 	// session was opened. Empty when it gave none.
 	Instructions string
 
+	// Handshake and Pages are the backend's answers as the discovery read
+	// them — to the session's opening, and to each tools/list request — for
+	// showing, not for serving. They do not count towards Revision: a
+	// backend that only bumps its version is the same catalog.
+	Handshake *mcp.InitializeResult
+	Pages     []*mcp.ListToolsResult
+
 	tools map[string]*mcp.Tool
 	names []string
 }

@@ -7,12 +7,12 @@ import { Lists } from '../../core/lists';
 import { ConditionPill, Pill } from '../../shared/condition-pill';
 import { ConditionsTable } from '../../shared/conditions-table';
 import { LoadState } from '../../shared/load-state';
-import { RawTools } from '../../shared/raw-tools';
+import { McpView } from '../../shared/mcp-view';
 import { DetailView, ViewSwitch } from '../../shared/view-switch';
 
 @Component({
   selector: 'app-grant',
-  imports: [RouterLink, ConditionPill, Pill, ConditionsTable, LoadState, RawTools, ViewSwitch],
+  imports: [RouterLink, ConditionPill, Pill, ConditionsTable, LoadState, McpView, ViewSwitch],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <nav class="muted mb-2 flex gap-1.5 text-[12.5px]" aria-label="Breadcrumb">
@@ -40,8 +40,8 @@ import { DetailView, ViewSwitch } from '../../shared/view-switch';
         </div>
       </header>
       <app-view-switch [(view)]="view" />
-      @if (view() === 'tools') {
-        <app-raw-tools kind="grant" [name]="name()" />
+      @if (view() === 'mcp') {
+        <app-mcp-view kind="grant" [name]="name()" />
       } @else {
       <div class="flex flex-col gap-4">
         <section class="panel">

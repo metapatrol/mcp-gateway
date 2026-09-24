@@ -221,24 +221,8 @@ func (g *Gateway) serverFor(subject string) *mcp.Server {
 	ss, ok := g.subjects[subject]
 	if !ok {
 		ss = &subjectServer{
-			server: mcp.NewServer(g.opts.Implementation, &mcp.ServerOptions{
-				// No Instructions here: they depend on what the subject may use
-				// at the moment it asks, and forwardInstructions writes them into
-				// each answer instead.
-				//
-				// Tools, with change notifications — and nothing else. The
-				// SDK advertises logging by default, which the gateway does
-				// not relay.
-				Capabilities: &mcp.ServerCapabilities{Tools: &mcp.ToolCapabilities{ListChanged: true}},
-				// Every list this server returns is filtered for one subject.
-				// The protocol's default scope is "public", which lets an
-				// intermediary serve one subject's tool list to another.
-				SetCacheable: func(_ context.Context, _ mcp.Request, c *mcp.Cacheable) {
-					c.CacheScope = "private"
-				},
-				SupportedProtocolVersions: []string{ProtocolVersion},
-			}),
-			tools: map[string]exposed{},
+			server: g.newServer(),
+			tools:  map[string]exposed{},
 		}
 		ss.server.AddReceivingMiddleware(g.auditRefusals(subject), g.forwardInstructions(subject))
 		g.subjects[subject] = ss
@@ -273,6 +257,27 @@ func (g *Gateway) auditRefusals(subject string) mcp.Middleware {
 // that. They are assembled per request, because they follow the grants: a
 // subject sees the instructions of the backends it holds at least one tool
 // from, and nothing of the others.
+// newServer creates the MCP server one subject is served by — and a preview
+// is answered by, so that the two cannot differ.
+func (g *Gateway) newServer() *mcp.Server {
+	return mcp.NewServer(g.opts.Implementation, &mcp.ServerOptions{
+		// No Instructions here: they depend on what the subject may use at
+		// the moment it asks, and forwardInstructions writes them into each
+		// answer instead.
+		//
+		// Tools, with change notifications — and nothing else. The SDK
+		// advertises logging by default, which the gateway does not relay.
+		Capabilities: &mcp.ServerCapabilities{Tools: &mcp.ToolCapabilities{ListChanged: true}},
+		// Every list this server returns is filtered for one subject. The
+		// protocol's default scope is "public", which lets an intermediary
+		// serve one subject's tool list to another.
+		SetCacheable: func(_ context.Context, _ mcp.Request, c *mcp.Cacheable) {
+			c.CacheScope = "private"
+		},
+		SupportedProtocolVersions: []string{ProtocolVersion},
+	})
+}
+
 func (g *Gateway) forwardInstructions(subject string) mcp.Middleware {
 	return func(next mcp.MethodHandler) mcp.MethodHandler {
 		return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
@@ -300,8 +305,14 @@ func (g *Gateway) forwardInstructions(subject string) mcp.Middleware {
 // the subject was not granted; it is prose, and there is nothing to filter it
 // by.
 func (g *Gateway) instructionsFor(subject string) string {
+	return g.instructionsOf(g.desired(subject))
+}
+
+// instructionsOf assembles the instructions for the tools a subject is
+// offered: the gateway's own, then each backend's with the tools it gives.
+func (g *Gateway) instructionsOf(offered map[string]exposed) string {
 	byServer := map[string][]string{}
-	for name, w := range g.desired(subject) {
+	for name, w := range offered {
 		// A tool offered under a name of its own is listed with the name the
 		// backend gives it, which is the name its instructions use.
 		listed := name
@@ -350,7 +361,12 @@ func (g *Gateway) registered(subject, name string) bool {
 
 // desired computes what a subject should currently see.
 func (g *Gateway) desired(subject string) map[string]exposed {
-	res := g.policy.Load().Resolve(subject, g.catalogs)
+	return g.offered(g.policy.Load().Resolve(subject, g.catalogs))
+}
+
+// offered is what a resolution comes to on this replica: the tools whose
+// catalog is served and still holds them, with the backends' definitions.
+func (g *Gateway) offered(res policy.Resolution) map[string]exposed {
 	out := make(map[string]exposed, len(res.Tools))
 	for name, ref := range res.Tools {
 		catalog, ok := g.usableCatalog(ref.Server)
@@ -444,15 +460,21 @@ func (g *Gateway) syncLocked(subject string, ss *subjectServer) {
 // definition it considers malformed — an input schema that is not an object,
 // say — and a backend's catalog is not something the gateway gets to vouch
 // for, so the panic is turned into an error and the one tool is left out.
-func (g *Gateway) register(subject string, server *mcp.Server, name string, w exposed) (err error) {
+func (g *Gateway) register(subject string, server *mcp.Server, name string, w exposed) error {
+	return addTool(server, discovery.Exposed(w.tool, name), func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		return g.callTool(ctx, subject, req)
+	})
+}
+
+// addTool adds a tool to a server, turning the SDK's panic over a definition
+// it does not accept into an error.
+func addTool(server *mcp.Server, tool *mcp.Tool, handler mcp.ToolHandler) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("the SDK refused the definition: %v", r)
 		}
 	}()
-	server.AddTool(discovery.Exposed(w.tool, name), func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return g.callTool(ctx, subject, req)
-	})
+	server.AddTool(tool, handler)
 	return nil
 }
 

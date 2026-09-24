@@ -76,23 +76,7 @@ func (g *Gateway) Handler(opts HandlerOptions) (http.Handler, error) {
 		mux.Handle("/.well-known/oauth-protected-resource", metadata)
 	}
 
-	streamable := mcp.NewStreamableHTTPHandler(g.serverForRequest, &mcp.StreamableHTTPOptions{
-		// MCP 2026-07-28 has no sessions: every request stands on its own, and
-		// a client that wants to hear about changes holds a subscriptions/listen
-		// stream open. Any replica answers any request, and every replica
-		// keeps each subject's tools in step with the API on its own, so a
-		// listen stream on one replica learns what a grant change on any of
-		// them means. The SDK serves that protocol only on a stateless handler.
-		Stateless: true,
-		Logger:    opts.Logger,
-		// The SDK refuses requests that arrive over loopback with a foreign
-		// Host header, against DNS rebinding. That defends an endpoint a
-		// browser could use unauthenticated, which this one is not — every
-		// request needs a bearer token no web page has. It would, however,
-		// refuse all traffic behind a service mesh that delivers inbound
-		// requests to the pod over loopback.
-		DisableLocalhostProtection: true,
-	})
+	streamable := mcp.NewStreamableHTTPHandler(g.serverForRequest, streamableOptions(opts.Logger))
 	requireToken := sdkauth.RequireBearerToken(opts.Verifier, &sdkauth.RequireBearerTokenOptions{
 		ResourceMetadataURL: metadataURL,
 		// An introspection answer may carry no exp; the provider's "active"
@@ -139,6 +123,28 @@ func protectedResourceMetadataURL(resource string) (string, error) {
 	u.Path = "/.well-known/oauth-protected-resource" + strings.TrimSuffix(u.Path, "/")
 	u.RawQuery, u.Fragment = "", ""
 	return u.String(), nil
+}
+
+// streamableOptions configures the Streamable HTTP handler agents reach — and
+// the one a preview is answered through.
+func streamableOptions(logger *slog.Logger) *mcp.StreamableHTTPOptions {
+	return &mcp.StreamableHTTPOptions{
+		// MCP 2026-07-28 has no sessions: every request stands on its own, and
+		// a client that wants to hear about changes holds a subscriptions/listen
+		// stream open. Any replica answers any request, and every replica
+		// keeps each subject's tools in step with the API on its own, so a
+		// listen stream on one replica learns what a grant change on any of
+		// them means. The SDK serves that protocol only on a stateless handler.
+		Stateless: true,
+		Logger:    logger,
+		// The SDK refuses requests that arrive over loopback with a foreign
+		// Host header, against DNS rebinding. That defends an endpoint a
+		// browser could use unauthenticated, which this one is not — every
+		// request needs a bearer token no web page has. It would, however,
+		// refuse all traffic behind a service mesh that delivers inbound
+		// requests to the pod over loopback.
+		DisableLocalhostProtection: true,
+	}
 }
 
 // HTTPServer runs an http.Server as a manager.Runnable.
