@@ -5,17 +5,15 @@ import { condition } from '../../core/conditions';
 import { Lists } from '../../core/lists';
 import { ConditionPill } from '../../shared/condition-pill';
 import { LoadState } from '../../shared/load-state';
-import { SrcTag } from '../../shared/src-tag';
 
 @Component({
   selector: 'app-capabilities',
-  imports: [RouterLink, ConditionPill, LoadState, SrcTag],
+  imports: [RouterLink, ConditionPill, LoadState],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <header class="mb-5">
       <p class="eyebrow">MCPCapability</p>
       <h1 class="text-2xl font-semibold tracking-tight">Capabilities</h1>
-      <p class="muted mt-1">Abilities built from one or more tool sets.</p>
     </header>
     <app-load-state [error]="lists.capabilities.error()" [loading]="!lists.capabilities.hasValue()" what="capabilities" />
     @if (lists.capabilities.hasValue()) {
@@ -24,10 +22,10 @@ import { SrcTag } from '../../shared/src-tag';
           <thead>
             <tr>
               <th>Name</th>
-              <th>Description<app-src kind="spec" /></th>
-              <th>Tool sets<app-src kind="spec" /></th>
-              <th>Valid<app-src kind="status" /></th>
-              <th>Ready<app-src kind="status" /></th>
+              <th>Description</th>
+              <th>Tool sets</th>
+              <th>Valid</th>
+              <th>Ready</th>
             </tr>
           </thead>
           <tbody>

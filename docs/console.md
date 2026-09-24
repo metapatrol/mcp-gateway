@@ -68,9 +68,6 @@ if the backend had said so. `readOnlyHint` and `idempotentHint` count only when
 true, because the MCP SDK the gateway reads catalogs with cannot tell a false
 from an absent one.
 
-Small tags mark where a value comes from: `spec` as written, `status` as the
-controller reported it, `gateway` live from the replica that answered. They can
-be hidden.
 
 ## Data flows
 

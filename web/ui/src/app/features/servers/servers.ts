@@ -5,17 +5,15 @@ import { Lists } from '../../core/lists';
 import { ago } from '../../core/time';
 import { ConditionPill } from '../../shared/condition-pill';
 import { LoadState } from '../../shared/load-state';
-import { SrcTag } from '../../shared/src-tag';
 
 @Component({
   selector: 'app-servers',
-  imports: [RouterLink, ConditionPill, LoadState, SrcTag],
+  imports: [RouterLink, ConditionPill, LoadState],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <header class="mb-5">
       <p class="eyebrow">MCPServer</p>
       <h1 class="text-2xl font-semibold tracking-tight">Servers</h1>
-      <p class="muted mt-1">The backends the gateway routes to.</p>
     </header>
     <app-load-state [error]="lists.servers.error()" [loading]="!lists.servers.hasValue()" what="servers" />
     @if (lists.servers.hasValue()) {
@@ -24,11 +22,11 @@ import { SrcTag } from '../../shared/src-tag';
           <thead>
             <tr>
               <th>Name</th>
-              <th>Endpoint<app-src kind="spec" /></th>
-              <th>Auth<app-src kind="spec" /></th>
-              <th class="text-right">Tools<app-src kind="gateway" /></th>
-              <th>Last discovery<app-src kind="gateway" /></th>
-              <th>Ready<app-src kind="status" /></th>
+              <th>Endpoint</th>
+              <th>Auth</th>
+              <th class="text-right">Tools</th>
+              <th>Last discovery</th>
+              <th>Ready</th>
             </tr>
           </thead>
           <tbody>

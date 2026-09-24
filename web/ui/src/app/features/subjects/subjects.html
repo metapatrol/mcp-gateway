@@ -1,11 +1,4 @@
-<header class="mb-5">
-  <p class="eyebrow">Subjects<app-src kind="gateway" /></p>
-  <h1 class="text-2xl font-semibold tracking-tight">What does a subject get?</h1>
-  <p class="muted mt-1 max-w-[75ch]">
-    The resolution the gateway runs on <code>tools/list</code>, for one token subject: every tool it is offered, the way each one is granted, and the
-    instructions it is sent. Grants for the same subject add up.
-  </p>
-</header>
+<h1 class="mb-5 text-2xl font-semibold tracking-tight">Subjects</h1>
 
 <div class="mb-5 flex flex-col gap-3">
   @if (all.hasValue()) {
@@ -132,7 +125,7 @@
       </div>
       @if (r.missingCapabilities.length || r.missingToolSets.length || r.missingServers.length) {
         <p class="panel-note">
-          References that name nothing, and so grant nothing:
+          Not found:
           @for (m of r.missingCapabilities; track m) {
             <code class="text-bad">capability {{ m }}</code>
           }
@@ -148,13 +141,12 @@
 
     <section class="panel">
       <header class="panel-head">
-        <h2 class="panel-title">What the agent is told at start<app-src kind="gateway" /></h2>
-        <span class="faint text-xs">instructions in the server/discover answer</span>
+        <h2 class="panel-title">Instructions</h2>
       </header>
       @if (r.instructions) {
         <pre class="overflow-x-auto px-4 py-3 font-mono text-[12.5px] leading-relaxed whitespace-pre-wrap">{{ r.instructions }}</pre>
       } @else {
-        <p class="faint px-4 py-3 text-sm">No instructions: none of this subject's servers send any, and the gateway has none of its own.</p>
+        <p class="faint px-4 py-3 text-sm">No instructions.</p>
       }
     </section>
   </div>

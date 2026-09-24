@@ -52,8 +52,7 @@ export class ToolDoc {
   readonly tool = input.required<ToolDefinition>();
   readonly open = input(false);
   protected readonly params = computed(() => parameters(this.tool().inputSchema));
-  protected readonly HINT_TITLE =
-    "The backend's own claims about this tool. The gateway verifies none of them. MCP assumes a tool that declares nothing may modify and destroy data, and reaches outside.";
+  protected readonly HINT_TITLE = 'Not verified by the gateway';
   protected readonly hints = computed(() => declaredHints(this.tool().annotations));
 }
 

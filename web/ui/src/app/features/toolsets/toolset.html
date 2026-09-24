@@ -27,8 +27,7 @@
 
   @if (differs().length) {
     <p class="panel mb-4 border-warn/40 bg-warn-soft px-4 py-2.5 text-[13px] text-warn">
-      The controller's status and this gateway replica disagree about {{ differs().join(', ') }}. They resolve alike, so one of them holds an older catalog
-      (status {{ rev(t.status.catalogRevision) }}, gateway {{ rev(t.selection.catalogRevision) }}). It settles within a discovery interval.
+      Status and this replica differ on {{ differs().join(', ') }} (catalog {{ rev(t.status.catalogRevision) }} vs. {{ rev(t.selection.catalogRevision) }}).
     </p>
   }
 
@@ -36,8 +35,7 @@
     <div class="grid items-start gap-4 2xl:grid-cols-[minmax(20rem,0.7fr)_minmax(0,1.3fr)]">
       <section class="panel">
         <header class="panel-head">
-          <h2 class="panel-title">What you configured<app-src kind="spec" /></h2>
-          <span class="faint text-xs">select an entry to see its tools</span>
+          <h2 class="panel-title">What you configured</h2>
         </header>
         <div class="flex flex-col gap-4 px-4 py-3">
           <div>
@@ -141,9 +139,11 @@
         </div>
         @if (!t.selection.catalogAvailable) {
           <p class="panel-note text-warn">
-            This gateway replica does not serve a catalog of {{ t.spec.serverRef }} right now, so every pattern selects nothing, as it does for agents.
+            No catalog of {{ t.spec.serverRef }} on this replica right now.
             @if (serverReady(); as r) {
-              The server is {{ r.status === 'True' ? 'Ready' : 'not Ready: ' + r.reason }}.
+              @if (r.status !== 'True') {
+                Server not Ready: {{ r.reason }}.
+              }
             }
           </p>
         }
@@ -151,7 +151,7 @@
 
       <section class="panel">
         <header class="panel-head">
-          <h2 class="panel-title">What the gateway exposes<app-src kind="gateway" /></h2>
+          <h2 class="panel-title">What the gateway exposes</h2>
           <div class="inline-flex overflow-hidden rounded-md border border-line text-xs" role="group" aria-label="Filter">
             @for (f of [
               { key: 'all', label: 'Catalog', n: counts().all },

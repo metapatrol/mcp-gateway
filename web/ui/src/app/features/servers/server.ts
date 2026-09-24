@@ -9,12 +9,11 @@ import { ago, shortRevision } from '../../core/time';
 import { ConditionPill, Pill } from '../../shared/condition-pill';
 import { ConditionsTable } from '../../shared/conditions-table';
 import { LoadState } from '../../shared/load-state';
-import { SrcTag } from '../../shared/src-tag';
 import { ToolDoc } from '../../shared/tool-doc';
 
 @Component({
   selector: 'app-server',
-  imports: [RouterLink, ConditionPill, Pill, ConditionsTable, LoadState, SrcTag, ToolDoc],
+  imports: [RouterLink, ConditionPill, Pill, ConditionsTable, LoadState, ToolDoc],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './server.html',
 })

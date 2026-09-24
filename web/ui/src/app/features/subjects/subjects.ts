@@ -6,12 +6,11 @@ import { Inspect, live } from '../../core/inspect';
 import { Lists } from '../../core/lists';
 import { Pill } from '../../shared/condition-pill';
 import { LoadState } from '../../shared/load-state';
-import { SrcTag } from '../../shared/src-tag';
 import { ToolDoc } from '../../shared/tool-doc';
 
 @Component({
   selector: 'app-subjects',
-  imports: [RouterLink, Pill, LoadState, SrcTag, ToolDoc],
+  imports: [RouterLink, Pill, LoadState, ToolDoc],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './subjects.html',
 })

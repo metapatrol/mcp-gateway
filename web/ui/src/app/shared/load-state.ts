@@ -13,7 +13,6 @@ import { describeError, isNotFound } from '../core/inspect';
       <div class="panel border-bad/40 bg-bad-soft px-4 py-3 text-sm text-bad" role="alert">
         @if (notFound()) {
           <p class="font-medium">No {{ what() }} named <code>{{ name() }}</code>.</p>
-          <p class="mt-1 opacity-80">It may have been deleted, or the name is misspelt.</p>
         } @else {
           <p class="font-medium">The {{ what() }} could not be loaded.</p>
           <p class="mt-1 font-mono text-xs opacity-80">{{ message() }}</p>

@@ -7,11 +7,10 @@ import { Lists } from '../../core/lists';
 import { ConditionPill, Pill } from '../../shared/condition-pill';
 import { ConditionsTable } from '../../shared/conditions-table';
 import { LoadState } from '../../shared/load-state';
-import { SrcTag } from '../../shared/src-tag';
 
 @Component({
   selector: 'app-grant',
-  imports: [RouterLink, ConditionPill, Pill, ConditionsTable, LoadState, SrcTag],
+  imports: [RouterLink, ConditionPill, Pill, ConditionsTable, LoadState],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <nav class="muted mb-2 flex gap-1.5 text-[12.5px]" aria-label="Breadcrumb">
@@ -24,7 +23,7 @@ import { SrcTag } from '../../shared/src-tag';
           <p class="eyebrow">MCPGrant</p>
           <h1 class="font-mono text-2xl font-semibold tracking-tight">{{ g.meta.name }}</h1>
           <p class="muted mt-1 text-[13.5px]">
-            Subject <a class="link" [routerLink]="['/subjects']" [queryParams]="{ subject: g.spec.subject }">{{ g.spec.subject }}</a><app-src kind="spec" />
+            Subject <a class="link" [routerLink]="['/subjects']" [queryParams]="{ subject: g.spec.subject }">{{ g.spec.subject }}</a>
             @if (g.sameSubject.length) {
               · also granted by
               @for (o of g.sameSubject; track o; let last = $last) {
@@ -40,7 +39,7 @@ import { SrcTag } from '../../shared/src-tag';
       </header>
       <div class="flex flex-col gap-4">
         <section class="panel">
-          <header class="panel-head"><h2 class="panel-title">Capabilities<app-src kind="spec" /></h2></header>
+          <header class="panel-head"><h2 class="panel-title">Capabilities</h2></header>
           <div class="flex flex-col px-4 py-2">
             @for (name of g.spec.capabilities; track name) {
               <div class="flex flex-wrap items-center justify-between gap-2 py-1.5">

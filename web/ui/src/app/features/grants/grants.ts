@@ -5,17 +5,15 @@ import { condition } from '../../core/conditions';
 import { Lists } from '../../core/lists';
 import { ConditionPill } from '../../shared/condition-pill';
 import { LoadState } from '../../shared/load-state';
-import { SrcTag } from '../../shared/src-tag';
 
 @Component({
   selector: 'app-grants',
-  imports: [RouterLink, ConditionPill, LoadState, SrcTag],
+  imports: [RouterLink, ConditionPill, LoadState],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <header class="mb-5">
       <p class="eyebrow">MCPGrant</p>
       <h1 class="text-2xl font-semibold tracking-tight">Grants</h1>
-      <p class="muted mt-1">Capabilities bound to a token subject. A subject gets everything its grants add up to.</p>
     </header>
     <app-load-state [error]="lists.grants.error()" [loading]="!lists.grants.hasValue()" what="grants" />
     @if (lists.grants.hasValue()) {
@@ -24,10 +22,10 @@ import { SrcTag } from '../../shared/src-tag';
           <thead>
             <tr>
               <th>Name</th>
-              <th>Subject<app-src kind="spec" /></th>
-              <th>Capabilities<app-src kind="spec" /></th>
-              <th>Valid<app-src kind="status" /></th>
-              <th>Ready<app-src kind="status" /></th>
+              <th>Subject</th>
+              <th>Capabilities</th>
+              <th>Valid</th>
+              <th>Ready</th>
             </tr>
           </thead>
           <tbody>

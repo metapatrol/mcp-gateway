@@ -12,10 +12,7 @@
         <span class="grid size-7 place-items-center rounded-md bg-accent" aria-hidden="true">
           <svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 3h10M2 7h6M2 11h10" stroke="#fff" stroke-width="1.8" stroke-linecap="round" fill="none" /></svg>
         </span>
-        <span class="leading-tight">
-          <span class="block text-sm font-semibold">mcp-gateway</span>
-          <span class="faint block font-mono text-[11px]">read-only console</span>
-        </span>
+        <span class="text-sm font-semibold">mcp-gateway</span>
       </a>
       <button type="button" class="btn px-1.5 lg:hidden" (click)="theme.toggle()" [attr.aria-label]="theme.theme() === 'dark' ? 'Use light theme' : 'Use dark theme'">
         {{ theme.theme() === 'dark' ? '☀' : '☾' }}
@@ -58,17 +55,13 @@
           {{ theme.theme() === 'dark' ? '☀' : '☾' }}
         </button>
       </div>
-      <label class="muted flex cursor-pointer items-center gap-2 select-none">
-        <input type="checkbox" class="accent-accent" [checked]="inspect.showSources()" (change)="inspect.toggleSources()" />
-        Show data sources
-      </label>
       @if (unreachable()) {
         <p class="text-bad">The gateway's inspect API is not answering.</p>
       } @else {
         <p class="faint leading-relaxed" aria-live="polite">
           @switch (inspect.liveness()) {
             @case ('live') {
-              <span class="inline-flex items-center gap-1.5 text-ok" title="Changes arrive as they happen">
+              <span class="inline-flex items-center gap-1.5 text-ok">
                 <span class="size-1.5 animate-pulse rounded-full bg-current"></span>live
               </span>
             }
@@ -76,7 +69,7 @@
               <span class="inline-flex items-center gap-1.5 text-warn"><span class="size-1.5 rounded-full bg-current"></span>reconnecting</span>
             }
             @case ('polling') {
-              <span class="inline-flex items-center gap-1.5" title="The event stream is not available; the console reads again every 30 seconds">
+              <span class="inline-flex items-center gap-1.5">
                 <span class="size-1.5 rounded-full bg-current"></span>polling
               </span>
             }

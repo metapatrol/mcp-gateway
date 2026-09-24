@@ -16,7 +16,6 @@ import { buildGraph, GraphNode, Kind, related, routeOf } from '../../core/graph'
 import { Lists } from '../../core/lists';
 import { Pill } from '../../shared/condition-pill';
 import { LoadState } from '../../shared/load-state';
-import { SrcTag } from '../../shared/src-tag';
 
 interface Issue {
   kind: string;
@@ -49,7 +48,7 @@ const COLUMNS: { kind: Kind; title: string }[] = [
 
 @Component({
   selector: 'app-overview',
-  imports: [RouterLink, Pill, LoadState, SrcTag],
+  imports: [RouterLink, Pill, LoadState],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './overview.html',
 })

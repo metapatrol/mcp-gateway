@@ -2,16 +2,15 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { Condition } from '../api/models';
 import { ago } from '../core/time';
 import { ConditionPill } from './condition-pill';
-import { SrcTag } from './src-tag';
 
 @Component({
   selector: 'app-conditions',
-  imports: [ConditionPill, SrcTag],
+  imports: [ConditionPill],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="panel">
       <header class="panel-head">
-        <h2 class="panel-title">Conditions<app-src kind="status" /></h2>
+        <h2 class="panel-title">Conditions</h2>
         @if (observedGeneration() !== undefined) {
           <span class="faint text-xs">observed generation {{ observedGeneration() }} of {{ generation() }}</span>
         }
@@ -35,7 +34,7 @@ import { SrcTag } from './src-tag';
           </table>
         </div>
       } @else {
-        <p class="faint px-4 py-3 text-sm">The controller has not reported on this resource yet.</p>
+        <p class="faint px-4 py-3 text-sm">Not reported yet.</p>
       }
     </section>
   `,

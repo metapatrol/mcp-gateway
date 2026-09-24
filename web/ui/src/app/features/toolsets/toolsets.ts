@@ -5,17 +5,15 @@ import { condition } from '../../core/conditions';
 import { Lists } from '../../core/lists';
 import { ConditionPill } from '../../shared/condition-pill';
 import { LoadState } from '../../shared/load-state';
-import { SrcTag } from '../../shared/src-tag';
 
 @Component({
   selector: 'app-toolsets',
-  imports: [RouterLink, ConditionPill, LoadState, SrcTag],
+  imports: [RouterLink, ConditionPill, LoadState],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <header class="mb-5">
       <p class="eyebrow">MCPToolSet</p>
       <h1 class="text-2xl font-semibold tracking-tight">Tool sets</h1>
-      <p class="muted mt-1">Selections from one server each.</p>
     </header>
     <app-load-state [error]="lists.toolSets.error()" [loading]="!lists.toolSets.hasValue()" what="tool sets" />
     @if (lists.toolSets.hasValue()) {
@@ -24,11 +22,11 @@ import { SrcTag } from '../../shared/src-tag';
           <thead>
             <tr>
               <th>Name</th>
-              <th>Server<app-src kind="spec" /></th>
-              <th>Selection<app-src kind="spec" /></th>
-              <th class="text-right">Tools<app-src kind="status" /></th>
-              <th>Valid<app-src kind="status" /></th>
-              <th>Ready<app-src kind="status" /></th>
+              <th>Server</th>
+              <th>Selection</th>
+              <th class="text-right">Tools</th>
+              <th>Valid</th>
+              <th>Ready</th>
             </tr>
           </thead>
           <tbody>

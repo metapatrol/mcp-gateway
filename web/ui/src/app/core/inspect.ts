@@ -25,8 +25,6 @@ type Operation<P, R> = (
   context?: HttpContext,
 ) => Observable<StrictHttpResponse<R>>;
 
-const SOURCES_KEY = 'mcp-gateway-ui.show-sources';
-
 /** Polling without the event stream. */
 const POLL_MS = 30_000;
 /**
@@ -41,8 +39,8 @@ export type Liveness = 'connecting' | 'live' | 'reconnecting' | 'polling';
 
 /**
  * Inspect calls the gateway's inspect API through the generated client and
- * keeps what the whole page shares: which replica answered last, when to
- * read again, and whether data sources are marked.
+ * keeps what the whole page shares: which replica answered last, and when to
+ * read again.
  *
  * When to read again is the gateway's event stream: each `changed` event
  * reloads what the page shows. The stream only says that something changed;
@@ -60,7 +58,6 @@ export class Inspect {
   readonly source = signal<Source | undefined>(undefined);
   /** Bumped by every refresh, manual or automatic. */
   readonly refreshes = signal(0);
-  readonly showSources = signal(this.readShowSources());
   /** Whether updates arrive as they happen, or by polling. */
   readonly liveness = signal<Liveness>('connecting');
   /** The most recent batch of changes, and when it arrived. */
@@ -132,23 +129,7 @@ export class Inspect {
     };
   }
 
-  toggleSources(): void {
-    const next = !this.showSources();
-    this.showSources.set(next);
-    try {
-      this.document.defaultView?.localStorage.setItem(SOURCES_KEY, String(next));
-    } catch {
-      // Without storage the choice lasts for this page.
-    }
-  }
 
-  private readShowSources(): boolean {
-    try {
-      return this.document.defaultView?.localStorage.getItem(SOURCES_KEY) !== 'false';
-    } catch {
-      return true;
-    }
-  }
 }
 
 /**

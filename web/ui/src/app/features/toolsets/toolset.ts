@@ -8,13 +8,12 @@ import { shortRevision } from '../../core/time';
 import { ConditionPill } from '../../shared/condition-pill';
 import { ConditionsTable } from '../../shared/conditions-table';
 import { LoadState } from '../../shared/load-state';
-import { SrcTag } from '../../shared/src-tag';
 import { ToolDoc } from '../../shared/tool-doc';
 import { disagreement, Filter, filtered, reason, touchedBy } from './selection';
 
 @Component({
   selector: 'app-toolset',
-  imports: [RouterLink, ConditionPill, ConditionsTable, LoadState, SrcTag, ToolDoc],
+  imports: [RouterLink, ConditionPill, ConditionsTable, LoadState, ToolDoc],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './toolset.html',
 })

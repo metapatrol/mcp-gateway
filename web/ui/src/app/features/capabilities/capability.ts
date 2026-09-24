@@ -7,11 +7,10 @@ import { Lists } from '../../core/lists';
 import { ConditionPill, Pill } from '../../shared/condition-pill';
 import { ConditionsTable } from '../../shared/conditions-table';
 import { LoadState } from '../../shared/load-state';
-import { SrcTag } from '../../shared/src-tag';
 
 @Component({
   selector: 'app-capability',
-  imports: [RouterLink, ConditionPill, Pill, ConditionsTable, LoadState, SrcTag],
+  imports: [RouterLink, ConditionPill, Pill, ConditionsTable, LoadState],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <nav class="muted mb-2 flex gap-1.5 text-[12.5px]" aria-label="Breadcrumb">
@@ -24,7 +23,7 @@ import { SrcTag } from '../../shared/src-tag';
           <p class="eyebrow">MCPCapability</p>
           <h1 class="font-mono text-2xl font-semibold tracking-tight">{{ c.meta.name }}</h1>
           @if (c.spec.description) {
-            <p class="muted mt-1">{{ c.spec.description }}<app-src kind="spec" /></p>
+            <p class="muted mt-1">{{ c.spec.description }}</p>
           }
         </div>
         <div class="flex flex-wrap gap-1.5">
@@ -36,7 +35,7 @@ import { SrcTag } from '../../shared/src-tag';
       <div class="flex flex-col gap-4">
         <div class="grid gap-4 xl:grid-cols-2">
           <section class="panel">
-            <header class="panel-head"><h2 class="panel-title">Tool sets<app-src kind="spec" /></h2></header>
+            <header class="panel-head"><h2 class="panel-title">Tool sets</h2></header>
             <div class="flex flex-col px-4 py-2">
               @for (t of c.spec.toolSets; track t) {
                 <div class="flex items-center justify-between gap-2 py-1">
@@ -52,7 +51,7 @@ import { SrcTag } from '../../shared/src-tag';
             </div>
           </section>
           <section class="panel">
-            <header class="panel-head"><h2 class="panel-title">Granted by<app-src kind="spec" /></h2></header>
+            <header class="panel-head"><h2 class="panel-title">Granted by</h2></header>
             <div class="flex flex-col px-4 py-2">
               @for (g of c.grantedBy; track g) {
                 <div class="flex items-center justify-between gap-2 py-1">
@@ -68,7 +67,7 @@ import { SrcTag } from '../../shared/src-tag';
 
         @if (c.conflicts.length) {
           <section class="panel border-bad/40">
-            <header class="panel-head"><h2 class="panel-title text-bad">Name conflicts<app-src kind="gateway" /></h2></header>
+            <header class="panel-head"><h2 class="panel-title text-bad">Name conflicts</h2></header>
             <div class="overflow-x-auto">
               <table class="data-table">
                 <thead><tr><th>Name</th><th>Claimed by</th></tr></thead>
@@ -90,13 +89,12 @@ import { SrcTag } from '../../shared/src-tag';
                 </tbody>
               </table>
             </div>
-            <p class="panel-note">The gateway exposes none of these. A <code>prefix</code> or an alias on one of the tool sets resolves it.</p>
           </section>
         }
 
         <section class="panel">
           <header class="panel-head">
-            <h2 class="panel-title">Tools<app-src kind="gateway" /></h2>
+            <h2 class="panel-title">Tools</h2>
             <span class="faint text-xs">{{ c.tools.length }} from {{ servers() }} {{ servers() === 1 ? 'server' : 'servers' }}</span>
           </header>
           <div class="overflow-x-auto">
