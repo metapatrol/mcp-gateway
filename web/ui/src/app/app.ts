@@ -4,7 +4,6 @@ import { CONDITIONS, healthy, SERVER_CONDITIONS } from './core/conditions';
 import { Inspect } from './core/inspect';
 import { Lists } from './core/lists';
 import { ThemeService } from './core/theme';
-import { ago } from './core/time';
 
 interface NavItem {
   path: string;
@@ -41,24 +40,20 @@ export class App {
     ];
   });
 
-  protected readonly unreachable = computed(() => this.lists.servers.error() !== undefined);
-  protected readonly lastChange = computed(() => {
-    const last = this.inspect.lastChanges();
-    this.inspect.refreshes();
-    if (!last) {
-      return undefined;
+  /** Whether the console hears about changes, in one word. */
+  protected readonly status = computed(() => {
+    if (this.lists.servers.error() !== undefined) {
+      return { text: 'Gateway unreachable', classes: 'text-bad', pulse: false };
     }
-    const first = last.changes[0];
-    const more = last.changes.length - 1;
-    return {
-      text: first ? `${first.kind} ${first.name}${more > 0 ? ` and ${more} more` : ''}` : 'something',
-      ago: ago(new Date(last.at).toISOString()),
-    };
-  });
-  protected readonly served = computed(() => {
-    const s = this.inspect.source();
-    // Re-read on every refresh so "ago" moves.
-    this.inspect.refreshes();
-    return s ? { replica: s.replica, ago: ago(s.observedAt) } : undefined;
+    switch (this.inspect.liveness()) {
+      case 'live':
+        return { text: 'Live', classes: 'text-ok', pulse: true };
+      case 'reconnecting':
+        return { text: 'Reconnecting', classes: 'text-warn', pulse: false };
+      case 'polling':
+        return { text: 'Polling', classes: 'text-muted', pulse: false };
+      default:
+        return { text: 'Connecting', classes: 'text-faint', pulse: false };
+    }
   });
 }

@@ -33,7 +33,7 @@ import { LoadState } from '../../shared/load-state';
               <tr class="row-link" (click)="open(g.meta.name)">
                 <td><a class="link" [routerLink]="['/grants', g.meta.name]">{{ g.meta.name }}</a></td>
                 <td>
-                  <a class="link" [routerLink]="['/subjects']" [queryParams]="{ subject: g.spec.subject }" (click)="$event.stopPropagation()">{{ g.spec.subject }}</a>
+                  <a class="link" [routerLink]="['/subjects/resolve']" [queryParams]="{ subject: g.spec.subject }" (click)="$event.stopPropagation()">{{ g.spec.subject }}</a>
                 </td>
                 <td class="font-mono text-[12.5px]">{{ g.spec.capabilities.join(', ') }}</td>
                 <td><app-condition label="Valid" [condition]="get(g.status.conditions, 'Valid')" /></td>

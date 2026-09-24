@@ -1,72 +1,82 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import { getSubject, listSubjects } from '../../api/functions';
-import { SubjectTool } from '../../api/models';
+import { listSubjects } from '../../api/functions';
 import { Inspect, live } from '../../core/inspect';
-import { Lists } from '../../core/lists';
-import { Pill } from '../../shared/condition-pill';
 import { LoadState } from '../../shared/load-state';
-import { ToolDoc } from '../../shared/tool-doc';
 
 @Component({
   selector: 'app-subjects',
-  imports: [RouterLink, Pill, LoadState, ToolDoc],
+  imports: [RouterLink, LoadState],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  templateUrl: './subjects.html',
+  template: `
+    <header class="mb-5 flex flex-wrap items-end justify-between gap-4">
+      <h1 class="text-2xl font-semibold tracking-tight">Subjects</h1>
+      <form class="flex w-full max-w-md gap-2" (submit)="open($event)">
+        <label for="subject" class="sr-only">Subject</label>
+        <input
+          id="subject"
+          name="subject"
+          class="input"
+          placeholder="any subject"
+          [value]="typed()"
+          (input)="typed.set($any($event.target).value)"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button type="submit" class="btn shrink-0" [disabled]="!typed().trim()">Resolve</button>
+      </form>
+    </header>
+    <app-load-state [error]="subjects.error()" [loading]="!subjects.hasValue()" what="subjects" />
+    @if (subjects.hasValue()) {
+      <section class="panel overflow-x-auto">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Subject</th>
+              <th>Grants</th>
+              <th class="text-right">Tools offered</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (s of subjects.value().items; track s.subject) {
+              <tr class="row-link" (click)="go(s.subject)">
+                <td>
+                  <a class="link" [routerLink]="['/subjects/resolve']" [queryParams]="{ subject: s.subject }">{{ s.subject }}</a>
+                </td>
+                <td class="font-mono text-[12.5px]">
+                  @for (g of s.grants; track g; let last = $last) {
+                    <a class="link text-[12.5px]" [routerLink]="['/grants', g]" (click)="$event.stopPropagation()">{{ g }}</a>@if (!last) {, }
+                  }
+                </td>
+                <td class="num">{{ s.toolCount }}</td>
+              </tr>
+            } @empty {
+              <tr><td colspan="3" class="faint">No grant names a subject.</td></tr>
+            }
+          </tbody>
+        </table>
+      </section>
+    }
+  `,
 })
 export class Subjects {
   private readonly inspect = inject(Inspect);
   private readonly router = inject(Router);
-  private readonly lists = inject(Lists);
-
-  /** From the query parameter: a subject may be a URL. */
-  readonly subject = input<string>();
-
-  protected readonly all = live(
+  protected readonly subjects = live(
     () => ({}),
     () => this.inspect.call(listSubjects, {}),
   );
-  protected readonly resolved = live(
-    () => this.subject() || undefined,
-    (subject) => this.inspect.call(getSubject, { subject }),
-  );
-  protected readonly r = computed(() => (this.resolved.hasValue() ? this.resolved.value() : undefined));
-  protected readonly offered = computed(() => this.r()?.tools.filter((t) => t.state === 'offered').length ?? 0);
-
   protected readonly typed = signal('');
 
-  constructor() {
-    effect(() => this.typed.set(this.subject() ?? ''));
+  protected go(subject: string): void {
+    void this.router.navigate(['/subjects/resolve'], { queryParams: { subject } });
   }
 
-  protected pick(subject: string): void {
-    void this.router.navigate(['/subjects'], { queryParams: { subject: subject || null } });
-  }
-
-  protected submit(event: Event): void {
+  protected open(event: Event): void {
     event.preventDefault();
-    this.pick(this.typed().trim());
-  }
-
-  /**
-   * Why a resolved tool is not offered: its server's catalog is not served,
-   * or the catalog is served and lacks the tool — a name a tool set lists
-   * that the backend does not have.
-   */
-  protected unavailableBecause(t: SubjectTool): string {
-    const server = t.claimants[0]?.ref.server;
-    const usable = server ? this.lists.server(server)?.discovery.usable : undefined;
-    return usable ? `${server} does not offer it` : `${server} is not served right now`;
-  }
-
-  protected rowClass(t: SubjectTool): string {
-    switch (t.state) {
-      case 'conflict':
-        return 'bg-bad-soft';
-      case 'unavailable':
-        return 'opacity-70';
-      default:
-        return '';
+    const subject = this.typed().trim();
+    if (subject) {
+      this.go(subject);
     }
   }
 }

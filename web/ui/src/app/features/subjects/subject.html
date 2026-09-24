@@ -1,0 +1,131 @@
+<nav class="muted mb-2 flex gap-1.5 text-[12.5px]" aria-label="Breadcrumb">
+  <a routerLink="/subjects" class="text-accent hover:underline">Subjects</a><span class="faint">/</span><span class="truncate">{{ subject() }}</span>
+</nav>
+
+@if (!subject()) {
+  <p class="faint">No subject given.</p>
+}
+<app-load-state [error]="resolved.error()" [loading]="!!subject() && !resolved.hasValue()" what="subject" />
+
+@if (r(); as r) {
+  <header class="mb-5 flex flex-wrap items-start justify-between gap-4">
+    <div class="min-w-0">
+      <p class="eyebrow">Subject</p>
+      <h1 class="font-mono text-2xl font-semibold tracking-tight [overflow-wrap:anywhere]">{{ r.subject }}</h1>
+      <p class="muted mt-1 text-[13.5px]">
+        @if (r.grants.length) {
+          Granted by
+          @for (g of r.grants; track g; let last = $last) {
+            <a class="link" [routerLink]="['/grants', g]">{{ g }}</a>@if (!last) {, }
+          }
+        } @else {
+          No grant names this subject.
+        }
+      </p>
+      @if (notFound().length) {
+        <p class="mt-1 text-[13px] text-bad">Not found: {{ notFound().join(', ') }}</p>
+      }
+    </div>
+    <div class="flex flex-wrap gap-1.5">
+      <app-pill tone="ok">{{ offered() }} offered</app-pill>
+      @if (missing().length) {
+        <app-pill tone="warn">{{ missing().length }} not offered</app-pill>
+      }
+    </div>
+  </header>
+
+  <div class="flex flex-col gap-4">
+    @if (missing().length) {
+      <section class="panel">
+        <header class="panel-head"><h2 class="panel-title">Not offered</h2></header>
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr><th>Tool</th><th>Why</th><th>Granted through</th></tr>
+            </thead>
+            <tbody>
+              @for (t of missing(); track t.name) {
+                <tr>
+                  <td class="font-mono text-[13px]">{{ t.name }}</td>
+                  <td class="text-[13px]" [class]="t.state === 'conflict' ? 'text-bad' : 'text-warn'">{{ why(t) }}</td>
+                  <td class="text-[12.5px]">
+                    @for (c of t.claimants; track c.ref.server + c.ref.tool) {
+                      @for (p of c.paths; track p.grant + p.capability + p.toolSet) {
+                        <div class="flex flex-wrap items-center gap-1 py-0.5">
+                          <a class="link text-[12.5px]" [routerLink]="['/grants', p.grant]">{{ p.grant }}</a>
+                          <span class="faint">›</span>
+                          <a class="link text-[12.5px]" [routerLink]="['/capabilities', p.capability]">{{ p.capability }}</a>
+                          <span class="faint">›</span>
+                          <a class="link text-[12.5px]" [routerLink]="['/toolsets', p.toolSet]">{{ p.toolSet }}</a>
+                          <span class="faint">›</span>
+                          <a class="link text-[12.5px]" [routerLink]="['/servers', c.ref.server]">{{ c.ref.server }}</a>
+                        </div>
+                      }
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+    }
+
+    @for (g of groups(); track g.server) {
+      <section class="panel">
+        <header class="panel-head">
+          <h2 class="panel-title normal-case tracking-normal">
+            <a class="link text-[13px] font-semibold" [routerLink]="['/servers', g.server]">{{ g.server }}</a>
+          </h2>
+          <span class="faint text-xs">{{ g.tools.length }} {{ g.tools.length === 1 ? 'tool' : 'tools' }}</span>
+        </header>
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr><th>Tool and description</th><th class="w-2/5">Granted through</th></tr>
+            </thead>
+            <tbody>
+              @for (t of g.tools; track t.name) {
+                <tr>
+                  <td>
+                    <span class="font-mono text-[13px]">{{ t.name }}</span>
+                    @if (t.claimants[0]; as c) {
+                      @if (c.ref.tool !== t.name) {
+                        <span class="faint ml-2 font-mono text-xs">{{ c.ref.tool }}</span>
+                      }
+                      @if (c.definition; as d) {
+                        <app-tool-doc [tool]="d" />
+                      }
+                    }
+                  </td>
+                  <td class="text-[12.5px]">
+                    @for (p of t.claimants[0]?.paths ?? []; track p.grant + p.capability + p.toolSet) {
+                      <div class="flex flex-wrap items-center gap-1 py-0.5">
+                        <a class="link text-[12.5px]" [routerLink]="['/grants', p.grant]">{{ p.grant }}</a>
+                        <span class="faint">›</span>
+                        <a class="link text-[12.5px]" [routerLink]="['/capabilities', p.capability]">{{ p.capability }}</a>
+                        <span class="faint">›</span>
+                        <a class="link text-[12.5px]" [routerLink]="['/toolsets', p.toolSet]">{{ p.toolSet }}</a>
+                      </div>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+    } @empty {
+      <p class="faint">No tools offered.</p>
+    }
+
+    <section class="panel">
+      <header class="panel-head"><h2 class="panel-title">Instructions</h2></header>
+      @if (r.instructions) {
+        <pre class="overflow-x-auto px-4 py-3 font-mono text-[12.5px] leading-relaxed whitespace-pre-wrap">{{ r.instructions }}</pre>
+      } @else {
+        <p class="faint px-4 py-3 text-sm">No instructions.</p>
+      }
+    </section>
+  </div>
+}

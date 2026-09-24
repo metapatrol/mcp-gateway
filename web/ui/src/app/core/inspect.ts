@@ -14,7 +14,7 @@ import { Observable } from 'rxjs';
 import { Api } from '../api/api';
 import { ApiConfiguration } from '../api/api-configuration';
 import { watchEvents } from '../api/functions';
-import { Change, ChangeBatch, Source } from '../api/models';
+import { Source } from '../api/models';
 import { StrictHttpResponse } from '../api/strict-http-response';
 
 /** A generated API function: every answer of the inspect API carries its source. */
@@ -39,8 +39,7 @@ export type Liveness = 'connecting' | 'live' | 'reconnecting' | 'polling';
 
 /**
  * Inspect calls the gateway's inspect API through the generated client and
- * keeps what the whole page shares: which replica answered last, and when to
- * read again.
+ * keeps what the whole page shares: when to read again.
  *
  * When to read again is the gateway's event stream: each `changed` event
  * reloads what the page shows. The stream only says that something changed;
@@ -54,14 +53,10 @@ export class Inspect {
   private readonly config = inject(ApiConfiguration);
   private readonly document = inject(DOCUMENT);
 
-  /** The replica and time of the most recent answer. */
-  readonly source = signal<Source | undefined>(undefined);
   /** Bumped by every refresh, manual or automatic. */
   readonly refreshes = signal(0);
   /** Whether updates arrive as they happen, or by polling. */
   readonly liveness = signal<Liveness>('connecting');
-  /** The most recent batch of changes, and when it arrived. */
-  readonly lastChanges = signal<{ changes: Change[]; at: number } | undefined>(undefined);
 
   private stream?: EventSource;
   private lastRefresh = Date.now();
@@ -82,9 +77,7 @@ export class Inspect {
   }
 
   async call<P, R extends { source: Source }>(op: Operation<P, R>, params: P): Promise<R> {
-    const answer = await this.api.invoke(op as Operation<P, R>, params);
-    this.source.set(answer.source);
-    return answer;
+    return this.api.invoke(op as Operation<P, R>, params);
   }
 
   refresh(): void {
@@ -109,13 +102,7 @@ export class Inspect {
       lost = false;
       this.liveness.set('live');
     };
-    stream.addEventListener('changed', (event) => {
-      const batch = parseBatch((event as MessageEvent<string>).data);
-      if (batch) {
-        this.lastChanges.set({ changes: batch.changes, at: Date.now() });
-      }
-      this.refresh();
-    });
+    stream.addEventListener('changed', () => this.refresh());
     stream.onerror = () => {
       lost = true;
       if (stream.readyState === EventSource.CLOSED) {
@@ -171,12 +158,3 @@ export function isNotFound(err: unknown): boolean {
   return err instanceof HttpErrorResponse && err.status === 404;
 }
 
-/** The data of a `changed` event, or undefined if it is not one. */
-export function parseBatch(data: string): ChangeBatch | undefined {
-  try {
-    const batch = JSON.parse(data) as ChangeBatch;
-    return Array.isArray(batch?.changes) ? batch : undefined;
-  } catch {
-    return undefined;
-  }
-}

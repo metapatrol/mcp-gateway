@@ -50,11 +50,16 @@ export const routes: Routes = [
     loadComponent: () => import('./features/grants/grant').then((m) => m.GrantDetail),
   },
   {
-    // The subject is a query parameter, as in the API: a sub claim may be a
-    // URL, and does not survive as a path segment.
     path: 'subjects',
     title: title('Subjects'),
     loadComponent: () => import('./features/subjects/subjects').then((m) => m.Subjects),
+  },
+  {
+    // The subject is a query parameter, as in the API: a sub claim may be a
+    // URL, and does not survive as a path segment.
+    path: 'subjects/resolve',
+    title: title('Subject'),
+    loadComponent: () => import('./features/subjects/subject').then((m) => m.SubjectDetail),
   },
   {
     path: '**',

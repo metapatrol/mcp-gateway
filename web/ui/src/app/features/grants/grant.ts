@@ -23,7 +23,7 @@ import { LoadState } from '../../shared/load-state';
           <p class="eyebrow">MCPGrant</p>
           <h1 class="font-mono text-2xl font-semibold tracking-tight">{{ g.meta.name }}</h1>
           <p class="muted mt-1 text-[13.5px]">
-            Subject <a class="link" [routerLink]="['/subjects']" [queryParams]="{ subject: g.spec.subject }">{{ g.spec.subject }}</a>
+            Subject <a class="link" [routerLink]="['/subjects/resolve']" [queryParams]="{ subject: g.spec.subject }">{{ g.spec.subject }}</a>
             @if (g.sameSubject.length) {
               · also granted by
               @for (o of g.sameSubject; track o; let last = $last) {
