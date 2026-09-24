@@ -1,3 +1,11 @@
+# [1.9.0](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/compare/v1.8.0...v1.9.0) (2026-09-24)
+
+
+### Features
+
+* **ui:** estimate what an MCP payload costs in context ([119e5ed](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/commit/119e5ed477b650f1bda9c39521c7c022708142e5))
+* **ui:** sort and search every list ([84ad4cc](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/commit/84ad4ccf21d59e8c282fd7861ae34b1bada42af1))
+
 # [1.8.0](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/compare/v1.7.1...v1.8.0) (2026-09-24)
 
 
