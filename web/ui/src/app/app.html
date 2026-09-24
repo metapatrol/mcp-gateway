@@ -37,14 +37,13 @@
           class="flex items-center justify-between gap-3 rounded-md px-2 py-1.5 text-[13.5px] whitespace-nowrap hover:bg-surface"
         >
           <span>{{ item.label }}</span>
-          @if (item.count !== undefined) {
-            <span class="faint flex items-center gap-1.5 font-mono text-[11.5px]">
-              @if (item.troubled) {
-                <span class="size-1.5 rounded-full bg-bad" title="Something here is not ready"></span>
-                <span class="sr-only">(something is not ready)</span>
-              }
-              {{ item.count }}
-            </span>
+          @if (item.problems) {
+            <span
+              class="rounded-full px-1.5 font-mono text-[11px] leading-[18px] font-semibold tabular-nums"
+              [class]="item.tone === 'bad' ? 'bg-bad-soft text-bad' : 'bg-warn-soft text-warn'"
+              [title]="item.problems + ' not ready'"
+              >{{ item.problems }}<span class="sr-only"> not ready</span></span
+            >
           }
         </a>
       }

@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { CONDITIONS, healthy, SERVER_CONDITIONS } from './core/conditions';
+import { Condition } from './api/models';
+import { CONDITIONS, firstProblem, SERVER_CONDITIONS, tone } from './core/conditions';
 import { Inspect } from './core/inspect';
 import { Lists } from './core/lists';
 import { ThemeService } from './core/theme';
@@ -8,8 +9,16 @@ import { ThemeService } from './core/theme';
 interface NavItem {
   path: string;
   label: string;
-  count?: number;
-  troubled?: boolean;
+  /** How many are not Valid and Ready; absent or 0 shows nothing. */
+  problems?: number;
+  /** bad when one of them is at fault itself, warn when all only pass trouble on. */
+  tone?: 'bad' | 'warn';
+}
+
+/** The not-ready count of a list and its worst tone, as the overview ranks them. */
+function problems(conditionLists: Condition[][], types: Condition['type'][]): Pick<NavItem, 'problems' | 'tone'> {
+  const found = conditionLists.map((c) => firstProblem(c, types)).filter((c): c is Condition => !!c);
+  return { problems: found.length, tone: found.some((c) => tone(c) === 'bad') ? 'bad' : 'warn' };
 }
 
 @Component({
@@ -25,18 +34,16 @@ export class App {
   private readonly lists = inject(Lists);
 
   protected readonly cluster = computed<NavItem[]>(() => {
-    // Counts only once a list has arrived: a zero before that would be a lie.
+    // Counted only once a list has arrived: nothing is known before that.
     const l = this.lists;
-    const s = l.servers.hasValue() ? l.serverItems() : undefined;
-    const t = l.toolSets.hasValue() ? l.toolSetItems() : undefined;
-    const c = l.capabilities.hasValue() ? l.capabilityItems() : undefined;
-    const g = l.grants.hasValue() ? l.grantItems() : undefined;
+    const count = (loaded: boolean, items: { status: { conditions: Condition[] } }[], types: Condition['type'][]) =>
+      loaded ? problems(items.map((i) => i.status.conditions), types) : {};
     return [
       { path: '/overview', label: 'Overview' },
-      { path: '/servers', label: 'Servers', count: s?.length, troubled: s?.some((x) => !healthy(x.status.conditions, SERVER_CONDITIONS)) },
-      { path: '/toolsets', label: 'Tool sets', count: t?.length, troubled: t?.some((x) => !healthy(x.status.conditions, CONDITIONS)) },
-      { path: '/capabilities', label: 'Capabilities', count: c?.length, troubled: c?.some((x) => !healthy(x.status.conditions, CONDITIONS)) },
-      { path: '/grants', label: 'Grants', count: g?.length, troubled: g?.some((x) => !healthy(x.status.conditions, CONDITIONS)) },
+      { path: '/servers', label: 'Servers', ...count(l.servers.hasValue(), l.serverItems(), SERVER_CONDITIONS) },
+      { path: '/toolsets', label: 'Tool sets', ...count(l.toolSets.hasValue(), l.toolSetItems(), CONDITIONS) },
+      { path: '/capabilities', label: 'Capabilities', ...count(l.capabilities.hasValue(), l.capabilityItems(), CONDITIONS) },
+      { path: '/grants', label: 'Grants', ...count(l.grants.hasValue(), l.grantItems(), CONDITIONS) },
     ];
   });
 
