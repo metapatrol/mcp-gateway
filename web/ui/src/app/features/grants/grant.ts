@@ -8,12 +8,13 @@ import { ConditionPill, Pill } from '../../shared/condition-pill';
 import { ConditionsTable } from '../../shared/conditions-table';
 import { InstructionsPanel } from '../../shared/instructions-panel';
 import { LoadState } from '../../shared/load-state';
+import { Notice } from '../../shared/notice';
 import { McpView } from '../../shared/mcp-view';
 import { DetailView, ViewSwitch } from '../../shared/view-switch';
 
 @Component({
   selector: 'app-grant',
-  imports: [RouterLink, ConditionPill, Pill, ConditionsTable, LoadState, McpView, ViewSwitch, InstructionsPanel],
+  imports: [RouterLink, ConditionPill, Pill, ConditionsTable, LoadState, McpView, ViewSwitch, InstructionsPanel, Notice],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <nav class="muted mb-2 flex gap-1.5 text-[12.5px]" aria-label="Breadcrumb">
@@ -45,6 +46,9 @@ import { DetailView, ViewSwitch } from '../../shared/view-switch';
         <app-mcp-view kind="grant" [name]="name()" />
       } @else {
       <div class="flex flex-col gap-4">
+        @if (g.missingCapabilities.length) {
+          <app-notice tone="bad">Not found: {{ g.missingCapabilities.join(', ') }}. They grant nothing.</app-notice>
+        }
         <section class="panel">
           <header class="panel-head"><h2 class="panel-title">Capabilities</h2></header>
           <div class="flex flex-col px-4 py-2">

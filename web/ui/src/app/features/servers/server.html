@@ -18,7 +18,66 @@
     <app-mcp-view kind="server" [name]="name()" />
   } @else {
   <div class="flex flex-col gap-4">
-    <div class="grid gap-4 xl:grid-cols-2">
+    @if (!s.discovery.usable || s.discovery.consecutiveFailures) {
+      <app-notice [tone]="s.discovery.usable ? 'warn' : 'bad'">
+        @if (!s.discovery.discovered) {
+          This replica has not read the catalog yet.
+        } @else if (!s.discovery.usable) {
+          Not served by this replica: discovery failing for {{ s.discovery.consecutiveFailures }} attempts, last success {{ since(s.discovery.lastSuccess) }}.
+        } @else {
+          Discovery failing for {{ s.discovery.consecutiveFailures }} attempts; the last catalog is still served.
+        }
+        @if (s.discovery.lastError) {
+          <span class="mt-1 block font-mono text-xs">{{ s.discovery.lastError }}</span>
+        }
+      </app-notice>
+    }
+
+    <section class="panel">
+      <header class="panel-head">
+        <h2 class="panel-title">Catalog</h2>
+        <span class="faint text-xs">
+          @if (s.catalog; as c) {
+            {{ c.tools.length }} tools · revision {{ rev(c.revision) }}
+          }
+        </span>
+      </header>
+      @if (s.catalog; as c) {
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr><th>Tool and description</th><th>Selected by</th></tr>
+            </thead>
+            <tbody>
+              @for (t of c.tools; track t.name) {
+                <tr>
+                  <td>
+                    <span class="font-mono text-[13px]">{{ t.name }}</span>
+                    @if (t.title) {
+                      <span class="muted ml-2 text-xs">{{ t.title }}</span>
+                    }
+                    <app-tool-doc [tool]="t" />
+                  </td>
+                  <td class="w-1/4">
+                    @for (ts of selectedBy().get(t.name) ?? []; track ts; let last = $last) {
+                      <a class="link" [routerLink]="['/toolsets', ts]">{{ ts }}</a>@if (!last) {, }
+                    } @empty {
+                      <span class="faint text-xs">no tool set</span>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <p class="faint px-4 py-3 text-sm">No catalog.</p>
+      }
+    </section>
+
+    <app-instructions [text]="s.catalog?.instructions" />
+
+    <div class="grid gap-4 xl:grid-cols-2 2xl:grid-cols-3">
       <section class="panel">
         <header class="panel-head"><h2 class="panel-title">Configuration</h2></header>
         <dl class="grid grid-cols-[minmax(8rem,auto)_minmax(0,1fr)] gap-x-4 gap-y-2 px-4 py-3 text-[13.5px]">
@@ -71,9 +130,6 @@
                   <td></td>
                   <td class="text-bad">
                     {{ s.discovery.consecutiveFailures }} attempts in a row
-                    @if (s.discovery.lastError) {
-                      <span class="mt-0.5 block font-mono text-xs">{{ s.discovery.lastError }}</span>
-                    }
                   </td>
                 </tr>
               }
@@ -81,11 +137,7 @@
           </table>
         </div>
       </section>
-    </div>
 
-    <app-conditions [conditions]="s.status.conditions" [observedGeneration]="s.status.observedGeneration" [generation]="s.meta.generation" />
-
-    <div class="grid gap-4 xl:grid-cols-2">
       <section class="panel">
         <header class="panel-head"><h2 class="panel-title">Used by</h2></header>
         <div class="flex flex-col px-4 py-2">
@@ -99,50 +151,9 @@
           }
         </div>
       </section>
-      <app-instructions [text]="s.catalog?.instructions" />
     </div>
 
-    <section class="panel">
-      <header class="panel-head">
-        <h2 class="panel-title">Catalog</h2>
-        <span class="faint text-xs">
-          @if (s.catalog; as c) {
-            {{ c.tools.length }} tools · revision {{ rev(c.revision) }}
-          }
-        </span>
-      </header>
-      @if (s.catalog; as c) {
-        <div class="overflow-x-auto">
-          <table class="data-table">
-            <thead>
-              <tr><th>Tool and description</th><th>Selected by</th></tr>
-            </thead>
-            <tbody>
-              @for (t of c.tools; track t.name) {
-                <tr>
-                  <td>
-                    <span class="font-mono text-[13px]">{{ t.name }}</span>
-                    @if (t.title) {
-                      <span class="muted ml-2 text-xs">{{ t.title }}</span>
-                    }
-                    <app-tool-doc [tool]="t" />
-                  </td>
-                  <td class="w-1/4">
-                    @for (ts of selectedBy().get(t.name) ?? []; track ts; let last = $last) {
-                      <a class="link" [routerLink]="['/toolsets', ts]">{{ ts }}</a>@if (!last) {, }
-                    } @empty {
-                      <span class="faint text-xs">no tool set</span>
-                    }
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-      } @else {
-        <p class="faint px-4 py-3 text-sm">This replica has not read the catalog yet.</p>
-      }
-    </section>
+    <app-conditions [conditions]="s.status.conditions" [observedGeneration]="s.status.observedGeneration" [generation]="s.meta.generation" />
   </div>
   }
 }

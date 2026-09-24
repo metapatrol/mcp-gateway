@@ -8,12 +8,13 @@ import { ConditionPill, Pill } from '../../shared/condition-pill';
 import { ConditionsTable } from '../../shared/conditions-table';
 import { InstructionsPanel } from '../../shared/instructions-panel';
 import { LoadState } from '../../shared/load-state';
+import { Notice } from '../../shared/notice';
 import { McpView } from '../../shared/mcp-view';
 import { DetailView, ViewSwitch } from '../../shared/view-switch';
 
 @Component({
   selector: 'app-capability',
-  imports: [RouterLink, ConditionPill, Pill, ConditionsTable, LoadState, McpView, ViewSwitch, InstructionsPanel],
+  imports: [RouterLink, ConditionPill, Pill, ConditionsTable, LoadState, McpView, ViewSwitch, InstructionsPanel, Notice],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <nav class="muted mb-2 flex gap-1.5 text-[12.5px]" aria-label="Breadcrumb">
@@ -40,38 +41,9 @@ import { DetailView, ViewSwitch } from '../../shared/view-switch';
         <app-mcp-view kind="capability" [name]="name()" />
       } @else {
       <div class="flex flex-col gap-4">
-        <div class="grid gap-4 xl:grid-cols-2">
-          <section class="panel">
-            <header class="panel-head"><h2 class="panel-title">Tool sets</h2></header>
-            <div class="flex flex-col px-4 py-2">
-              @for (t of c.spec.toolSets; track t) {
-                <div class="flex items-center justify-between gap-2 py-1">
-                  @if (c.missingToolSets.includes(t)) {
-                    <span class="font-mono text-[13px] text-bad line-through">{{ t }}</span>
-                    <app-pill tone="bad">does not exist</app-pill>
-                  } @else {
-                    <a class="link" [routerLink]="['/toolsets', t]">{{ t }}</a>
-                    <app-condition label="Ready" [condition]="toolSetReady(t)" />
-                  }
-                </div>
-              }
-            </div>
-          </section>
-          <section class="panel">
-            <header class="panel-head"><h2 class="panel-title">Granted by</h2></header>
-            <div class="flex flex-col px-4 py-2">
-              @for (g of c.grantedBy; track g) {
-                <div class="flex items-center justify-between gap-2 py-1">
-                  <a class="link" [routerLink]="['/grants', g]">{{ g }}</a>
-                  <span class="muted font-mono text-xs">{{ subjectOf(g) }}</span>
-                </div>
-              } @empty {
-                <p class="faint py-1 text-sm">No grant uses this capability.</p>
-              }
-            </div>
-          </section>
-        </div>
-
+        @if (c.missingToolSets.length) {
+          <app-notice tone="bad">Not found: {{ c.missingToolSets.join(', ') }}. They contribute nothing.</app-notice>
+        }
         @if (c.conflicts.length) {
           <section class="panel border-bad/40">
             <header class="panel-head"><h2 class="panel-title text-bad">Name conflicts</h2></header>
@@ -130,6 +102,38 @@ import { DetailView, ViewSwitch } from '../../shared/view-switch';
         </section>
 
         <app-instructions [text]="c.instructions" />
+
+        <div class="grid gap-4 xl:grid-cols-2">
+          <section class="panel">
+            <header class="panel-head"><h2 class="panel-title">Tool sets</h2></header>
+            <div class="flex flex-col px-4 py-2">
+              @for (t of c.spec.toolSets; track t) {
+                <div class="flex items-center justify-between gap-2 py-1">
+                  @if (c.missingToolSets.includes(t)) {
+                    <span class="font-mono text-[13px] text-bad line-through">{{ t }}</span>
+                    <app-pill tone="bad">does not exist</app-pill>
+                  } @else {
+                    <a class="link" [routerLink]="['/toolsets', t]">{{ t }}</a>
+                    <app-condition label="Ready" [condition]="toolSetReady(t)" />
+                  }
+                </div>
+              }
+            </div>
+          </section>
+          <section class="panel">
+            <header class="panel-head"><h2 class="panel-title">Granted by</h2></header>
+            <div class="flex flex-col px-4 py-2">
+              @for (g of c.grantedBy; track g) {
+                <div class="flex items-center justify-between gap-2 py-1">
+                  <a class="link" [routerLink]="['/grants', g]">{{ g }}</a>
+                  <span class="muted font-mono text-xs">{{ subjectOf(g) }}</span>
+                </div>
+              } @empty {
+                <p class="faint py-1 text-sm">No grant uses this capability.</p>
+              }
+            </div>
+          </section>
+        </div>
 
         <app-conditions [conditions]="c.status.conditions" [observedGeneration]="c.status.observedGeneration" [generation]="c.meta.generation" />
       </div>

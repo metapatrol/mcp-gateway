@@ -7,6 +7,7 @@ import { Lists } from '../../core/lists';
 import { Pill } from '../../shared/condition-pill';
 import { InstructionsPanel } from '../../shared/instructions-panel';
 import { LoadState } from '../../shared/load-state';
+import { Notice } from '../../shared/notice';
 import { McpView } from '../../shared/mcp-view';
 import { DetailView, ViewSwitch } from '../../shared/view-switch';
 import { ToolDoc } from '../../shared/tool-doc';
@@ -14,7 +15,7 @@ import { byServer, notOffered } from './grouping';
 
 @Component({
   selector: 'app-subject',
-  imports: [RouterLink, Pill, LoadState, ToolDoc, McpView, ViewSwitch, InstructionsPanel],
+  imports: [RouterLink, Pill, LoadState, ToolDoc, McpView, ViewSwitch, InstructionsPanel, Notice],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './subject.html',
 })

@@ -24,7 +24,7 @@ import { ConditionPill } from './condition-pill';
             <tbody>
               @for (c of conditions(); track c.type) {
                 <tr>
-                  <td>{{ c.type }}</td>
+                  <td class="whitespace-nowrap">{{ c.type }}</td>
                   <td><app-condition [label]="c.status" [condition]="c" /></td>
                   <td class="muted">{{ c.message }}</td>
                   <td class="faint whitespace-nowrap">{{ since(c.lastTransitionTime) }}</td>

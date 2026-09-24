@@ -10,13 +10,14 @@ import { ConditionPill, Pill } from '../../shared/condition-pill';
 import { ConditionsTable } from '../../shared/conditions-table';
 import { InstructionsPanel } from '../../shared/instructions-panel';
 import { LoadState } from '../../shared/load-state';
+import { Notice } from '../../shared/notice';
 import { McpView } from '../../shared/mcp-view';
 import { DetailView, ViewSwitch } from '../../shared/view-switch';
 import { ToolDoc } from '../../shared/tool-doc';
 
 @Component({
   selector: 'app-server',
-  imports: [RouterLink, ConditionPill, Pill, ConditionsTable, LoadState, ToolDoc, McpView, ViewSwitch, InstructionsPanel],
+  imports: [RouterLink, ConditionPill, Pill, ConditionsTable, LoadState, ToolDoc, McpView, ViewSwitch, InstructionsPanel, Notice],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './server.html',
 })

@@ -83,6 +83,12 @@ result again; and the console's Content-Security-Policy runs no inline script
 and loads no image from elsewhere. Links open in a new tab without an opener
 or a referrer. Agents receive the text as written; rendering is the console's.
 
+Every detail page is laid out in the same order: what is wrong with the
+resource, if anything; what it comes to — its tools, or for a grant its
+capabilities; the instructions an agent holding it is sent; what it is made of
+and what uses it; and last its conditions, the detail behind the pills at the
+top.
+
 Tool hints — read-only, destructive, idempotent, open world — are shown only as
 far as the backend declares them, and marked as its claims: the gateway verifies
 none of them. A tool that declares nothing says "no hints declared"; MCP then
