@@ -1,5 +1,10 @@
-# Build output
+# Build output. `go build ./cmd/<binary>` from the root leaves the binary
+# here rather than in bin/.
 bin/
+/mcp-gateway
+/mcp-gateway-controller
+/mcp-gateway-proxy
+/mcp-gateway-ui
 
 # semantic-release installs into the workspace during a release run.
 node_modules/
