@@ -38,7 +38,8 @@ One Dockerfile, three images, selected with `--build-arg BINARY=`:
 |---|---|
 | `images/platform/mcp-gateway-controller` | control plane |
 | `images/platform/mcp-gateway` | data plane |
-| `images/platform/mcp-gateway-proxy` | the sidecar — kept separate so agent pods do not carry the other two |
+| `images/platform/mcp-gateway-proxy` | the sidecar — kept separate so agent pods do not carry the others |
+| `images/platform/mcp-gateway-ui` | the console, with its web UI compiled in |
 
 Every image is tagged with the version (releases), `latest`, the full commit SHA
 and its twelve-character prefix. The prefix is what Flux writes into a chart

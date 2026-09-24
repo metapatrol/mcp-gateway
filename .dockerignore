@@ -1,0 +1,7 @@
+# The image builds the web UI itself, from the lockfile; a workstation's
+# node_modules, build cache and build output would overwrite that.
+web/ui/node_modules
+web/ui/.angular
+web/ui/src/app/api
+internal/ui/dist/ui
+bin

@@ -61,6 +61,10 @@ the plain name, as its binary does: mcp-gateway and mcp-gateway-controller.
 {{- include "mcp-gateway.fullname" . }}
 {{- end }}
 
+{{- define "mcp-gateway.ui.fullname" -}}
+{{- printf "%s-ui" (include "mcp-gateway.fullname" .) | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
 {{/*
 ServiceAccount names.
 */}}
@@ -69,6 +73,14 @@ ServiceAccount names.
 {{- default (include "mcp-gateway.controller.fullname" .) .Values.controller.serviceAccount.name }}
 {{- else }}
 {{- default "default" .Values.controller.serviceAccount.name }}
+{{- end }}
+{{- end }}
+
+{{- define "mcp-gateway.ui.serviceAccountName" -}}
+{{- if .Values.ui.serviceAccount.create }}
+{{- default (include "mcp-gateway.ui.fullname" .) .Values.ui.serviceAccount.name }}
+{{- else }}
+{{- default "default" .Values.ui.serviceAccount.name }}
 {{- end }}
 {{- end }}
 
@@ -117,4 +129,28 @@ flag cannot drift apart. ":8080" and "0.0.0.0:8080" both yield 8080.
 */}}
 {{- define "mcp-gateway.port" -}}
 {{- last (splitList ":" (toString .)) -}}
+{{- end }}
+
+{{/*
+The inspect API is on when asked for, and whenever the console is: the console
+reads nothing else. Its readers are the ones configured plus, with the console,
+the console's own ServiceAccount.
+*/}}
+{{- define "mcp-gateway.inspect.enabled" -}}
+{{- if or .Values.gateway.inspect.enabled .Values.ui.enabled }}true{{ end -}}
+{{- end }}
+
+{{- define "mcp-gateway.inspect.serviceAccounts" -}}
+{{- $accounts := .Values.gateway.inspect.serviceAccounts -}}
+{{- if .Values.ui.enabled -}}
+{{- $accounts = append $accounts (printf "%s/%s" .Release.Namespace (include "mcp-gateway.ui.serviceAccountName" .)) -}}
+{{- end -}}
+{{- join "," (uniq $accounts) -}}
+{{- end }}
+
+{{/*
+Where the console reaches the inspect API.
+*/}}
+{{- define "mcp-gateway.inspect.url" -}}
+{{- printf "http://%s-inspect.%s.svc:%s" (include "mcp-gateway.gateway.fullname" .) .Release.Namespace (include "mcp-gateway.port" .Values.gateway.inspect.bindAddress) -}}
 {{- end }}

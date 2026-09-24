@@ -363,6 +363,25 @@ gateway serves, and `policy.Explain` keeps the reasons `policy.Select` drops;
 its selection is `Select`'s, so the explanation cannot disagree with
 enforcement.
 
+## Console
+
+`mcp-gateway-ui` is the console: an Angular application (`web/ui`) compiled
+into a small Go server. The browser talks to the inspect API at the paths the
+gateway serves it under, and the server passes those requests on — GET and
+HEAD only, without the browser's cookies or credentials, with its own
+ServiceAccount token, projected for the audience `mcp-gateway-inspect`. There
+is one API and one spec: the console's client is generated from
+`api/openapi/inspect.yaml` on every UI build, so a change to the spec that the
+UI does not follow fails its build.
+
+It has no sign-in of its own and keeps nothing. Who may open it is decided in
+front of it: a port-forward, or an ingress with an authenticating proxy.
+
+`make dev-stack` runs the whole chain on one machine — an API server with the
+CRDs, MCP backends, the controller, the gateway with its inspect API, and the
+console at http://127.0.0.1:8480/ — with example resources in every state the
+console has a way of showing.
+
 ## Network model
 
 The gateway is the boundary between agents and backends. The chart's

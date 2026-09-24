@@ -35,6 +35,7 @@ env:
   # name — requests then go out as the bot, and cross-repository calls quietly
   # fail. See .forgejo/README.md.
   GO_VERSION: "1.27"
+  NODE_VERSION: "24"
   FORGEJO_BASE_URL: ${{ github.server_url }}
   FORGEJO_REPO: ${{ github.repository }}
   FORGEJO_ORG: ${{ github.repository_owner }}
@@ -74,7 +75,7 @@ jobs:
     runs-on: docker
     strategy:
       matrix:
-        binary: [mcp-gateway-controller, mcp-gateway, mcp-gateway-proxy]
+        binary: [mcp-gateway-controller, mcp-gateway, mcp-gateway-proxy, mcp-gateway-ui]
     env:
       ZOT_URL: ${{ vars.ZOT_URL }}
       ZOT_USERNAME: ${{ vars.ZOT_USERNAME }}
@@ -179,8 +180,14 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: false
+      - uses: https://data.forgejo.org/actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      # mcp-gateway-ui embeds the web UI, so it is built before the binaries
+      # are.
+      - run: make ui-install ui-build
       # The proxy is the binary people download — it runs on workstations as
-      # well as in pods. The other two ship for completeness.
+      # well as in pods. The others ship for completeness.
       - name: Build, upload and attach
         env:
           CGO_ENABLED: "0"
@@ -198,7 +205,7 @@ jobs:
           ASSETS=""
           for GOOS in linux darwin; do
             for GOARCH in amd64 arm64; do
-              for BIN in mcp-gateway-controller mcp-gateway mcp-gateway-proxy; do
+              for BIN in mcp-gateway-controller mcp-gateway mcp-gateway-proxy mcp-gateway-ui; do
                 # Only the proxy is useful off Linux.
                 [ "$GOOS" = linux ] || [ "$BIN" = mcp-gateway-proxy ] || continue
                 GOOS=$GOOS GOARCH=$GOARCH go build -trimpath \

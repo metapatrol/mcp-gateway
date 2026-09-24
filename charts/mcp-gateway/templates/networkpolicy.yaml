@@ -40,12 +40,20 @@ spec:
           protocol: TCP
         - port: health
           protocol: TCP
-    {{- if .Values.gateway.inspect.enabled }}
+    {{- if include "mcp-gateway.inspect.enabled" . }}
     - from:
+        {{- if .Values.ui.enabled }}
+        - podSelector:
+            matchLabels:
+              {{- include "mcp-gateway.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/component: ui
+        {{- end }}
+        {{- if or .Values.networkPolicy.inspectNamespaceSelector .Values.networkPolicy.inspectPodSelector }}
         - namespaceSelector:
             {{- toYaml .Values.networkPolicy.inspectNamespaceSelector | nindent 12 }}
           podSelector:
             {{- toYaml .Values.networkPolicy.inspectPodSelector | nindent 12 }}
+        {{- end }}
       ports:
         - port: inspect
           protocol: TCP

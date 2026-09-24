@@ -1,9 +1,26 @@
-# One Dockerfile for all three binaries; BINARY picks which one an image holds.
-# Separate images rather than one with all three: the proxy runs as a sidecar
-# next to agents, and has no business shipping the gateway and the controller
-# into every pod it joins.
+# One Dockerfile for every binary; BINARY picks which one an image holds.
+# Separate images rather than one with all: the proxy runs as a sidecar next to
+# agents, and has no business shipping the gateway and the controller into
+# every pod it joins; the console's image is the only one with a web UI in it.
 #
 #   podman build --build-arg BINARY=mcp-gateway -t .../mcp-gateway .
+# mcp-gateway-ui carries the console's web UI, compiled into the binary, so that
+# stage runs first. For the other binaries it only creates the empty directory
+# the embed directive needs, which costs one layer and no npm install. The UI's
+# API client is generated from the inspect API's spec as part of its build.
+FROM zot.metapatrol.local/library/node:24-alpine AS ui
+
+ARG BINARY
+
+WORKDIR /src
+COPY web/ui/package.json web/ui/package-lock.json ./web/ui/
+RUN if [ "$BINARY" = "mcp-gateway-ui" ]; then cd web/ui && npm ci; fi
+
+COPY api/openapi ./api/openapi
+COPY web/ui ./web/ui
+RUN mkdir -p internal/ui/dist && touch internal/ui/dist/.gitkeep && \
+    if [ "$BINARY" = "mcp-gateway-ui" ]; then cd web/ui && npm run build; fi
+
 FROM zot.metapatrol.local/library/golang:1.27-alpine AS builder
 
 ARG BINARY
@@ -11,13 +28,16 @@ ARG VERSION=dev
 ARG COMMIT=unknown
 ARG BUILT_AT=unknown
 
-RUN test -n "$BINARY" || (echo "--build-arg BINARY=mcp-gateway{,-controller,-proxy} is required" && exit 1)
+RUN test -n "$BINARY" || (echo "--build-arg BINARY=mcp-gateway{,-controller,-proxy,-ui} is required" && exit 1)
 
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
+# The web UI, built above. It replaces the placeholder directory the repository
+# carries, and go:embed takes it from there.
+COPY --from=ui /src/internal/ui/dist ./internal/ui/dist
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath \
     -ldflags="-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.builtAt=${BUILT_AT}" \
     -o /app ./cmd/${BINARY}

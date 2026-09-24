@@ -4,3 +4,9 @@ bin/
 # semantic-release installs into the workspace during a release run.
 node_modules/
 package-lock.json
+# ...but the console's lockfile is what `npm ci` installs from.
+!/web/ui/package-lock.json
+
+# The console's web UI build, which mcp-gateway-ui embeds (make ui-build).
+/internal/ui/dist/*
+!/internal/ui/dist/.gitkeep

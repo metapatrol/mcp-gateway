@@ -10,9 +10,17 @@ REDOCLY_CLI_VERSION ?= 2.54.2
 # The Kubernetes version integration tests run their API server at.
 ENVTEST_K8S_VERSION ?= 1.34.1
 
-BINARIES := mcp-gateway-controller mcp-gateway mcp-gateway-proxy
+BINARIES := mcp-gateway-controller mcp-gateway mcp-gateway-proxy mcp-gateway-ui
 
-.PHONY: secret-scan secret-scan-history generate generate-api lint-api generate-crds build test integration-test lint clean build-binaries build-all changelog helm-docs helm-lint helm-package install-tools $(addprefix build-,$(BINARIES))
+.PHONY: secret-scan secret-scan-history generate generate-api lint-api generate-crds build test integration-test dev-stack lint clean ui-install ui-build ui-test ui-lint ui-clean build-binaries build-all changelog helm-docs helm-lint helm-package install-tools $(addprefix build-,$(BINARIES))
+
+# The console's web UI is an Angular application in web/ui. It builds into
+# internal/ui/dist/ui, which mcp-gateway-ui embeds: `go build` compiles in
+# whatever that directory holds, so a build without `make ui-build` produces a
+# console that passes the API through and says it has no UI. The image and the
+# release build it first. Its API client is generated from
+# api/openapi/inspect.yaml on every build, lint and test.
+UI_DIR := web/ui
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
@@ -31,20 +39,50 @@ integration-test:
 	KUBEBUILDER_ASSETS="$$(go run sigs.k8s.io/controller-runtime/tools/setup-envtest@$(SETUP_ENVTEST_VERSION) use $(ENVTEST_K8S_VERSION) -p path)" \
 		go test ./tests/integration/... -v -count=1 -timeout 5m
 
+# Everything the console needs, on this machine, until Ctrl-C: an API server
+# with the CRDs, MCP backends with example resources, the controller, the
+# gateway with its inspect API, and mcp-gateway-ui at http://127.0.0.1:8480/.
+dev-stack: ui-build
+	DEVSTACK=1 KUBEBUILDER_ASSETS="$$(go run sigs.k8s.io/controller-runtime/tools/setup-envtest@$(SETUP_ENVTEST_VERSION) use $(ENVTEST_K8S_VERSION) -p path)" \
+		go test ./tests/integration/ -run TestDevStack -count=1 -v -timeout 0
+
 lint:
 	golangci-lint run ./...
 
-clean:
+clean: ui-clean
 	rm -rf bin/
+
+ui-install:
+	cd $(UI_DIR) && npm ci
+
+# `npm ci` is skipped when node_modules is already there: it takes minutes, the
+# build seconds.
+$(UI_DIR)/node_modules:
+	$(MAKE) ui-install
+
+ui-build: $(UI_DIR)/node_modules
+	cd $(UI_DIR) && npm run build
+
+ui-test: $(UI_DIR)/node_modules
+	cd $(UI_DIR) && npm test
+
+ui-lint: $(UI_DIR)/node_modules
+	cd $(UI_DIR) && npm run lint
+
+ui-clean:
+	rm -rf internal/ui/dist/ui
 
 # Build one binary for the current platform (quick dev build)
 $(addprefix build-,$(BINARIES)): build-%:
 	CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -o bin/$* ./cmd/$*
 
+# The console carries the web UI, so its binary is only complete with a UI build.
+build-mcp-gateway-ui: ui-build
+
 build-binaries: $(addprefix build-,$(BINARIES))
 
 # Cross-compile all binaries for release platforms
-build-all:
+build-all: ui-build
 	@mkdir -p bin
 	@for bin in $(BINARIES); do \
 		for arch in amd64 arm64; do \

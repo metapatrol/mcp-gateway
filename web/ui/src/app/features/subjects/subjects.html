@@ -1,0 +1,161 @@
+<header class="mb-5">
+  <p class="eyebrow">Subjects<app-src kind="gateway" /></p>
+  <h1 class="text-2xl font-semibold tracking-tight">What does a subject get?</h1>
+  <p class="muted mt-1 max-w-[75ch]">
+    The resolution the gateway runs on <code>tools/list</code>, for one token subject: every tool it is offered, the way each one is granted, and the
+    instructions it is sent. Grants for the same subject add up.
+  </p>
+</header>
+
+<div class="mb-5 flex flex-col gap-3">
+  @if (all.hasValue()) {
+    <div class="flex flex-wrap gap-2" role="group" aria-label="Subjects that grants name">
+      @for (s of all.value().items; track s.subject) {
+        <button
+          type="button"
+          class="rounded-full border px-3 py-1 font-mono text-[12.5px]"
+          [class]="s.subject === subject() ? 'border-accent-600 bg-accent-600 text-white' : 'border-slate-200 hover:border-slate-300 dark:border-slate-700'"
+          [attr.aria-pressed]="s.subject === subject()"
+          (click)="pick(s.subject)"
+        >
+          {{ s.subject }}
+          <span class="ml-1 opacity-70">{{ s.toolCount }}</span>
+        </button>
+      } @empty {
+        <p class="faint text-sm">No grant names a subject yet.</p>
+      }
+    </div>
+  }
+  <form class="flex max-w-xl gap-2" (submit)="submit($event)">
+    <label for="subject" class="sr-only">Subject</label>
+    <input
+      id="subject"
+      name="subject"
+      class="input"
+      placeholder="any subject, e.g. the sub claim of a token"
+      [value]="typed()"
+      (input)="typed.set($any($event.target).value)"
+      autocomplete="off"
+      spellcheck="false"
+    />
+    <button type="submit" class="btn shrink-0">Resolve</button>
+  </form>
+</div>
+
+@if (subject()) {
+  <app-load-state [error]="resolved.error()" [loading]="!resolved.hasValue()" what="subject" />
+}
+
+@if (r(); as r) {
+  <div class="flex flex-col gap-4">
+    <section class="panel">
+      <header class="panel-head">
+        <h2 class="panel-title">{{ offered() }} of {{ r.tools.length }} tools offered</h2>
+        <span class="faint text-xs">
+          @if (r.grants.length) {
+            from
+            @for (g of r.grants; track g; let last = $last) {
+              <a class="link text-xs" [routerLink]="['/grants', g]">{{ g }}</a>@if (!last) {, }
+            }
+          } @else {
+            no grant names this subject
+          }
+        </span>
+      </header>
+      <div class="overflow-x-auto">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th class="w-6"><span class="sr-only">State</span></th>
+              <th>Tool and description</th>
+              <th>Granted through</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (t of r.tools; track t.name) {
+              <tr [class]="rowClass(t)">
+                <td class="text-center font-semibold">
+                  @switch (t.state) {
+                    @case ('offered') {
+                      <span class="text-emerald-600 dark:text-emerald-400" title="offered">✓</span>
+                    }
+                    @case ('conflict') {
+                      <span class="text-red-600 dark:text-red-400" title="name conflict">✕</span>
+                    }
+                    @default {
+                      <span class="faint" title="not available">○</span>
+                    }
+                  }
+                </td>
+                <td>
+                  <span class="font-mono text-[13px]">{{ t.name }}</span>
+                  @if (t.state === 'conflict') {
+                    <app-pill tone="bad" class="ml-2">name conflict: neither is offered</app-pill>
+                  } @else if (t.state === 'unavailable') {
+                    <app-pill tone="warn" class="ml-2">{{ unavailableBecause(t) }}</app-pill>
+                  }
+                  @for (c of t.claimants; track c.ref.server + c.ref.tool) {
+                    @if (c.definition; as d) {
+                      <div class="mt-1">
+                        @if (t.claimants.length > 1) {
+                          <span class="faint text-xs">{{ c.ref.server }}:</span>
+                        }
+                        <app-tool-doc [tool]="d" />
+                      </div>
+                    }
+                  }
+                </td>
+                <td class="text-[12.5px]">
+                  @for (c of t.claimants; track c.ref.server + c.ref.tool) {
+                    @for (p of c.paths; track p.grant + p.capability + p.toolSet) {
+                      <div class="flex flex-wrap items-center gap-1 py-0.5">
+                        <a class="link text-[12.5px]" [routerLink]="['/grants', p.grant]">{{ p.grant }}</a>
+                        <span class="faint">›</span>
+                        <a class="link text-[12.5px]" [routerLink]="['/capabilities', p.capability]">{{ p.capability }}</a>
+                        <span class="faint">›</span>
+                        <a class="link text-[12.5px]" [routerLink]="['/toolsets', p.toolSet]">{{ p.toolSet }}</a>
+                        <span class="faint">›</span>
+                        <a class="link text-[12.5px]" [routerLink]="['/servers', c.ref.server]">{{ c.ref.server }}</a>
+                        @if (c.ref.tool !== t.name) {
+                          <span class="faint">as {{ c.ref.tool }}</span>
+                        }
+                      </div>
+                    }
+                  }
+                </td>
+              </tr>
+            } @empty {
+              <tr><td colspan="3" class="faint">This subject is offered no tools.</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      @if (r.missingCapabilities.length || r.missingToolSets.length || r.missingServers.length) {
+        <p class="panel-note">
+          References that name nothing, and so grant nothing:
+          @for (m of r.missingCapabilities; track m) {
+            <code class="text-red-700 dark:text-red-300">capability {{ m }}</code>
+          }
+          @for (m of r.missingToolSets; track m) {
+            <code class="text-red-700 dark:text-red-300">tool set {{ m }}</code>
+          }
+          @for (m of r.missingServers; track m) {
+            <code class="text-red-700 dark:text-red-300">server {{ m }}</code>
+          }
+        </p>
+      }
+    </section>
+
+    <section class="panel">
+      <header class="panel-head">
+        <h2 class="panel-title">What the agent is told at start<app-src kind="gateway" /></h2>
+        <span class="faint text-xs">instructions in the server/discover answer</span>
+      </header>
+      @if (r.instructions) {
+        <pre class="overflow-x-auto px-4 py-3 font-mono text-[12.5px] leading-relaxed whitespace-pre-wrap">{{ r.instructions }}</pre>
+      } @else {
+        <p class="faint px-4 py-3 text-sm">No instructions: none of this subject's servers send any, and the gateway has none of its own.</p>
+      }
+    </section>
+  </div>
+}

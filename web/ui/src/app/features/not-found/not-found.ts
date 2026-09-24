@@ -1,0 +1,13 @@
+import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { RouterLink } from '@angular/router';
+
+@Component({
+  selector: 'app-not-found',
+  imports: [RouterLink],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    <h1 class="text-2xl font-semibold">Nothing here</h1>
+    <p class="muted mt-2">This address is not a page of the console. <a routerLink="/overview" class="text-accent-600 hover:underline dark:text-accent-300">Go to the overview</a>.</p>
+  `,
+})
+export class NotFound {}

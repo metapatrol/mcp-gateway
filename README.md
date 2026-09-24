@@ -56,6 +56,7 @@ graph LR
 | `mcp-gateway` | The enforcement point. Verifies tokens, resolves the subject's grants, serves the filtered aggregate `tools/list`, authorises and routes every `tools/call` — authenticating to backends as each `MCPServer` says. Reads the API, never writes it. Every replica serves traffic. |
 | `mcp-gateway-controller` | Discovers backend catalogs, verifies tool sets against them, reports `Valid` and `Ready` on all four kinds. Not in the request path: the gateway keeps working when it is down. |
 | `mcp-gateway-proxy` | Optional. An auth-less MCP endpoint on localhost that obtains tokens itself, for agents that cannot do OAuth. Convenience, not a security boundary. |
+| `mcp-gateway-ui` | Optional (`ui.enabled`). A read-only web console over the four kinds, the backends' catalogs with every tool's description, and what each subject gets — for checking that a tool set does what its manifest says. Reads the gateway's inspect API. `make dev-stack` runs it locally with example resources. |
 
 → **[Architecture](./docs/architecture.md)** — request flow, change detection, failure behaviour
 

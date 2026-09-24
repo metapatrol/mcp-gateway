@@ -172,6 +172,18 @@ func (b *Backend) AddTool(name string) {
 	})
 }
 
+// AddDefinedTool adds a tool with a definition of the caller's — a description
+// and schema worth reading, where AddTool makes up a placeholder. It answers
+// as AddTool's tools do.
+func (b *Backend) AddDefinedTool(tool *mcp.Tool) {
+	b.Server().AddTool(tool, func(_ context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		b.Calls.Add(1)
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{&mcp.TextContent{Text: fmt.Sprintf("%s/%s %s", b.Name, tool.Name, string(req.Params.Arguments))}},
+		}, nil
+	})
+}
+
 // AddFailingTool adds a tool that reports a tool-level error.
 func (b *Backend) AddFailingTool(name string) {
 	b.Server().AddTool(&mcp.Tool{

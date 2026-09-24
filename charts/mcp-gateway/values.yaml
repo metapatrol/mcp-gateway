@@ -149,10 +149,44 @@ networkPolicy:
   agentPodSelector: {}
   # Namespaces allowed to scrape metrics and probe health.
   monitoringNamespaceSelector: {}
-  # Who may reach the inspect API's port, when gateway.inspect is enabled. The
-  # API checks every reader's token besides.
+  # Who else may reach the inspect API's port, when it is on. The console, when
+  # enabled, is let in without being named here. The API checks every reader's
+  # token besides.
   inspectNamespaceSelector: {}
   inspectPodSelector: {}
+
+# The read-only console, mcp-gateway-ui: a web UI over the four kinds, the
+# backends' catalogs and what each subject gets. It reads the gateway's inspect
+# API, which enabling it turns on, with a ServiceAccount token projected for
+# that API alone. It has no sign-in of its own: who may open it is decided in
+# front of it — a port-forward, or an ingress with an authenticating proxy.
+ui:
+  enabled: false
+  replicaCount: 1
+  image:
+    repository: zot.metapatrol.local/images/platform/mcp-gateway-ui
+    pullPolicy: IfNotPresent
+    tag: ""  # Defaults to the chart version, see _helpers.tpl
+  serviceAccount:
+    create: true
+    annotations: {}
+    name: ""
+  listenAddress: ":8080"
+  service:
+    type: ClusterIP
+    port: 80
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+  podAnnotations: {}
+  env: []
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
 
 # Prometheus scraping of both components. The Services are always created; only
 # the ServiceMonitor is optional, because it needs a CRD the cluster may not have.

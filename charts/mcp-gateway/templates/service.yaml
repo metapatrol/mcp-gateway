@@ -18,7 +18,7 @@ spec:
   selector:
     {{- include "mcp-gateway.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: gateway
-{{- if .Values.gateway.inspect.enabled }}
+{{- if include "mcp-gateway.inspect.enabled" . }}
 ---
 {{/*
   The inspect API, apart from the MCP Service: the address agents are given

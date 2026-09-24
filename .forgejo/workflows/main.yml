@@ -17,6 +17,7 @@ on:
 env:
   GIT_SSL_NO_VERIFY: "true"
   GO_VERSION: "1.27"
+  NODE_VERSION: "24"
   # From the runner, not hardcoded: the workflows are meant to be copied between
   # repositories in this org without an edit.
   FORGEJO_BASE_URL: ${{ github.server_url }}
@@ -113,6 +114,15 @@ jobs:
       # image may not carry.
       - name: Install a C compiler for the race detector
         run: command -v gcc >/dev/null || (apt-get update -qq && apt-get install -y -qq gcc libc6-dev)
+      - uses: https://data.forgejo.org/actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      # The console's web UI is part of its binary, so it is checked with the
+      # rest before anything is published.
+      - run: make ui-install
+      - run: make ui-lint
+      - run: make ui-test
+      - run: make ui-build
       - run: go test -race -count=1 ./...
       - run: make integration-test
 
@@ -123,7 +133,7 @@ jobs:
     runs-on: docker
     strategy:
       matrix:
-        binary: [mcp-gateway-controller, mcp-gateway, mcp-gateway-proxy]
+        binary: [mcp-gateway-controller, mcp-gateway, mcp-gateway-proxy, mcp-gateway-ui]
     env:
       ZOT_URL: ${{ vars.ZOT_URL }}
       ZOT_USERNAME: ${{ vars.ZOT_USERNAME }}

@@ -1,0 +1,155 @@
+<nav class="muted mb-2 flex gap-1.5 text-[12.5px]" aria-label="Breadcrumb">
+  <a routerLink="/servers" class="text-accent-600 hover:underline dark:text-accent-300">Servers</a><span class="faint">/</span><span>{{ name() }}</span>
+</nav>
+
+<app-load-state [error]="server.error()" [loading]="!server.hasValue()" what="MCPServer" [name]="name()" />
+
+@if (s(); as s) {
+  <header class="mb-5 flex flex-wrap items-start justify-between gap-4">
+    <div>
+      <p class="eyebrow">MCPServer</p>
+      <h1 class="font-mono text-2xl font-semibold tracking-tight">{{ s.meta.name }}</h1>
+    </div>
+    <app-condition label="Ready" [condition]="ready()" />
+  </header>
+
+  <div class="flex flex-col gap-4">
+    <div class="grid gap-4 xl:grid-cols-2">
+      <section class="panel">
+        <header class="panel-head"><h2 class="panel-title">Configuration<app-src kind="spec" /></h2></header>
+        <dl class="grid grid-cols-[minmax(8rem,auto)_minmax(0,1fr)] gap-x-4 gap-y-2 px-4 py-3 text-[13.5px]">
+          <dt class="muted">Endpoint</dt>
+          <dd class="font-mono [overflow-wrap:anywhere]">{{ s.spec.endpoint }}</dd>
+          <dt class="muted">Discovery interval</dt>
+          <dd>{{ s.spec.discoveryInterval }}</dd>
+          @for (row of auth(); track row[0]) {
+            <dt class="muted">Auth · {{ row[0] }}</dt>
+            <dd class="[overflow-wrap:anywhere]">{{ row[1] }}</dd>
+          }
+        </dl>
+        <p class="panel-note">Secrets are shown by name and key only. Neither the API nor the console reads them.</p>
+      </section>
+
+      <section class="panel">
+        <header class="panel-head"><h2 class="panel-title">Discovery</h2></header>
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr><th></th><th>Controller<app-src kind="status" /></th><th>This gateway replica<app-src kind="gateway" /></th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="muted">Available</td>
+                <td><app-pill [tone]="s.status.available ? 'ok' : 'bad'">{{ s.status.available ? 'yes' : 'no' }}</app-pill></td>
+                <td>
+                  <app-pill [tone]="s.discovery.usable ? 'ok' : 'bad'">{{ s.discovery.usable ? 'served' : s.discovery.discovered ? 'no longer served' : 'never discovered' }}</app-pill>
+                </td>
+              </tr>
+              <tr>
+                <td class="muted">Tools</td>
+                <td class="font-mono">{{ s.status.discoveredTools ?? '—' }}</td>
+                <td class="font-mono">{{ s.discovery.toolCount ?? '—' }}</td>
+              </tr>
+              <tr>
+                <td class="muted">Catalog revision</td>
+                <td class="font-mono text-xs">{{ rev(s.status.catalogRevision) }}</td>
+                <td class="font-mono text-xs" [class.text-amber-600]="s.status.catalogRevision && s.discovery.catalogRevision && s.status.catalogRevision !== s.discovery.catalogRevision">
+                  {{ rev(s.discovery.catalogRevision) }}
+                </td>
+              </tr>
+              <tr>
+                <td class="muted">Last success</td>
+                <td>{{ since(s.status.lastDiscoveryTime) }}</td>
+                <td>{{ since(s.discovery.lastSuccess) }}</td>
+              </tr>
+              @if (s.discovery.consecutiveFailures) {
+                <tr>
+                  <td class="muted">Failing</td>
+                  <td></td>
+                  <td class="text-red-700 dark:text-red-300">
+                    {{ s.discovery.consecutiveFailures }} attempts in a row
+                    @if (s.discovery.lastError) {
+                      <span class="mt-0.5 block font-mono text-xs">{{ s.discovery.lastError }}</span>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <app-conditions [conditions]="s.status.conditions" [observedGeneration]="s.status.observedGeneration" [generation]="s.meta.generation" />
+
+    <div class="grid gap-4 xl:grid-cols-2">
+      <section class="panel">
+        <header class="panel-head"><h2 class="panel-title">Used by<app-src kind="spec" /></h2></header>
+        <div class="flex flex-col px-4 py-2">
+          @for (t of s.usedBy; track t) {
+            <div class="flex items-center justify-between gap-2 py-1">
+              <a class="link" [routerLink]="['/toolsets', t]">{{ t }}</a>
+              <app-condition label="Ready" [condition]="toolSetCondition(t)" />
+            </div>
+          } @empty {
+            <p class="faint py-1 text-sm">No tool set selects from this server.</p>
+          }
+        </div>
+      </section>
+      <section class="panel">
+        <header class="panel-head">
+          <h2 class="panel-title">Instructions<app-src kind="gateway" /></h2>
+          <span class="faint text-xs">from the backend's initialize answer</span>
+        </header>
+        @if (s.catalog?.instructions; as instructions) {
+          <pre class="overflow-x-auto px-4 py-3 font-mono text-[12.5px] leading-relaxed whitespace-pre-wrap">{{ instructions }}</pre>
+        } @else {
+          <p class="faint px-4 py-3 text-sm">This server sends no instructions.</p>
+        }
+        <p class="panel-note">Passed on to every subject that holds at least one tool from this server.</p>
+      </section>
+    </div>
+
+    <section class="panel">
+      <header class="panel-head">
+        <h2 class="panel-title">Catalog<app-src kind="gateway" /></h2>
+        <span class="faint text-xs">
+          @if (s.catalog; as c) {
+            {{ c.tools.length }} tools · revision {{ rev(c.revision) }}
+          }
+        </span>
+      </header>
+      @if (s.catalog; as c) {
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr><th>Tool and description</th><th>Selected by<app-src kind="status" /></th></tr>
+            </thead>
+            <tbody>
+              @for (t of c.tools; track t.name) {
+                <tr>
+                  <td>
+                    <span class="font-mono text-[13px]">{{ t.name }}</span>
+                    @if (t.title) {
+                      <span class="muted ml-2 text-xs">{{ t.title }}</span>
+                    }
+                    <app-tool-doc [tool]="t" />
+                  </td>
+                  <td class="w-1/4">
+                    @for (ts of selectedBy().get(t.name) ?? []; track ts; let last = $last) {
+                      <a class="link" [routerLink]="['/toolsets', ts]">{{ ts }}</a>@if (!last) {, }
+                    } @empty {
+                      <span class="faint text-xs">no tool set</span>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <p class="faint px-4 py-3 text-sm">This replica has not read the catalog yet.</p>
+      }
+    </section>
+  </div>
+}

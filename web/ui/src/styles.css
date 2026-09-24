@@ -1,0 +1,108 @@
+@import 'tailwindcss';
+
+/* Dark mode follows the class the theme service sets on <html>, which itself
+   follows prefers-color-scheme until the viewer picks a theme. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+
+  /* One accent, a blue leaning slightly violet; semantic colours stay
+     Tailwind's emerald, amber and red. */
+  --color-accent-50: oklch(0.97 0.02 268);
+  --color-accent-100: oklch(0.93 0.04 268);
+  --color-accent-300: oklch(0.78 0.11 268);
+  --color-accent-400: oklch(0.7 0.15 268);
+  --color-accent-500: oklch(0.6 0.19 266);
+  --color-accent-600: oklch(0.52 0.19 266);
+  --color-accent-700: oklch(0.45 0.17 266);
+  --color-accent-900: oklch(0.3 0.1 268);
+  --color-accent-950: oklch(0.22 0.07 268);
+}
+
+@layer base {
+  html {
+    @apply bg-slate-100 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100;
+    color-scheme: light;
+    font-size: 14px;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-accent-500;
+  }
+
+  code {
+    @apply font-mono text-[0.92em];
+  }
+}
+
+@utility panel {
+  @apply min-w-0 rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900;
+}
+
+@utility panel-head {
+  @apply flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-4 py-2.5 dark:border-slate-800;
+}
+
+@utility panel-title {
+  @apply text-[11px] font-semibold tracking-[0.08em] text-slate-500 uppercase dark:text-slate-400;
+}
+
+@utility panel-note {
+  @apply rounded-b-lg border-t border-slate-200 bg-slate-50 px-4 py-2.5 text-[12.5px] text-slate-500 dark:border-slate-800 dark:bg-slate-950/40 dark:text-slate-400;
+}
+
+@utility eyebrow {
+  @apply text-[11px] font-semibold tracking-[0.08em] text-slate-400 uppercase dark:text-slate-500;
+}
+
+@utility link {
+  @apply cursor-pointer font-mono text-[13px] text-accent-600 hover:underline dark:text-accent-300;
+}
+
+@utility muted {
+  @apply text-slate-500 dark:text-slate-400;
+}
+
+@utility faint {
+  @apply text-slate-400 dark:text-slate-500;
+}
+
+@utility btn {
+  @apply inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[12.5px] text-slate-600 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800;
+}
+
+@utility input {
+  @apply block w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 font-mono text-[13px] placeholder:text-slate-400 focus:border-accent-500 focus:ring-2 focus:ring-accent-500/30 focus:outline-none dark:border-slate-700 dark:bg-slate-900;
+}
+
+@layer components {
+  .data-table {
+    @apply w-full border-collapse text-[13.5px];
+  }
+
+  .data-table th {
+    @apply border-b border-slate-200 px-3 py-2 text-left text-[11px] font-semibold tracking-[0.07em] text-slate-500 uppercase dark:border-slate-800 dark:text-slate-400;
+  }
+
+  .data-table td {
+    @apply border-b border-slate-200 px-3 py-2 align-top [overflow-wrap:anywhere] dark:border-slate-800;
+  }
+
+  .data-table tr:last-child td {
+    @apply border-b-0;
+  }
+
+  .data-table tr.row-link {
+    @apply cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50;
+  }
+
+  .data-table td.num {
+    @apply text-right font-mono tabular-nums;
+  }
+}
