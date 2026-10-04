@@ -1,18 +1,16 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import { ago, conditionRank, MpCondition, MpListSearch, MpLoadState, MpSort, parseSort, searchRows, sortRows } from '@metapatrol/ng';
+import { ago, conditionRank, MpCondition, MpListSearch, MpLoadState, MpPageHeader, MpSort, parseSort, searchRows, sortRows } from '@metapatrol/ng';
 import { condition } from '../../core/conditions';
 import { Lists } from '../../core/lists';
 
 
 @Component({
   selector: 'app-servers',
-  imports: [RouterLink, MpCondition, MpLoadState, MpListSearch, MpSort],
+  imports: [MpPageHeader, RouterLink, MpCondition, MpLoadState, MpListSearch, MpSort],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <h1 class="mb-4 flex items-baseline gap-2 text-xl font-semibold tracking-tight">
-      Servers<span class="font-mono text-[13px] font-normal text-fg-subtle">MCPServer</span>
-    </h1>
+    <mp-page-header title="Servers" note="MCPServer" />
     <mp-load-state [error]="lists.servers.error()" [loading]="!lists.servers.hasValue()" what="servers" />
     @if (lists.servers.hasValue()) {
       <section class="mp-panel mp-panel-flush">

@@ -10,7 +10,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { MpLoadState, MpPill } from '@metapatrol/ng';
+import { MpLoadState, MpPageHeader, MpPill } from '@metapatrol/ng';
 import { Condition } from '../../api/models';
 import { CONDITIONS, firstProblem, healthy, SERVER_CONDITIONS, tone } from '../../core/conditions';
 import { buildGraph, GraphNode, Kind, related, routeOf } from '../../core/graph';
@@ -47,7 +47,7 @@ const COLUMNS: { kind: Kind; title: string }[] = [
 
 @Component({
   selector: 'app-overview',
-  imports: [RouterLink, MpPill, MpLoadState],
+  imports: [MpPageHeader, RouterLink, MpPill, MpLoadState],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './overview.html',
 })

@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import { conditionRank, MpCondition, MpListSearch, MpLoadState, MpSort, parseSort, searchRows, sortRows } from '@metapatrol/ng';
+import { conditionRank, MpCondition, MpListSearch, MpLoadState, MpPageHeader, MpSort, parseSort, searchRows, sortRows } from '@metapatrol/ng';
 import { Condition } from '../../api/models';
 import { condition } from '../../core/conditions';
 import { Lists } from '../../core/lists';
@@ -8,12 +8,10 @@ import { Lists } from '../../core/lists';
 
 @Component({
   selector: 'app-capabilities',
-  imports: [RouterLink, MpCondition, MpLoadState, MpListSearch, MpSort],
+  imports: [MpPageHeader, RouterLink, MpCondition, MpLoadState, MpListSearch, MpSort],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <h1 class="mb-4 flex items-baseline gap-2 text-xl font-semibold tracking-tight">
-      Capabilities<span class="font-mono text-[13px] font-normal text-fg-subtle">MCPCapability</span>
-    </h1>
+    <mp-page-header title="Capabilities" note="MCPCapability" />
     <mp-load-state [error]="lists.capabilities.error()" [loading]="!lists.capabilities.hasValue()" what="capabilities" />
     @if (lists.capabilities.hasValue()) {
       <section class="mp-panel mp-panel-flush">

@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import { MpListSearch, MpLoadState, MpSort, parseSort, searchRows, sortRows } from '@metapatrol/ng';
+import { MpListSearch, MpLoadState, MpPageHeader, MpSort, parseSort, searchRows, sortRows } from '@metapatrol/ng';
 import { listSubjects } from '../../api/functions';
 import { SubjectSummary } from '../../api/models';
 import { Inspect, live } from '../../core/inspect';
@@ -12,10 +12,10 @@ export function filterSubjects(items: SubjectSummary[], query: string): SubjectS
 
 @Component({
   selector: 'app-subjects',
-  imports: [RouterLink, MpLoadState, MpListSearch, MpSort],
+  imports: [MpPageHeader, RouterLink, MpLoadState, MpListSearch, MpSort],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <h1 class="mb-4 text-xl font-semibold tracking-tight">Subjects</h1>
+    <mp-page-header title="Subjects" />
     <mp-load-state [error]="subjects.error()" [loading]="!subjects.hasValue()" what="subjects" />
     @if (subjects.hasValue()) {
       <section class="mp-panel mp-panel-flush">
