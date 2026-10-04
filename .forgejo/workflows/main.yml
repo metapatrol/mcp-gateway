@@ -104,6 +104,10 @@ jobs:
     runs-on: docker
     env:
       GOFLAGS: "-mod=mod"
+      # @metapatrol/* come from the forge's npm registry (web/ui/.npmrc), read
+      # with the automation token as NPM_TOKEN; PLATFORM_CA lets npm trust it.
+      NPM_TOKEN: ${{ secrets.AUTOMATION_TOKEN }}
+      PLATFORM_CA: ${{ vars.PLATFORM_CA || secrets.PLATFORM_CA }}
     steps:
       - uses: https://data.forgejo.org/actions/checkout@v6
       - uses: https://data.forgejo.org/actions/setup-go@v6
@@ -119,6 +123,18 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       # The console's web UI is part of its binary, so it is checked with the
       # rest before anything is published.
+      # An unset secret expands to an empty string, and npm then asks anonymously
+      # and gets a 404 for a package in a private organisation, which reads as
+      # a missing package rather than a missing token.
+      - name: Check the token for the console's packages
+        run: |
+          [ -n "$NPM_TOKEN" ] || { echo "ERROR: AUTOMATION_TOKEN is not set for this repository (see .forgejo/README.md)"; exit 1; }
+          echo "token present"
+      - name: Trust the platform CA
+        run: |
+          [ -n "$PLATFORM_CA" ] || { echo "PLATFORM_CA is not set - relying on the system trust store"; exit 0; }
+          printf '%s\n' "$PLATFORM_CA" > /tmp/platform_ca.pem
+          echo "NODE_EXTRA_CA_CERTS=/tmp/platform_ca.pem" >> "$GITHUB_ENV"
       - run: make ui-install
       - run: make ui-lint
       - run: make ui-test
@@ -138,6 +154,8 @@ jobs:
       ZOT_URL: ${{ vars.ZOT_URL }}
       ZOT_USERNAME: ${{ vars.ZOT_USERNAME }}
       ZOT_TOKEN: ${{ secrets.ZOT_TOKEN }}
+      NPM_TOKEN: ${{ secrets.AUTOMATION_TOKEN }}
+      PLATFORM_CA: ${{ vars.PLATFORM_CA || secrets.PLATFORM_CA }}
     steps:
       - uses: https://data.forgejo.org/actions/checkout@v6
       # A secret that was never set expands to an empty string rather than
@@ -146,7 +164,7 @@ jobs:
       - name: Check the secrets this job needs
         run: |
           missing=""
-          for name in ZOT_URL ZOT_USERNAME ZOT_TOKEN; do
+          for name in ZOT_URL ZOT_USERNAME ZOT_TOKEN NPM_TOKEN; do
             eval "value=\$$name"
             [ -n "$value" ] || missing="$missing $name"
           done
@@ -175,7 +193,21 @@ jobs:
           # from it, so a cluster tracking a branch runs the commit it tracks.
           SHORT_SHA=$(echo "$COMMIT_SHA" | cut -c1-12)
           BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          podman --storage-driver=vfs build --tls-verify=false \
+          # Build secrets for the console's @metapatrol packages (see Dockerfile);
+          # only mcp-gateway-ui reads them.
+          umask 077
+          printf '%s' "$NPM_TOKEN" > /tmp/npm_token
+          printf '%s' "$PLATFORM_CA" > /tmp/platform_ca
+          # The build does not inherit the job container's name resolution, and
+          # the console's @metapatrol packages come from the forge: resolve it
+          # here and hand the address in.
+          FORGE_HOST=$(sed -nE 's#^@metapatrol:registry=https?://([^/:]+).*#\1#p' web/ui/.npmrc)
+          FORGE_IP=$(getent hosts "$FORGE_HOST" | awk '{print $1; exit}')
+          : "${FORGE_IP:?cannot resolve $FORGE_HOST}"
+          podman --storage-driver=vfs build --tls-verify=false --network host \
+            --add-host "$FORGE_HOST:$FORGE_IP" \
+            --secret id=npm_token,src=/tmp/npm_token \
+            --secret id=platform_ca,src=/tmp/platform_ca \
             --build-arg BINARY="$BINARY" \
             --build-arg VERSION="$COMMIT" \
             --build-arg COMMIT="$COMMIT" \
@@ -184,6 +216,7 @@ jobs:
             -t "$IMAGE:$COMMIT_SHA" \
             -t "$IMAGE:$SHORT_SHA" \
             -f Dockerfile .
+          rm -f /tmp/npm_token /tmp/platform_ca
           podman login --username "$ZOT_USERNAME" --password "$ZOT_TOKEN" --tls-verify=false "$REGISTRY"
           for tag in latest "$COMMIT_SHA" "$SHORT_SHA"; do
             podman --storage-driver=vfs push --tls-verify=false "$IMAGE:$tag"

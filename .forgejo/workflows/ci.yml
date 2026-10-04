@@ -115,11 +115,28 @@ jobs:
   ui:
     needs: [secret-scan, lint]
     runs-on: docker
+    env:
+      # @metapatrol/* come from the forge's npm registry (web/ui/.npmrc), read
+      # with the automation token as NPM_TOKEN; PLATFORM_CA lets npm trust it.
+      NPM_TOKEN: ${{ secrets.AUTOMATION_TOKEN }}
+      PLATFORM_CA: ${{ vars.PLATFORM_CA || secrets.PLATFORM_CA }}
     steps:
       - uses: https://data.forgejo.org/actions/checkout@v6
       - uses: https://data.forgejo.org/actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+      # An unset secret expands to an empty string, and npm then asks anonymously
+      # and gets a 404 for a package in a private organisation, which reads as
+      # a missing package rather than a missing token.
+      - name: Check the token for the console's packages
+        run: |
+          [ -n "$NPM_TOKEN" ] || { echo "ERROR: AUTOMATION_TOKEN is not set for this repository (see .forgejo/README.md)"; exit 1; }
+          echo "token present"
+      - name: Trust the platform CA
+        run: |
+          [ -n "$PLATFORM_CA" ] || { echo "PLATFORM_CA is not set - relying on the system trust store"; exit 0; }
+          printf '%s\n' "$PLATFORM_CA" > /tmp/platform_ca.pem
+          echo "NODE_EXTRA_CA_CERTS=/tmp/platform_ca.pem" >> "$GITHUB_ENV"
       - run: make ui-install
       - run: make ui-lint
       - run: make ui-test

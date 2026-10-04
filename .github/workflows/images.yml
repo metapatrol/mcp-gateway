@@ -9,9 +9,13 @@
 #
 # Forgejo reads .forgejo/workflows and ignores this directory.
 #
-#   ghcr.io/metapatrol/mcp-gateway{,-controller,-proxy,-ui}
+#   ghcr.io/metapatrol/mcp-gateway{,-controller,-proxy}
 #     :1.9.0 :1.9 :latest   from a release tag
 #     :main :<short sha>    from main
+#
+# Not mcp-gateway-ui: the console's @metapatrol packages come from the forge's
+# npm registry, which GitHub cannot reach. It comes back here once they are
+# published to npmjs.
 #
 # A release tagged before this workflow existed is built by running it by hand
 # with that tag: the tag's source, this commit's Dockerfile — an older one
@@ -47,7 +51,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        binary: [mcp-gateway-controller, mcp-gateway, mcp-gateway-proxy, mcp-gateway-ui]
+        # not mcp-gateway-ui, see above
+        binary: [mcp-gateway-controller, mcp-gateway, mcp-gateway-proxy]
     env:
       TAG: ${{ inputs.tag }}
     steps:

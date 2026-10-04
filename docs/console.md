@@ -319,7 +319,11 @@ subject as its bearer token.
 
 For work on the UI itself, `npm start` in `web/ui` serves it with live reload on
 http://localhost:4200/ and passes `/api` on to the dev stack. The UI needs
-Node ≥ 22.22.3.
+Node ≥ 22.22.3, and its `@metapatrol/*` packages (the shell, components and
+styles every metapatrol console shares) come from the forge's npm registry:
+export a Forgejo token with `read:package` scope as `NPM_TOKEN` before
+`make ui-install` (`web/ui/.npmrc`), and point `NODE_EXTRA_CA_CERTS` at the
+platform CA where the system does not trust it.
 
 | Command | Does |
 |---|---|

@@ -29,8 +29,14 @@
             "baseHref": "/",
             "assets": [
               {
-                "glob": "**/*",
-                "input": "public"
+                "glob": "favicon.{svg,ico}",
+                "input": "node_modules/@metapatrol/brand/app",
+                "output": ""
+              },
+              {
+                "glob": "metapatrol-app-icon-180.png",
+                "input": "node_modules/@metapatrol/brand/app",
+                "output": ""
               }
             ],
             "styles": [

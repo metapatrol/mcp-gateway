@@ -1,16 +1,16 @@
 <header class="mb-3 flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
   <div class="min-w-0">
-    <app-detail-title section="Servers" link="/servers" [name]="name()" />
+    <mp-detail-title section="Servers" link="/servers" [name]="name()" />
     @if (s(); as s) {
-      <p class="muted mt-0.5 text-[13px]"><span class="font-mono">{{ s.spec.endpoint }}</span> · {{ s.spec.auth.type }}</p>
+      <p class="text-fg-muted mt-0.5 text-[13px]"><span class="font-mono">{{ s.spec.endpoint }}</span> · {{ s.spec.auth.type }}</p>
     }
   </div>
   @if (s(); as s) {
-    <app-condition label="Ready" [condition]="ready()" />
+    <mp-condition label="Ready" [condition]="ready()" />
   }
 </header>
 
-<app-load-state [error]="server.error()" [loading]="!server.hasValue()" what="MCPServer" [name]="name()" />
+<mp-load-state [error]="server.error()" [loading]="!server.hasValue()" what="MCPServer" [name]="name()" />
 
 @if (s(); as s) {
   <app-view-switch [view]="view()" [base]="['/servers', name()]" />
@@ -20,7 +20,7 @@
   } @else {
   <div class="flex flex-col gap-4">
     @if (!s.discovery.usable || s.discovery.consecutiveFailures) {
-      <app-notice [tone]="s.discovery.usable ? 'warn' : 'bad'">
+      <mp-notice [tone]="s.discovery.usable ? 'warn' : 'bad'">
         @if (!s.discovery.discovered) {
           This replica has not read the catalog yet.
         } @else if (!s.discovery.usable) {
@@ -31,13 +31,13 @@
         @if (s.discovery.lastError) {
           <span class="mt-1 block font-mono text-xs">{{ s.discovery.lastError }}</span>
         }
-      </app-notice>
+      </mp-notice>
     }
 
-    <section class="panel">
-      <header class="panel-head">
-        <h2 class="panel-title">Catalog</h2>
-        <span class="faint text-xs">
+    <section class="mp-panel mp-panel-flush">
+      <header class="mp-panel-head">
+        <h2 class="mp-label">Catalog</h2>
+        <span class="text-fg-subtle text-xs">
           @if (s.catalog; as c) {
             {{ c.tools.length }} tools · revision {{ rev(c.revision) }}
           }
@@ -45,7 +45,7 @@
       </header>
       @if (s.catalog; as c) {
         <div class="overflow-x-auto">
-          <table class="data-table">
+          <table class="mp-table">
             <thead>
               <tr><th>Tool and description</th><th>Selected by</th></tr>
             </thead>
@@ -55,15 +55,15 @@
                   <td>
                     <span class="font-mono text-[13px]">{{ t.name }}</span>
                     @if (t.title) {
-                      <span class="muted ml-2 text-xs">{{ t.title }}</span>
+                      <span class="text-fg-muted ml-2 text-xs">{{ t.title }}</span>
                     }
                     <app-tool-doc [tool]="t" />
                   </td>
                   <td class="w-1/4">
                     @for (ts of selectedBy().get(t.name) ?? []; track ts; let last = $last) {
-                      <a class="link" [routerLink]="['/toolsets', ts]">{{ ts }}</a>@if (!last) {, }
+                      <a class="mp-link" [routerLink]="['/toolsets', ts]">{{ ts }}</a>@if (!last) {, }
                     } @empty {
-                      <span class="faint text-xs">no tool set</span>
+                      <span class="text-fg-subtle text-xs">no tool set</span>
                     }
                   </td>
                 </tr>
@@ -72,64 +72,64 @@
           </table>
         </div>
       } @else {
-        <p class="faint px-4 py-3 text-sm">No catalog.</p>
+        <p class="text-fg-subtle px-4 py-3 text-sm">No catalog.</p>
       }
     </section>
 
     <app-instructions [text]="s.catalog?.instructions" />
 
     <div class="grid gap-4 xl:grid-cols-2">
-      <section class="panel">
-        <header class="panel-head"><h2 class="panel-title">Configuration</h2></header>
+      <section class="mp-panel mp-panel-flush">
+        <header class="mp-panel-head"><h2 class="mp-label">Configuration</h2></header>
         <dl class="grid grid-cols-[minmax(8rem,auto)_minmax(0,1fr)] gap-x-4 gap-y-2 px-4 py-3 text-[13.5px]">
-          <dt class="muted">Endpoint</dt>
+          <dt class="text-fg-muted">Endpoint</dt>
           <dd class="font-mono [overflow-wrap:anywhere]">{{ s.spec.endpoint }}</dd>
-          <dt class="muted">Discovery interval</dt>
+          <dt class="text-fg-muted">Discovery interval</dt>
           <dd>{{ s.spec.discoveryInterval }}</dd>
           @for (row of auth(); track row[0]) {
-            <dt class="muted">Auth · {{ row[0] }}</dt>
+            <dt class="text-fg-muted">Auth · {{ row[0] }}</dt>
             <dd class="[overflow-wrap:anywhere]">{{ row[1] }}</dd>
           }
         </dl>
       </section>
 
-      <section class="panel">
-        <header class="panel-head"><h2 class="panel-title">Discovery</h2></header>
+      <section class="mp-panel mp-panel-flush">
+        <header class="mp-panel-head"><h2 class="mp-label">Discovery</h2></header>
         <div class="overflow-x-auto">
-          <table class="data-table">
+          <table class="mp-table">
             <thead>
               <tr><th></th><th>Controller</th><th>Gateway <span class="font-mono font-normal tracking-normal normal-case">{{ s.source.replica }}</span></th></tr>
             </thead>
             <tbody>
               <tr>
-                <td class="muted">Available</td>
-                <td><app-pill [tone]="s.status.available ? 'ok' : 'bad'" [tip]="'last success ' + since(s.status.lastDiscoveryTime)">{{ s.status.available ? 'yes' : 'no' }}</app-pill></td>
+                <td class="text-fg-muted">Available</td>
+                <td><mp-pill [tone]="s.status.available ? 'ok' : 'bad'" [tip]="'last success ' + since(s.status.lastDiscoveryTime)">{{ s.status.available ? 'yes' : 'no' }}</mp-pill></td>
                 <td>
-                  <app-pill [tone]="s.discovery.usable ? 'ok' : 'bad'" [tip]="s.discovery.lastError ?? 'last success ' + since(s.discovery.lastSuccess)">{{ s.discovery.usable ? 'served' : s.discovery.discovered ? 'no longer served' : 'never discovered' }}</app-pill>
+                  <mp-pill [tone]="s.discovery.usable ? 'ok' : 'bad'" [tip]="s.discovery.lastError ?? 'last success ' + since(s.discovery.lastSuccess)">{{ s.discovery.usable ? 'served' : s.discovery.discovered ? 'no longer served' : 'never discovered' }}</mp-pill>
                 </td>
               </tr>
               <tr>
-                <td class="muted">Tools</td>
+                <td class="text-fg-muted">Tools</td>
                 <td class="font-mono">{{ s.status.discoveredTools ?? '—' }}</td>
                 <td class="font-mono">{{ s.discovery.toolCount ?? '—' }}</td>
               </tr>
               <tr>
-                <td class="muted">Catalog revision</td>
+                <td class="text-fg-muted">Catalog revision</td>
                 <td class="font-mono text-xs">{{ rev(s.status.catalogRevision) }}</td>
-                <td class="font-mono text-xs" [class.text-warn]="s.status.catalogRevision && s.discovery.catalogRevision && s.status.catalogRevision !== s.discovery.catalogRevision">
+                <td class="font-mono text-xs" [class.text-warning]="s.status.catalogRevision && s.discovery.catalogRevision && s.status.catalogRevision !== s.discovery.catalogRevision">
                   {{ rev(s.discovery.catalogRevision) }}
                 </td>
               </tr>
               <tr>
-                <td class="muted">Last success</td>
+                <td class="text-fg-muted">Last success</td>
                 <td>{{ since(s.status.lastDiscoveryTime) }}</td>
                 <td>{{ since(s.discovery.lastSuccess) }}</td>
               </tr>
               @if (s.discovery.consecutiveFailures) {
                 <tr>
-                  <td class="muted">Failing</td>
+                  <td class="text-fg-muted">Failing</td>
                   <td></td>
-                  <td class="text-bad">
+                  <td class="text-error">
                     {{ s.discovery.consecutiveFailures }} attempts in a row
                   </td>
                 </tr>
@@ -139,22 +139,22 @@
         </div>
       </section>
 
-      <section class="panel xl:col-span-2">
-        <header class="panel-head"><h2 class="panel-title">Used by</h2></header>
+      <section class="mp-panel mp-panel-flush xl:col-span-2">
+        <header class="mp-panel-head"><h2 class="mp-label">Used by</h2></header>
         <div class="flex flex-col px-4 py-2">
           @for (t of s.usedBy; track t) {
             <div class="flex flex-wrap items-center justify-between gap-2 py-1.5">
-              <a class="link" [routerLink]="['/toolsets', t]">{{ t }}</a>
-              <app-condition label="Ready" [condition]="toolSetCondition(t)" />
+              <a class="mp-link" [routerLink]="['/toolsets', t]">{{ t }}</a>
+              <mp-condition label="Ready" [condition]="toolSetCondition(t)" />
             </div>
           } @empty {
-            <p class="faint py-1 text-sm">No tool set selects from this server.</p>
+            <p class="text-fg-subtle py-1 text-sm">No tool set selects from this server.</p>
           }
         </div>
       </section>
     </div>
 
-    <app-conditions [conditions]="s.status.conditions" [observedGeneration]="s.status.observedGeneration" [generation]="s.meta.generation" />
+    <mp-conditions [conditions]="s.status.conditions" [observedGeneration]="s.status.observedGeneration" [generation]="s.meta.generation" />
   </div>
   }
 }

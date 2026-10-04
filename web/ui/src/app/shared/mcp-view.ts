@@ -1,11 +1,10 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, resource, signal } from '@angular/core';
+import { MpLoadState, MpTip } from '@metapatrol/ng';
+import { MpCodeViewer } from '@metapatrol/ng/code-viewer';
 import { getCapabilityMcp, getGrantMcp, getServerMcp, getSubjectMcp, getToolSetMcp } from '../api/functions';
 import { AgentExchange, BackendExchange } from '../api/models';
 import { Inspect, live } from '../core/inspect';
 import { contextCost, heaviest, TOKENIZER, tokenCounter } from '../core/tokens';
-import { JsonViewer } from './json-viewer';
-import { LoadState } from './load-state';
-import { Tip } from './tip';
 
 export type McpOwner = 'server' | 'toolset' | 'capability' | 'grant' | 'subject';
 
@@ -26,30 +25,30 @@ const pretty = (v: unknown) => JSON.stringify(v, null, 2);
  */
 @Component({
   selector: 'app-mcp-view',
-  imports: [LoadState, JsonViewer, Tip],
+  imports: [MpLoadState, MpCodeViewer, MpTip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <app-load-state [error]="doc.error()" [loading]="!doc.hasValue()" what="MCP view" />
+    <mp-load-state [error]="doc.error()" [loading]="!doc.hasValue()" what="MCP view" />
     @if (cost(); as c) {
       <p class="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[13px]">
-        <span class="font-semibold tabular-nums" [appTip]="totalTip()" [focusable]="true">≈ {{ n(c.total) }} tokens in context</span>
-        <span class="muted tabular-nums">tools {{ n(c.total - c.instructions) }}</span>
-        <span class="muted tabular-nums">instructions {{ n(c.instructions) }}</span>
+        <span class="font-semibold tabular-nums" [mpTip]="totalTip()" [focusable]="true">≈ {{ n(c.total) }} tokens in context</span>
+        <span class="text-fg-muted tabular-nums">tools {{ n(c.total - c.instructions) }}</span>
+        <span class="text-fg-muted tabular-nums">instructions {{ n(c.instructions) }}</span>
       </p>
     }
     <div class="flex flex-col gap-4">
       @for (b of blocks(); track b.title) {
-        <section class="panel">
-          <header class="panel-head">
-            <h2 class="panel-title font-mono tracking-normal normal-case">{{ b.title }}</h2>
+        <section class="mp-panel mp-panel-flush">
+          <header class="mp-panel-head">
+            <h2 class="mp-label font-mono tracking-normal normal-case">{{ b.title }}</h2>
             <div class="flex items-center gap-3">
               @if (b.tokens !== undefined) {
-                <span class="muted text-xs tabular-nums" [appTip]="b.tokensTip" [focusable]="!!b.tokensTip">≈ {{ n(b.tokens) }} tokens</span>
+                <span class="text-fg-muted text-xs tabular-nums" [mpTip]="b.tokensTip" [focusable]="!!b.tokensTip">≈ {{ n(b.tokens) }} tokens</span>
               }
-              <button type="button" class="btn" (click)="copy(b)">{{ copied() === b.title ? 'Copied' : 'Copy' }}</button>
+              <button type="button" class="mp-btn" (click)="copy(b)">{{ copied() === b.title ? 'Copied' : 'Copy' }}</button>
             </div>
           </header>
-          <app-json-viewer [value]="b.json" />
+          <mp-code-viewer language="json" [value]="b.json" />
         </section>
       }
     </div>

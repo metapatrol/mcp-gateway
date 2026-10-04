@@ -1,61 +1,57 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import { conditionRank, MpCondition, MpListSearch, MpLoadState, MpSort, parseSort, searchRows, sortRows } from '@metapatrol/ng';
 import { Condition } from '../../api/models';
 import { condition } from '../../core/conditions';
 import { Lists } from '../../core/lists';
-import { ConditionPill } from '../../shared/condition-pill';
-import { LoadState } from '../../shared/load-state';
-import { conditionRank, parseSort, searchRows, sortRows } from '../../core/table';
-import { ListSearch } from '../../shared/list-search';
-import { SortHeader } from '../../shared/sort-header';
 
 
 @Component({
   selector: 'app-grants',
-  imports: [RouterLink, ConditionPill, LoadState, ListSearch, SortHeader],
+  imports: [RouterLink, MpCondition, MpLoadState, MpListSearch, MpSort],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <h1 class="mb-4 flex items-baseline gap-2 text-xl font-semibold tracking-tight">
-      Grants<span class="font-mono text-[13px] font-normal text-faint">MCPGrant</span>
+      Grants<span class="font-mono text-[13px] font-normal text-fg-subtle">MCPGrant</span>
     </h1>
-    <app-load-state [error]="lists.grants.error()" [loading]="!lists.grants.hasValue()" what="grants" />
+    <mp-load-state [error]="lists.grants.error()" [loading]="!lists.grants.hasValue()" what="grants" />
     @if (lists.grants.hasValue()) {
-      <section class="panel">
-        <header class="panel-head">
-          <app-list-search placeholder="Filter by name, subject or capability" [query]="q() ?? ''" [shown]="rows().length" [total]="lists.grantItems().length" />
+      <section class="mp-panel mp-panel-flush">
+        <header class="mp-panel-head">
+          <mp-list-search placeholder="Filter by name, subject or capability" [query]="q() ?? ''" [shown]="rows().length" [total]="lists.grantItems().length" />
         </header>
         <div class="overflow-x-auto">
-        <table class="data-table">
+        <table class="mp-table">
           <thead>
             <tr>
-              <th><app-sort key="name" [sort]="sort()">Name</app-sort></th>
-              <th><app-sort key="subject" [sort]="sort()">Subject</app-sort></th>
-              <th><app-sort key="capabilities" [sort]="sort()">Capabilities</app-sort></th>
-              <th><app-sort key="valid" [sort]="sort()">Valid</app-sort></th>
-              <th><app-sort key="ready" [sort]="sort()">Ready</app-sort></th>
+              <th><mp-sort key="name" [sort]="sort()">Name</mp-sort></th>
+              <th><mp-sort key="subject" [sort]="sort()">Subject</mp-sort></th>
+              <th><mp-sort key="capabilities" [sort]="sort()">Capabilities</mp-sort></th>
+              <th><mp-sort key="valid" [sort]="sort()">Valid</mp-sort></th>
+              <th><mp-sort key="ready" [sort]="sort()">Ready</mp-sort></th>
             </tr>
           </thead>
           <tbody>
             @for (g of rows(); track g.meta.name) {
-              <tr class="row-link" (click)="open(g.meta.name)">
-                <td><a class="link" [routerLink]="['/grants', g.meta.name]">{{ g.meta.name }}</a></td>
+              <tr class="mp-row-link" (click)="open(g.meta.name)">
+                <td><a class="mp-link" [routerLink]="['/grants', g.meta.name]">{{ g.meta.name }}</a></td>
                 <td>
-                  <a class="link" [routerLink]="['/subjects/resolve']" [queryParams]="{ subject: g.spec.subject }" (click)="$event.stopPropagation()">{{ g.spec.subject }}</a>
+                  <a class="mp-link" [routerLink]="['/subjects/resolve']" [queryParams]="{ subject: g.spec.subject }" (click)="$event.stopPropagation()">{{ g.spec.subject }}</a>
                 </td>
                 <td>
                   @for (c of g.spec.capabilities; track c; let last = $last) {
                     @if (lists.capability(c)) {
-                      <a class="link text-[12.5px]" [routerLink]="['/capabilities', c]" (click)="$event.stopPropagation()">{{ c }}</a>
+                      <a class="mp-link text-[12.5px]" [routerLink]="['/capabilities', c]" (click)="$event.stopPropagation()">{{ c }}</a>
                     } @else {
-                      <span class="font-mono text-[12.5px] text-bad line-through" title="not found">{{ c }}</span>
+                      <span class="font-mono text-[12.5px] text-error line-through" title="not found">{{ c }}</span>
                     }@if (!last) {, }
                   }
                 </td>
-                <td><app-condition label="Valid" bare [condition]="get(g.status.conditions, 'Valid')" /></td>
-                <td><app-condition label="Ready" bare [condition]="get(g.status.conditions, 'Ready')" /></td>
+                <td><mp-condition label="Valid" bare [condition]="get(g.status.conditions, 'Valid')" /></td>
+                <td><mp-condition label="Ready" bare [condition]="get(g.status.conditions, 'Ready')" /></td>
               </tr>
             } @empty {
-              <tr><td colspan="5" class="faint">{{ lists.grantItems().length ? 'No grant matches.' : 'No MCPGrant exists.' }}</td></tr>
+              <tr><td colspan="5" class="text-fg-subtle">{{ lists.grantItems().length ? 'No grant matches.' : 'No MCPGrant exists.' }}</td></tr>
             }
           </tbody>
         </table>

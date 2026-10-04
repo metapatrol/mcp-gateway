@@ -1,24 +1,19 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { ago, MpCondition, MpConditions, MpDetailTitle, MpLoadState, MpNotice, MpPill, shortId } from '@metapatrol/ng';
 import { getServer } from '../../api/functions';
 import { authRows } from '../../core/auth';
 import { condition, CONDITIONS } from '../../core/conditions';
 import { Inspect, live } from '../../core/inspect';
 import { Lists } from '../../core/lists';
-import { ago, shortRevision } from '../../core/time';
-import { ConditionPill, Pill } from '../../shared/condition-pill';
-import { ConditionsTable } from '../../shared/conditions-table';
 import { InstructionsPanel } from '../../shared/instructions-panel';
-import { DetailTitle } from '../../shared/detail-title';
-import { LoadState } from '../../shared/load-state';
-import { Notice } from '../../shared/notice';
 import { McpView } from '../../shared/mcp-view';
 import { detailView, ViewSwitch } from '../../shared/view-switch';
 import { ToolDoc } from '../../shared/tool-doc';
 
 @Component({
   selector: 'app-server',
-  imports: [RouterLink, ConditionPill, Pill, ConditionsTable, LoadState, ToolDoc, McpView, ViewSwitch, InstructionsPanel, Notice, DetailTitle],
+  imports: [RouterLink, MpCondition, MpPill, MpConditions, MpLoadState, ToolDoc, McpView, ViewSwitch, InstructionsPanel, MpNotice, MpDetailTitle],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './server.html',
 })
@@ -52,7 +47,7 @@ export class ServerDetail {
   });
 
   protected readonly since = ago;
-  protected readonly rev = shortRevision;
+  protected readonly rev = shortId;
   protected readonly toolSetCondition = (name: string) => {
     const ts = this.lists.toolSet(name);
     return CONDITIONS.map((t) => condition(ts?.status.conditions, t)).find((c) => c?.status !== 'True') ?? condition(ts?.status.conditions, 'Ready');

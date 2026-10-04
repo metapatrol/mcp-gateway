@@ -123,12 +123,14 @@ helm install mcp-gateway ./mcp-gateway/charts/mcp-gateway \
   --namespace mcp-system --create-namespace \
   --set controller.image.repository=ghcr.io/metapatrol/mcp-gateway-controller \
   --set gateway.image.repository=ghcr.io/metapatrol/mcp-gateway \
-  --set ui.image.repository=ghcr.io/metapatrol/mcp-gateway-ui \
   --set gateway.oauth.issuer=https://hydra.example.com/ \
   --set gateway.oauth.introspection.url=http://hydra-admin.hydra.svc:4445/admin/oauth2/introspect
 ```
 
-The proxy's image is `ghcr.io/metapatrol/mcp-gateway-proxy`.
+The proxy's image is `ghcr.io/metapatrol/mcp-gateway-proxy`. The console
+(`ui.enabled`) is not built there: its packages come from the metapatrol
+network's npm registry. Releases up to the last one before that change still
+have `ghcr.io/metapatrol/mcp-gateway-ui`.
 
 ### 2. Register backends, select tools, grant them
 

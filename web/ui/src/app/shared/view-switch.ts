@@ -19,7 +19,7 @@ export const detailView = (segment: string | undefined): DetailView => (segment 
       @for (t of tabs(); track t.key) {
         <a
           class="-mb-px border-b-2 px-0.5 pb-2"
-          [class]="view() === t.key ? 'border-accent font-semibold text-ink' : 'border-transparent text-muted hover:text-ink'"
+          [class]="view() === t.key ? 'border-signal font-semibold text-fg' : 'border-transparent text-fg-muted hover:text-fg'"
           [attr.aria-current]="view() === t.key ? 'page' : null"
           [routerLink]="t.link"
           [queryParams]="query()"

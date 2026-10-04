@@ -80,6 +80,8 @@ jobs:
       ZOT_URL: ${{ vars.ZOT_URL }}
       ZOT_USERNAME: ${{ vars.ZOT_USERNAME }}
       ZOT_TOKEN: ${{ secrets.ZOT_TOKEN }}
+      NPM_TOKEN: ${{ secrets.AUTOMATION_TOKEN }}
+      PLATFORM_CA: ${{ vars.PLATFORM_CA || secrets.PLATFORM_CA }}
     steps:
       # Shallow: VERSION comes from the tag, not from `git describe`.
       - uses: https://data.forgejo.org/actions/checkout@v6
@@ -88,7 +90,7 @@ jobs:
       - name: Check the secrets this job needs
         run: |
           missing=""
-          for name in ZOT_URL ZOT_USERNAME ZOT_TOKEN; do
+          for name in ZOT_URL ZOT_USERNAME ZOT_TOKEN NPM_TOKEN; do
             eval "value=\$$name"
             [ -n "$value" ] || missing="$missing $name"
           done
@@ -117,7 +119,21 @@ jobs:
           SHORT_SHA=$(echo "$COMMIT_SHA" | cut -c1-12)
           VERSION="${TAG#v}"
           BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          podman --storage-driver=vfs build --tls-verify=false \
+          # Build secrets for the console's @metapatrol packages (see Dockerfile);
+          # only mcp-gateway-ui reads them.
+          umask 077
+          printf '%s' "$NPM_TOKEN" > /tmp/npm_token
+          printf '%s' "$PLATFORM_CA" > /tmp/platform_ca
+          # The build does not inherit the job container's name resolution, and
+          # the console's @metapatrol packages come from the forge: resolve it
+          # here and hand the address in.
+          FORGE_HOST=$(sed -nE 's#^@metapatrol:registry=https?://([^/:]+).*#\1#p' web/ui/.npmrc)
+          FORGE_IP=$(getent hosts "$FORGE_HOST" | awk '{print $1; exit}')
+          : "${FORGE_IP:?cannot resolve $FORGE_HOST}"
+          podman --storage-driver=vfs build --tls-verify=false --network host \
+            --add-host "$FORGE_HOST:$FORGE_IP" \
+            --secret id=npm_token,src=/tmp/npm_token \
+            --secret id=platform_ca,src=/tmp/platform_ca \
             --build-arg BINARY="$BINARY" \
             --build-arg VERSION="$VERSION" \
             --build-arg COMMIT="$COMMIT" \
@@ -126,6 +142,7 @@ jobs:
             -t "$IMAGE:$SHORT_SHA" \
             -t "$IMAGE:latest" \
             -f Dockerfile .
+          rm -f /tmp/npm_token /tmp/platform_ca
           podman login --username "$ZOT_USERNAME" --password "$ZOT_TOKEN" --tls-verify=false "$REGISTRY"
           for tag in "$VERSION" "$SHORT_SHA" latest; do
             podman --storage-driver=vfs push --tls-verify=false "$IMAGE:$tag"
@@ -172,6 +189,10 @@ jobs:
       TAG: ${{ inputs.tag || github.ref_name }}
       COMMIT_SHA: ${{ github.sha }}
       AUTOMATION_TOKEN: ${{ secrets.AUTOMATION_TOKEN }}
+      # @metapatrol/* come from the forge's npm registry (web/ui/.npmrc), read
+      # with the automation token as NPM_TOKEN; PLATFORM_CA lets npm trust it.
+      NPM_TOKEN: ${{ secrets.AUTOMATION_TOKEN }}
+      PLATFORM_CA: ${{ vars.PLATFORM_CA || secrets.PLATFORM_CA }}
     steps:
       - uses: https://data.forgejo.org/actions/checkout@v6
         with:
@@ -183,6 +204,18 @@ jobs:
       - uses: https://data.forgejo.org/actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+      # An unset secret expands to an empty string, and npm then asks anonymously
+      # and gets a 404 for a package in a private organisation, which reads as
+      # a missing package rather than a missing token.
+      - name: Check the token for the console's packages
+        run: |
+          [ -n "$NPM_TOKEN" ] || { echo "ERROR: AUTOMATION_TOKEN is not set for this repository (see .forgejo/README.md)"; exit 1; }
+          echo "token present"
+      - name: Trust the platform CA
+        run: |
+          [ -n "$PLATFORM_CA" ] || { echo "PLATFORM_CA is not set - relying on the system trust store"; exit 0; }
+          printf '%s\n' "$PLATFORM_CA" > /tmp/platform_ca.pem
+          echo "NODE_EXTRA_CA_CERTS=/tmp/platform_ca.pem" >> "$GITHUB_ENV"
       # mcp-gateway-ui embeds the web UI, so it is built before the binaries
       # are.
       - run: make ui-install ui-build
@@ -253,6 +286,8 @@ jobs:
       ZOT_URL: ${{ vars.ZOT_URL }}
       ZOT_USERNAME: ${{ vars.ZOT_USERNAME }}
       ZOT_TOKEN: ${{ secrets.ZOT_TOKEN }}
+      NPM_TOKEN: ${{ secrets.AUTOMATION_TOKEN }}
+      PLATFORM_CA: ${{ vars.PLATFORM_CA || secrets.PLATFORM_CA }}
     steps:
       - uses: https://data.forgejo.org/actions/checkout@v6
         with:

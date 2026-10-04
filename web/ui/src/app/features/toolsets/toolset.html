@@ -1,13 +1,13 @@
 <header class="mb-3 flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
   <div class="min-w-0">
-    <app-detail-title section="Tool sets" link="/toolsets" [name]="name()" />
+    <mp-detail-title section="Tool sets" link="/toolsets" [name]="name()" />
     @if (t(); as t) {
-      <p class="muted mt-0.5 text-[13px]">
-        server <a class="link" [routerLink]="['/servers', t.spec.serverRef]">{{ t.spec.serverRef }}</a>
+      <p class="text-fg-muted mt-0.5 text-[13px]">
+        server <a class="mp-link" [routerLink]="['/servers', t.spec.serverRef]">{{ t.spec.serverRef }}</a>
         @if (t.usedBy.length) {
           · used by
           @for (c of t.usedBy; track c; let last = $last) {
-            <a class="link" [routerLink]="['/capabilities', c]">{{ c }}</a>@if (!last) {, }
+            <a class="mp-link" [routerLink]="['/capabilities', c]">{{ c }}</a>@if (!last) {, }
           }
         }
       </p>
@@ -15,13 +15,13 @@
   </div>
   @if (t(); as t) {
     <div class="flex flex-wrap gap-1.5">
-      <app-condition label="Valid" [condition]="cond(t.status.conditions, 'Valid')" />
-      <app-condition label="Ready" [condition]="cond(t.status.conditions, 'Ready')" />
+      <mp-condition label="Valid" [condition]="cond(t.status.conditions, 'Valid')" />
+      <mp-condition label="Ready" [condition]="cond(t.status.conditions, 'Ready')" />
     </div>
   }
 </header>
 
-<app-load-state
+<mp-load-state
   [error]="toolSet.error()"
   [loading]="!toolSet.hasValue()"
   what="MCPToolSet"
@@ -36,24 +36,24 @@
   } @else {
     <div class="flex flex-col gap-4">
       @if (!t.selection.catalogAvailable) {
-        <app-notice tone="bad">
+        <mp-notice tone="bad">
           No catalog of {{ t.spec.serverRef }} on this replica right now.
           @if (serverReady(); as r) {
             @if (r.status !== 'True') {
               Server not Ready: {{ r.reason }}.
             }
           }
-        </app-notice>
+        </mp-notice>
       }
       @if (differs().length) {
-        <app-notice>
+        <mp-notice>
           Status and this replica differ on {{ differs().join(', ') }} (catalog
           {{ rev(t.status.catalogRevision) }} vs. {{ rev(t.selection.catalogRevision) }}).
-        </app-notice>
+        </mp-notice>
       }
-      <section class="panel">
-        <header class="panel-head">
-          <h2 class="panel-title">Selection</h2>
+      <section class="mp-panel mp-panel-flush">
+        <header class="mp-panel-head">
+          <h2 class="mp-label">Selection</h2>
           <div
             class="inline-flex overflow-hidden rounded-md border border-line text-xs"
             role="group"
@@ -71,7 +71,7 @@
                 type="button"
                 class="border-line px-2.5 py-1 not-first:border-l"
                 [class]="
-                  shown() === f.key ? 'bg-accent-soft font-semibold text-accent-ink' : 'muted'
+                  shown() === f.key ? 'bg-signal-wash font-semibold text-signal-fg' : 'muted'
                 "
                 [attr.aria-pressed]="shown() === f.key"
                 (click)="setFilter($any(f.key))"
@@ -85,7 +85,7 @@
           <div class="border-b border-line px-4 py-3 2xl:border-r 2xl:border-b-0">
             <div class="flex flex-col gap-4 2xl:sticky 2xl:top-4">
               <div>
-                <h3 class="muted mb-1.5 text-xs font-semibold">tools</h3>
+                <h3 class="text-fg-muted mb-1.5 text-xs font-semibold">tools</h3>
                 <ul class="flex flex-col gap-1.5">
                   @for (e of t.selection.entries; track e.entry) {
                     <li>
@@ -93,21 +93,21 @@
                         type="button"
                         class="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border px-2.5 py-1.5 text-left"
                         [class]="
-                          (e.outcome === 'ok' || !t.selection.catalogAvailable ? 'border-line' : 'border-bad/40 bg-bad-soft') +
-                          (focused() === e.entry ? ' ring-2 ring-accent' : '')
+                          (e.outcome === 'ok' || !t.selection.catalogAvailable ? 'border-line' : 'border-error/40 bg-error/12') +
+                          (focused() === e.entry ? ' ring-2 ring-signal' : '')
                         "
                         [attr.aria-pressed]="focused() === e.entry"
                         (click)="toggleFocus(e.entry)"
                       >
                         <span class="min-w-0">
                           <code class="text-[13px] [overflow-wrap:anywhere]">{{ e.entry }}</code>
-                          <span class="faint ml-2 text-[10.5px] tracking-wider uppercase">{{
+                          <span class="text-fg-subtle ml-2 text-[10.5px] tracking-wider uppercase">{{
                             e.kind
                           }}</span>
                         </span>
                         <span
                           class="text-right text-xs"
-                          [class]="!t.selection.catalogAvailable ? 'faint' : e.outcome === 'ok' ? 'text-ok' : 'font-medium text-bad'"
+                          [class]="!t.selection.catalogAvailable ? 'faint' : e.outcome === 'ok' ? 'text-success' : 'font-medium text-error'"
                         >
                           @if (!t.selection.catalogAvailable) {
                             no catalog
@@ -137,7 +137,7 @@
 
               @if (t.selection.exclusions.length) {
                 <div>
-                  <h3 class="muted mb-1.5 text-xs font-semibold">exclude</h3>
+                  <h3 class="text-fg-muted mb-1.5 text-xs font-semibold">exclude</h3>
                   <ul class="flex flex-col gap-1.5">
                     @for (x of t.selection.exclusions; track x.entry) {
                       <li>
@@ -145,17 +145,17 @@
                           type="button"
                           class="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-line px-2.5 py-1.5 text-left"
                           [class.ring-2]="focused() === x.entry"
-                          [class.ring-accent]="focused() === x.entry"
+                          [class.ring-signal]="focused() === x.entry"
                           [attr.aria-pressed]="focused() === x.entry"
                           (click)="toggleFocus(x.entry)"
                         >
                           <span class="min-w-0">
                             <code class="text-[13px]">{{ x.entry }}</code>
-                            <span class="faint ml-2 text-[10.5px] tracking-wider uppercase">{{
+                            <span class="text-fg-subtle ml-2 text-[10.5px] tracking-wider uppercase">{{
                               x.kind
                             }}</span>
                           </span>
-                          <span class="muted text-xs">removes {{ x.removes.length }}</span>
+                          <span class="text-fg-muted text-xs">removes {{ x.removes.length }}</span>
                         </button>
                       </li>
                     }
@@ -165,7 +165,7 @@
 
               @if (t.spec.prefix || aliasEntries().length) {
                 <div>
-                  <h3 class="muted mb-1.5 text-xs font-semibold">naming</h3>
+                  <h3 class="text-fg-muted mb-1.5 text-xs font-semibold">naming</h3>
                   <ul class="flex flex-col gap-1.5">
                     @if (t.spec.prefix) {
                       <li
@@ -174,7 +174,7 @@
                         <span
                           >prefix <code class="text-[13px]">{{ t.spec.prefix }}</code></span
                         >
-                        <span class="muted text-xs">every tool without an alias</span>
+                        <span class="text-fg-muted text-xs">every tool without an alias</span>
                       </li>
                     }
                     @for (a of aliasEntries(); track a.tool) {
@@ -183,19 +183,19 @@
                           type="button"
                           class="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border px-2.5 py-1.5 text-left"
                           [class]="
-                            (a.used ? 'border-line' : 'border-bad/40 bg-bad-soft') +
-                            (focused() === 'alias:' + a.tool ? ' ring-2 ring-accent' : '')
+                            (a.used ? 'border-line' : 'border-error/40 bg-error/12') +
+                            (focused() === 'alias:' + a.tool ? ' ring-2 ring-signal' : '')
                           "
                           (click)="toggleFocus('alias:' + a.tool)"
                         >
                           <span class="min-w-0"
                             ><code class="text-[13px]">{{ a.tool }}</code>
-                            <span class="faint">→</span>
+                            <span class="text-fg-subtle">→</span>
                             <code class="text-[13px]">{{ a.alias }}</code></span
                           >
                           <span
                             class="text-xs"
-                            [class]="a.used ? 'text-ok' : 'font-medium text-bad'"
+                            [class]="a.used ? 'text-success' : 'font-medium text-error'"
                           >
                             {{ a.used ? '✓ alias' : '✕ names no selected tool' }}
                           </span>
@@ -208,7 +208,7 @@
             </div>
           </div>
           <div class="overflow-x-auto">
-            <table class="data-table">
+            <table class="mp-table">
               <thead>
                 <tr>
                   <th class="w-6"><span class="sr-only">State</span></th>
@@ -219,20 +219,20 @@
               </thead>
               <tbody>
                 @for (row of rows(); track row.tool.name) {
-                  <tr [class]="touched(row, focused()) ? 'bg-accent-soft' : ''">
+                  <tr [class]="touched(row, focused()) ? 'bg-signal-wash' : ''">
                     <td class="text-center font-semibold">
                       @switch (row.state) {
                         @case ('selected') {
-                          <span class="text-ok" title="exposed">✓</span>
+                          <span class="text-success" title="exposed">✓</span>
                         }
                         @case ('excluded') {
-                          <span class="text-bad" title="excluded">−</span>
+                          <span class="text-error" title="excluded">−</span>
                         }
                         @case ('conflict') {
-                          <span class="text-bad" title="name conflict">✕</span>
+                          <span class="text-error" title="name conflict">✕</span>
                         }
                         @default {
-                          <span class="faint" title="not selected">·</span>
+                          <span class="text-fg-subtle" title="not selected">·</span>
                         }
                       }
                     </td>
@@ -242,35 +242,35 @@
                         [class.line-through]="row.state === 'excluded'"
                         >{{ row.tool.name }}</span
                       >
-                      <p class="muted mt-0.5 text-[12px] md:hidden">{{ reason(row) }}</p>
+                      <p class="text-fg-muted mt-0.5 text-[12px] md:hidden">{{ reason(row) }}</p>
                       <app-tool-doc [tool]="row.tool" />
                     </td>
                     <td class="font-mono text-[13px]">
                       @if (row.state === 'selected' || row.state === 'conflict') {
                         <span
                           [class.font-semibold]="row.renamedBy"
-                          [class.text-bad]="row.state === 'conflict'"
+                          [class.text-error]="row.state === 'conflict'"
                           >{{ row.exposedAs }}</span
                         >
                       } @else {
-                        <span class="faint">—</span>
+                        <span class="text-fg-subtle">—</span>
                       }
                     </td>
-                    <td class="muted hidden text-[12.5px] md:table-cell">{{ reason(row) }}</td>
+                    <td class="text-fg-muted hidden text-[12.5px] md:table-cell">{{ reason(row) }}</td>
                   </tr>
                 }
                 @if (shown() !== 'exposed' && t.selection.catalogAvailable) {
                   @for (m of t.selection.missing; track m) {
-                    <tr class="bg-bad-soft">
-                      <td class="text-center font-semibold text-bad">✕</td>
+                    <tr class="bg-error/12">
+                      <td class="text-center font-semibold text-error">✕</td>
                       <td class="font-mono text-[13px]">
                         {{ m }}
-                        <p class="mt-0.5 font-sans text-[12px] text-bad md:hidden">
+                        <p class="mt-0.5 font-sans text-[12px] text-error md:hidden">
                           named in tools, but {{ t.spec.serverRef }} does not offer it
                         </p>
                       </td>
-                      <td class="faint">—</td>
-                      <td class="hidden text-[12.5px] text-bad md:table-cell">
+                      <td class="text-fg-subtle">—</td>
+                      <td class="hidden text-[12.5px] text-error md:table-cell">
                         named in tools, but {{ t.spec.serverRef }} does not offer it
                       </td>
                     </tr>
@@ -278,11 +278,11 @@
                 }
                 @if (!t.selection.catalogAvailable) {
                   <tr>
-                    <td colspan="4" class="faint">No catalog.</td>
+                    <td colspan="4" class="text-fg-subtle">No catalog.</td>
                   </tr>
                 } @else if (!rows().length && !(shown() !== 'exposed' && t.selection.missing.length)) {
                   <tr>
-                    <td colspan="4" class="faint">Nothing here.</td>
+                    <td colspan="4" class="text-fg-subtle">Nothing here.</td>
                   </tr>
                 }
               </tbody>
@@ -293,7 +293,7 @@
 
       <app-instructions [text]="t.instructions" />
 
-      <app-conditions
+      <mp-conditions
         [conditions]="t.status.conditions"
         [observedGeneration]="t.status.observedGeneration"
         [generation]="t.meta.generation"

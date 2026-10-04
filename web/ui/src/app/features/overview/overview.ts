@@ -10,12 +10,11 @@ import {
   viewChild,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { MpLoadState, MpPill } from '@metapatrol/ng';
 import { Condition } from '../../api/models';
 import { CONDITIONS, firstProblem, healthy, SERVER_CONDITIONS, tone } from '../../core/conditions';
 import { buildGraph, GraphNode, Kind, related, routeOf } from '../../core/graph';
 import { Lists } from '../../core/lists';
-import { Pill } from '../../shared/condition-pill';
-import { LoadState } from '../../shared/load-state';
 
 interface Issue {
   kind: string;
@@ -48,7 +47,7 @@ const COLUMNS: { kind: Kind; title: string }[] = [
 
 @Component({
   selector: 'app-overview',
-  imports: [RouterLink, Pill, LoadState],
+  imports: [RouterLink, MpPill, MpLoadState],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './overview.html',
 })

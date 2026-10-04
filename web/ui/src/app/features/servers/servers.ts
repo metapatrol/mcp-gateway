@@ -1,53 +1,48 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import { ago, conditionRank, MpCondition, MpListSearch, MpLoadState, MpSort, parseSort, searchRows, sortRows } from '@metapatrol/ng';
 import { condition } from '../../core/conditions';
 import { Lists } from '../../core/lists';
-import { ago } from '../../core/time';
-import { ConditionPill } from '../../shared/condition-pill';
-import { LoadState } from '../../shared/load-state';
-import { conditionRank, parseSort, searchRows, sortRows } from '../../core/table';
-import { ListSearch } from '../../shared/list-search';
-import { SortHeader } from '../../shared/sort-header';
 
 
 @Component({
   selector: 'app-servers',
-  imports: [RouterLink, ConditionPill, LoadState, ListSearch, SortHeader],
+  imports: [RouterLink, MpCondition, MpLoadState, MpListSearch, MpSort],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <h1 class="mb-4 flex items-baseline gap-2 text-xl font-semibold tracking-tight">
-      Servers<span class="font-mono text-[13px] font-normal text-faint">MCPServer</span>
+      Servers<span class="font-mono text-[13px] font-normal text-fg-subtle">MCPServer</span>
     </h1>
-    <app-load-state [error]="lists.servers.error()" [loading]="!lists.servers.hasValue()" what="servers" />
+    <mp-load-state [error]="lists.servers.error()" [loading]="!lists.servers.hasValue()" what="servers" />
     @if (lists.servers.hasValue()) {
-      <section class="panel">
-        <header class="panel-head">
-          <app-list-search placeholder="Filter by name, endpoint or auth" [query]="q() ?? ''" [shown]="rows().length" [total]="lists.serverItems().length" />
+      <section class="mp-panel mp-panel-flush">
+        <header class="mp-panel-head">
+          <mp-list-search placeholder="Filter by name, endpoint or auth" [query]="q() ?? ''" [shown]="rows().length" [total]="lists.serverItems().length" />
         </header>
         <div class="overflow-x-auto">
-        <table class="data-table">
+        <table class="mp-table">
           <thead>
             <tr>
-              <th><app-sort key="name" [sort]="sort()">Name</app-sort></th>
-              <th><app-sort key="endpoint" [sort]="sort()">Endpoint</app-sort></th>
-              <th><app-sort key="auth" [sort]="sort()">Auth</app-sort></th>
-              <th class="text-right"><app-sort key="tools" [sort]="sort()">Tools</app-sort></th>
-              <th><app-sort key="discovery" [sort]="sort()">Last discovery</app-sort></th>
-              <th><app-sort key="ready" [sort]="sort()">Ready</app-sort></th>
+              <th><mp-sort key="name" [sort]="sort()">Name</mp-sort></th>
+              <th><mp-sort key="endpoint" [sort]="sort()">Endpoint</mp-sort></th>
+              <th><mp-sort key="auth" [sort]="sort()">Auth</mp-sort></th>
+              <th class="text-right"><mp-sort key="tools" [sort]="sort()">Tools</mp-sort></th>
+              <th><mp-sort key="discovery" [sort]="sort()">Last discovery</mp-sort></th>
+              <th><mp-sort key="ready" [sort]="sort()">Ready</mp-sort></th>
             </tr>
           </thead>
           <tbody>
             @for (s of rows(); track s.meta.name) {
-              <tr class="row-link" (click)="open(s.meta.name)">
-                <td><a class="link" [routerLink]="['/servers', s.meta.name]">{{ s.meta.name }}</a></td>
-                <td class="muted font-mono text-[12.5px]">{{ s.spec.endpoint }}</td>
+              <tr class="mp-row-link" (click)="open(s.meta.name)">
+                <td><a class="mp-link" [routerLink]="['/servers', s.meta.name]">{{ s.meta.name }}</a></td>
+                <td class="text-fg-muted font-mono text-[12.5px]">{{ s.spec.endpoint }}</td>
                 <td>{{ s.spec.auth.type }}</td>
-                <td class="num">{{ s.discovery.toolCount ?? '—' }}</td>
-                <td class="muted whitespace-nowrap">{{ since(s.discovery.lastSuccess) }}</td>
-                <td><app-condition label="Ready" bare [condition]="ready(s.status.conditions)" /></td>
+                <td class="mp-num">{{ s.discovery.toolCount ?? '—' }}</td>
+                <td class="text-fg-muted whitespace-nowrap">{{ since(s.discovery.lastSuccess) }}</td>
+                <td><mp-condition label="Ready" bare [condition]="ready(s.status.conditions)" /></td>
               </tr>
             } @empty {
-              <tr><td colspan="6" class="faint">{{ lists.serverItems().length ? 'No server matches.' : 'No MCPServer exists.' }}</td></tr>
+              <tr><td colspan="6" class="text-fg-subtle">{{ lists.serverItems().length ? 'No server matches.' : 'No MCPServer exists.' }}</td></tr>
             }
           </tbody>
         </table>

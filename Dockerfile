@@ -9,6 +9,10 @@
 # the embed directive needs, which costs one layer and no npm install. The UI's
 # API client is generated from the inspect API's spec as part of its build.
 #
+# The console's packages come from the forge's npm registry, so building
+# mcp-gateway-ui needs the npm_token secret (see the ui stage) and the forge
+# within reach; the other binaries need neither.
+#
 # The base images come from the internal registry's mirror; a build outside
 # the network, such as the GitHub mirror's, passes the public ones:
 #
@@ -22,8 +26,17 @@ FROM ${NODE_IMAGE} AS ui
 ARG BINARY
 
 WORKDIR /src
-COPY web/ui/package.json web/ui/package-lock.json ./web/ui/
-RUN if [ "$BINARY" = "mcp-gateway-ui" ]; then cd web/ui && npm ci; fi
+COPY web/ui/package.json web/ui/package-lock.json web/ui/.npmrc ./web/ui/
+# The console's @metapatrol packages come from the forge's npm registry: a
+# token with read:package scope as the secret npm_token, and the platform CA as
+# platform_ca if the build host does not trust it
+# (podman build --secret id=npm_token,src=... --secret id=platform_ca,src=...).
+# Secrets, not build arguments, so neither ends up in the image.
+RUN --mount=type=secret,id=npm_token --mount=type=secret,id=platform_ca \
+    if [ "$BINARY" = "mcp-gateway-ui" ]; then \
+      if [ -s /run/secrets/platform_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/platform_ca; fi; \
+      cd web/ui && NPM_TOKEN="$(cat /run/secrets/npm_token 2>/dev/null)" npm ci --no-audit --no-fund; \
+    fi
 
 COPY api/openapi ./api/openapi
 COPY web/ui ./web/ui

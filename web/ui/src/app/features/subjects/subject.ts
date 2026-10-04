@@ -1,14 +1,11 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { MpDetailTitle, MpLoadState, MpNotice, MpPill } from '@metapatrol/ng';
 import { getSubject } from '../../api/functions';
 import { SubjectTool } from '../../api/models';
 import { Inspect, live } from '../../core/inspect';
 import { Lists } from '../../core/lists';
-import { Pill } from '../../shared/condition-pill';
 import { InstructionsPanel } from '../../shared/instructions-panel';
-import { DetailTitle } from '../../shared/detail-title';
-import { LoadState } from '../../shared/load-state';
-import { Notice } from '../../shared/notice';
 import { McpView } from '../../shared/mcp-view';
 import { detailView, ViewSwitch } from '../../shared/view-switch';
 import { ToolDoc } from '../../shared/tool-doc';
@@ -16,7 +13,7 @@ import { byServer, notOffered } from './grouping';
 
 @Component({
   selector: 'app-subject',
-  imports: [RouterLink, Pill, LoadState, ToolDoc, McpView, ViewSwitch, InstructionsPanel, Notice, DetailTitle],
+  imports: [RouterLink, MpPill, MpLoadState, ToolDoc, McpView, ViewSwitch, InstructionsPanel, MpNotice, MpDetailTitle],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './subject.html',
 })

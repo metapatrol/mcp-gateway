@@ -1,17 +1,11 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { MpCondition, MpConditions, MpDetailTitle, MpLoadState, MpNotice, mpQueryParams, shortId } from '@metapatrol/ng';
 import { getToolSet } from '../../api/functions';
 import { condition } from '../../core/conditions';
 import { Inspect, live } from '../../core/inspect';
 import { Lists } from '../../core/lists';
-import { queryParams } from '../../core/query';
-import { shortRevision } from '../../core/time';
-import { ConditionPill } from '../../shared/condition-pill';
-import { ConditionsTable } from '../../shared/conditions-table';
 import { InstructionsPanel } from '../../shared/instructions-panel';
-import { DetailTitle } from '../../shared/detail-title';
-import { LoadState } from '../../shared/load-state';
-import { Notice } from '../../shared/notice';
 import { McpView } from '../../shared/mcp-view';
 import { detailView, ViewSwitch } from '../../shared/view-switch';
 import { ToolDoc } from '../../shared/tool-doc';
@@ -19,7 +13,7 @@ import { disagreement, Filter, filtered, reason, touchedBy } from './selection';
 
 @Component({
   selector: 'app-toolset',
-  imports: [RouterLink, ConditionPill, ConditionsTable, LoadState, ToolDoc, McpView, ViewSwitch, InstructionsPanel, Notice, DetailTitle],
+  imports: [RouterLink, MpCondition, MpConditions, MpLoadState, ToolDoc, McpView, ViewSwitch, InstructionsPanel, MpNotice, MpDetailTitle],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './toolset.html',
 })
@@ -45,7 +39,7 @@ export class ToolSetDetail {
     return f === 'exposed' || f === 'left-out' ? f : 'all';
   });
   protected readonly focused = computed(() => this.focus() || null);
-  private readonly setQuery = queryParams();
+  private readonly setQuery = mpQueryParams();
 
   protected readonly rows = computed(() => {
     const t = this.t();
@@ -68,7 +62,7 @@ export class ToolSetDetail {
   protected readonly cond = condition;
   protected readonly reason = reason;
   protected readonly touched = touchedBy;
-  protected readonly rev = shortRevision;
+  protected readonly rev = shortId;
   protected readonly aliasEntries = computed(() => this.t()?.selection.aliases ?? []);
 
   protected setFilter(filter: Filter): void {

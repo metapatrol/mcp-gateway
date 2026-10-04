@@ -74,6 +74,18 @@ the runner image lacks it.
 the versions the Makefile pins. A runner that cannot reach the download fails the
 `integration` job and nothing else.
 
+**The console's packages.** `@metapatrol/*` come from the forge's npm registry
+(`web/ui/.npmrc`). The jobs read them with `AUTOMATION_TOKEN`, passed as
+`NPM_TOKEN` because that is the name `web/ui/.npmrc` expects. The registry is
+served with a certificate from the platform's private CA, which the job
+containers do not trust: `PLATFORM_CA` carries it. A CA certificate is public,
+so a variable — ideally one on the organisation, shared by every repository —
+is enough. The image build receives both as build secrets (`npm_token`,
+`platform_ca`), never as a build argument, so they stay out of the image; it
+resolves the forge in the job and hands the address in, because the build does
+not inherit the job container's name resolution. The GitHub mirror cannot
+reach the registry and does not build `mcp-gateway-ui`.
+
 **Secrets and variables.**
 
 | name | kind | value | needed by |
@@ -81,15 +93,16 @@ the versions the Makefile pins. A runner that cannot reach the download fails th
 | `ZOT_URL` | variable | the registry, e.g. `https://zot.metapatrol.local` | the image jobs, `release.chart` |
 | `ZOT_USERNAME` | variable | registry login | the same |
 | `ZOT_TOKEN` | secret | registry password or token | the same |
-| `AUTOMATION_TOKEN` | secret | Forgejo access token | `main.semantic-release`, `release.notes`, `release.binaries`, `release.chart`, `release.docs` |
+| `PLATFORM_CA` | variable (or secret) | the platform CA certificate, PEM | every job that installs the console's packages: the job containers do not carry the platform CA, and npm fails with `UNABLE_TO_VERIFY_LEAF_SIGNATURE` without it |
+| `AUTOMATION_TOKEN` | secret | Forgejo access token | every job that installs the console's packages (as `NPM_TOKEN`: `ci.ui`, `main.verify`, the image jobs, `release.binaries`), `main.semantic-release`, `release.notes`, `release.binaries`, `release.chart`, `release.docs` |
 
 Without the registry values `main.yml` skips the image jobs rather than failing;
 `release.yml` fails, because asking for a release that cannot be published should
 not pass quietly.
 
 `AUTOMATION_TOKEN` needs repository write (releases, assets, the changelog commit
-and tag), `write:package` for the generic package registry, and the right to
-dispatch workflows.
+and tag), `write:package` for the generic package registry (which includes
+reading the `@metapatrol` npm packages), and the right to dispatch workflows.
 
 **Nothing may be called `FORGEJO_TOKEN`.** The runner injects a variable of that
 name holding its own ephemeral token, and it wins over a job env of the same name:

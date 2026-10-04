@@ -1,12 +1,9 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import { MpListSearch, MpLoadState, MpSort, parseSort, searchRows, sortRows } from '@metapatrol/ng';
 import { listSubjects } from '../../api/functions';
 import { SubjectSummary } from '../../api/models';
 import { Inspect, live } from '../../core/inspect';
-import { parseSort, searchRows, sortRows } from '../../core/table';
-import { ListSearch } from '../../shared/list-search';
-import { SortHeader } from '../../shared/sort-header';
-import { LoadState } from '../../shared/load-state';
 
 /** Subjects whose name or grants contain the query, ignoring case. */
 export function filterSubjects(items: SubjectSummary[], query: string): SubjectSummary[] {
@@ -15,15 +12,15 @@ export function filterSubjects(items: SubjectSummary[], query: string): SubjectS
 
 @Component({
   selector: 'app-subjects',
-  imports: [RouterLink, LoadState, ListSearch, SortHeader],
+  imports: [RouterLink, MpLoadState, MpListSearch, MpSort],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <h1 class="mb-4 text-xl font-semibold tracking-tight">Subjects</h1>
-    <app-load-state [error]="subjects.error()" [loading]="!subjects.hasValue()" what="subjects" />
+    <mp-load-state [error]="subjects.error()" [loading]="!subjects.hasValue()" what="subjects" />
     @if (subjects.hasValue()) {
-      <section class="panel">
-        <header class="panel-head">
-          <app-list-search
+      <section class="mp-panel mp-panel-flush">
+        <header class="mp-panel-head">
+          <mp-list-search
             placeholder="Filter, or resolve any subject"
             [query]="query()"
             [shown]="rows().length"
@@ -32,37 +29,37 @@ export function filterSubjects(items: SubjectSummary[], query: string): SubjectS
           />
         </header>
         <div class="overflow-x-auto">
-          <table class="data-table">
+          <table class="mp-table">
             <thead>
               <tr>
-                <th><app-sort key="name" [sort]="sort()">Subject</app-sort></th>
-                <th><app-sort key="grants" [sort]="sort()">Grants</app-sort></th>
-                <th class="text-right"><app-sort key="tools" [sort]="sort()">Tools offered</app-sort></th>
+                <th><mp-sort key="name" [sort]="sort()">Subject</mp-sort></th>
+                <th><mp-sort key="grants" [sort]="sort()">Grants</mp-sort></th>
+                <th class="text-right"><mp-sort key="tools" [sort]="sort()">Tools offered</mp-sort></th>
               </tr>
             </thead>
             <tbody>
               @for (s of rows(); track s.subject) {
-                <tr class="row-link" (click)="go(s.subject)">
+                <tr class="mp-row-link" (click)="go(s.subject)">
                   <td>
-                    <a class="link" [routerLink]="['/subjects/resolve']" [queryParams]="{ subject: s.subject }">{{ s.subject }}</a>
+                    <a class="mp-link" [routerLink]="['/subjects/resolve']" [queryParams]="{ subject: s.subject }">{{ s.subject }}</a>
                   </td>
                   <td>
                     @for (g of s.grants; track g; let last = $last) {
-                      <a class="link text-[12.5px]" [routerLink]="['/grants', g]" (click)="$event.stopPropagation()">{{ g }}</a>@if (!last) {, }
+                      <a class="mp-link text-[12.5px]" [routerLink]="['/grants', g]" (click)="$event.stopPropagation()">{{ g }}</a>@if (!last) {, }
                     }
                   </td>
-                  <td class="num">{{ s.toolCount }}</td>
+                  <td class="mp-num">{{ s.toolCount }}</td>
                 </tr>
               }
               @if (unknown(); as q) {
-                <tr class="row-link" (click)="go(q)">
+                <tr class="mp-row-link" (click)="go(q)">
                   <td colspan="3">
-                    <a class="link" [routerLink]="['/subjects/resolve']" [queryParams]="{ subject: q }">Resolve “{{ q }}”</a>
-                    <span class="faint ml-2 text-xs">no grant names it</span>
+                    <a class="mp-link" [routerLink]="['/subjects/resolve']" [queryParams]="{ subject: q }">Resolve “{{ q }}”</a>
+                    <span class="text-fg-subtle ml-2 text-xs">no grant names it</span>
                   </td>
                 </tr>
               } @else if (!rows().length) {
-                <tr><td colspan="3" class="faint">No grant names a subject.</td></tr>
+                <tr><td colspan="3" class="text-fg-subtle">No grant names a subject.</td></tr>
               }
             </tbody>
           </table>
