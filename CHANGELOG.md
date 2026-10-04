@@ -1,3 +1,15 @@
+# [1.10.0](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/compare/v1.9.0...v1.10.0) (2026-10-04)
+
+
+### Bug Fixes
+
+* **deps:** update module sigs.k8s.io/controller-runtime to v0.25.2 ([361d55b](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/commit/361d55bb5de1c6ee3c607798b8777affea2cce26))
+
+
+### Features
+
+* **console:** the metapatrol look, from @metapatrol/ng ([cbd9d57](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/commit/cbd9d57d85782d48918812eff0c5ccf68f0f8c90))
+
 # [1.9.0](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/compare/v1.8.0...v1.9.0) (2026-09-24)
 
 
