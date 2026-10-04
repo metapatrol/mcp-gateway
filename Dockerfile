@@ -11,7 +11,8 @@
 #
 # The console's packages come from the forge's npm registry, so building
 # mcp-gateway-ui needs the npm_token secret (see the ui stage) and the forge
-# within reach; the other binaries need neither.
+# within reach; the other binaries need neither. The GitHub mirror points
+# web/ui/.npmrc at GitHub Packages instead (.github/workflows/images.yml).
 #
 # The base images come from the internal registry's mirror; a build outside
 # the network, such as the GitHub mirror's, passes the public ones:

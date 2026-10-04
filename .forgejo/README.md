@@ -84,7 +84,9 @@ is enough. The image build receives both as build secrets (`npm_token`,
 `platform_ca`), never as a build argument, so they stay out of the image; it
 resolves the forge in the job and hands the address in, because the build does
 not inherit the job container's name resolution. The GitHub mirror cannot
-reach the registry and does not build `mcp-gateway-ui`.
+reach the forge: it builds `mcp-gateway-ui` with the same versions from GitHub
+Packages, where the brand's own GitHub mirror publishes them
+(`.github/workflows/images.yml`).
 
 **Secrets and variables.**
 
