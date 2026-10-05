@@ -54,7 +54,9 @@ like read access to the four kinds.
 ## What it shows
 
 Every list — servers, tool sets, capabilities, grants, subjects — can be
-searched and sorted by any of its columns.
+searched and sorted by any of its columns. The subjects list is searched,
+sorted and cut by the gateway and loads more as it is scrolled, since
+resolving a subject is the expensive part of it; the other four come whole.
 
 | Page | Shows |
 |---|---|
