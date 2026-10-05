@@ -1,0 +1,4 @@
+{
+  "name": "mcp-gateway",
+  "purpose": "One governed MCP endpoint in front of every MCP backend in the cluster."
+}

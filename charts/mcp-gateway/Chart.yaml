@@ -9,9 +9,9 @@ keywords:
   - mcp
   - gateway
   - oauth
-home: https://forgejo.metapatrol.local/platform/mcp-gateway
+home: https://github.com/metapatrol/mcp-gateway
 sources:
-  - https://forgejo.metapatrol.local/platform/mcp-gateway
+  - https://github.com/metapatrol/mcp-gateway
 maintainers:
   - name: Magnus
     email: magnus@forge.metapatrol.com

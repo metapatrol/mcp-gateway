@@ -1,6 +1,32 @@
-# mcp-gateway
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".metapatrol/mcp-gateway-lockup-dark.png">
+    <img alt="metapatrol / mcp-gateway" src=".metapatrol/mcp-gateway-lockup-light.png" width="420">
+  </picture>
+</p>
 
-One governed MCP endpoint in front of every MCP backend in the cluster.
+<p align="center">
+  <strong>One governed MCP endpoint in front of every MCP backend in the cluster.</strong>
+</p>
+
+<p align="center">
+  <a href="https://github.com/metapatrol/mcp-gateway/tags"><img alt="Version" src="https://img.shields.io/github/v/tag/metapatrol/mcp-gateway?sort=semver&label=version"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache--2.0-blue"></a>
+  <a href="https://github.com/metapatrol/mcp-gateway/pkgs/container/mcp-gateway"><img alt="Container images" src="https://img.shields.io/badge/images-ghcr.io-2496ed"></a>
+  <img alt="Go" src="https://img.shields.io/badge/go-1.27-00add8">
+  <img alt="MCP" src="https://img.shields.io/badge/MCP-2026--07--28-6e56cf">
+</p>
+
+<p align="center">
+  <a href="CONCEPT.md">Concept</a> ·
+  <a href="docs/README.md">Documentation</a> ·
+  <a href="docs/crd-reference.md">CRD reference</a> ·
+  <a href="docs/console.md">Console</a> ·
+  <a href="CONTRIBUTING.md">Contributing</a> ·
+  <a href="SECURITY.md">Security</a>
+</p>
+
+---
 
 Agents connect to the gateway with an OAuth access token. The gateway discovers
 the tools each backend offers, shows every caller exactly the tools its grants
@@ -101,6 +127,9 @@ mcptoolset.mcp-gateway.metapatrol.com/source-intelligence-analysis   source-inte
 
 ### 1. Install
 
+Inside the metapatrol network, from the internal registry (outside it, see
+below):
+
 ```bash
 helm install mcp-gateway oci://zot.metapatrol.local/charts/platform/mcp-gateway \
   --namespace mcp-system --create-namespace \
@@ -191,6 +220,7 @@ The gateway behaves identically in both modes; it cannot tell them apart.
 ### 4. Look at it (optional)
 
 ```bash
+# outside the metapatrol network: the chart from the checkout, as in step 1
 helm upgrade mcp-gateway oci://zot.metapatrol.local/charts/platform/mcp-gateway \
   --namespace mcp-system --reuse-values --set ui.enabled=true
 kubectl -n mcp-system port-forward svc/mcp-gateway-ui 8080:80
@@ -278,4 +308,4 @@ production.
 
 ## License
 
-Apache License 2.0
+[Apache License 2.0](LICENSE). How to contribute: [CONTRIBUTING.md](CONTRIBUTING.md).

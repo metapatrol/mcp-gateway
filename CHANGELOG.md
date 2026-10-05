@@ -1,72 +1,72 @@
-# [1.10.0](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/compare/v1.9.0...v1.10.0) (2026-10-04)
+# [1.10.0](https://github.com/metapatrol/mcp-gateway/compare/v1.9.0...v1.10.0) (2026-10-04)
 
 
 ### Bug Fixes
 
-* **deps:** update module sigs.k8s.io/controller-runtime to v0.25.2 ([361d55b](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/commit/361d55bb5de1c6ee3c607798b8777affea2cce26))
+* **deps:** update module sigs.k8s.io/controller-runtime to v0.25.2 ([361d55b](https://github.com/metapatrol/mcp-gateway/commit/361d55bb5de1c6ee3c607798b8777affea2cce26))
 
 
 ### Features
 
-* **console:** the metapatrol look, from @metapatrol/ng ([cbd9d57](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/commit/cbd9d57d85782d48918812eff0c5ccf68f0f8c90))
+* **console:** the metapatrol look, from @metapatrol/ng ([cbd9d57](https://github.com/metapatrol/mcp-gateway/commit/cbd9d57d85782d48918812eff0c5ccf68f0f8c90))
 
-# [1.9.0](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/compare/v1.8.0...v1.9.0) (2026-09-24)
-
-
-### Features
-
-* **ui:** estimate what an MCP payload costs in context ([119e5ed](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/commit/119e5ed477b650f1bda9c39521c7c022708142e5))
-* **ui:** sort and search every list ([84ad4cc](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/commit/84ad4ccf21d59e8c282fd7861ae34b1bada42af1))
-
-# [1.8.0](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/compare/v1.7.1...v1.8.0) (2026-09-24)
+# [1.9.0](https://github.com/metapatrol/mcp-gateway/compare/v1.8.0...v1.9.0) (2026-09-24)
 
 
 ### Features
 
-* **ui:** keep what a page shows in its URL ([b548668](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/commit/b548668042c0c9ac2aa574a4186383027acdd61c))
+* **ui:** estimate what an MCP payload costs in context ([119e5ed](https://github.com/metapatrol/mcp-gateway/commit/119e5ed477b650f1bda9c39521c7c022708142e5))
+* **ui:** sort and search every list ([84ad4cc](https://github.com/metapatrol/mcp-gateway/commit/84ad4ccf21d59e8c282fd7861ae34b1bada42af1))
 
-## [1.7.1](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/compare/v1.7.0...v1.7.1) (2026-09-24)
+# [1.8.0](https://github.com/metapatrol/mcp-gateway/compare/v1.7.1...v1.8.0) (2026-09-24)
+
+
+### Features
+
+* **ui:** keep what a page shows in its URL ([b548668](https://github.com/metapatrol/mcp-gateway/commit/b548668042c0c9ac2aa574a4186383027acdd61c))
+
+## [1.7.1](https://github.com/metapatrol/mcp-gateway/compare/v1.7.0...v1.7.1) (2026-09-24)
 
 
 ### Bug Fixes
 
-* **gateway:** serve the endpoint at / with protected resource metadata ([af80b06](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/commit/af80b06a30e0d6d9b43f869fe6cfb5877510e4f6))
+* **gateway:** serve the endpoint at / with protected resource metadata ([af80b06](https://github.com/metapatrol/mcp-gateway/commit/af80b06a30e0d6d9b43f869fe6cfb5877510e4f6))
 
-# [1.7.0](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/compare/v1.6.0...v1.7.0) (2026-09-24)
+# [1.7.0](https://github.com/metapatrol/mcp-gateway/compare/v1.6.0...v1.7.0) (2026-09-24)
 
 
 ### Bug Fixes
 
-* **build:** pin controller-gen to v0.22.0, which generated the CRDs ([a87bb57](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/commit/a87bb5740678bca9d7a25160397cabb0b0e5bc75))
-* **deps:** update go dependencies to v0.37.1 ([19d7e28](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/commit/19d7e28acad6e25c75ff8509f36af72c4b6279d5))
-* **ui:** drop the failure count from the server list ([4097d7b](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/commit/4097d7b59000013085cedd1d83212618937577bc))
-* **ui:** make the subject search filter, and align the subjects page ([fbaa5f0](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/commit/fbaa5f04df8891dbb0412919b4f4f128359bb0fc))
-* **ui:** show tool hints only as far as the backend declares them ([831107e](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/commit/831107e0d3e35d6c7a7baf19845bdd665e56ca51))
-* **ui:** what a review of every page turned up ([5f21ec9](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/commit/5f21ec995ff49556b13c19aa736b78107029deaf))
+* **build:** pin controller-gen to v0.22.0, which generated the CRDs ([a87bb57](https://github.com/metapatrol/mcp-gateway/commit/a87bb5740678bca9d7a25160397cabb0b0e5bc75))
+* **deps:** update go dependencies to v0.37.1 ([19d7e28](https://github.com/metapatrol/mcp-gateway/commit/19d7e28acad6e25c75ff8509f36af72c4b6279d5))
+* **ui:** drop the failure count from the server list ([4097d7b](https://github.com/metapatrol/mcp-gateway/commit/4097d7b59000013085cedd1d83212618937577bc))
+* **ui:** make the subject search filter, and align the subjects page ([fbaa5f0](https://github.com/metapatrol/mcp-gateway/commit/fbaa5f04df8891dbb0412919b4f4f128359bb0fc))
+* **ui:** show tool hints only as far as the backend declares them ([831107e](https://github.com/metapatrol/mcp-gateway/commit/831107e0d3e35d6c7a7baf19845bdd665e56ca51))
+* **ui:** what a review of every page turned up ([5f21ec9](https://github.com/metapatrol/mcp-gateway/commit/5f21ec995ff49556b13c19aa736b78107029deaf))
 
 
 ### Features
 
-* **dashboard:** an Inspect API row ([6ae7454](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/commit/6ae745452594de807cb798cee975d484fda1c1ee))
-* **gateway:** configure instructions of the gateway's own ([66617d5](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/commit/66617d5b1962e89028ae87163d0888a18c3d1005))
-* **gateway:** serve a read-only inspect API for the console ([2c6b903](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/commit/2c6b903fff10cd1e6e1978eb3d292af66ff852d5))
-* **gateway:** stream changes to the console as they happen ([14ef7d2](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/commit/14ef7d29de84095fda759f75c4d1845673bfed6a))
-* **inspect:** serve the API's description publicly ([b9c8a35](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/commit/b9c8a355d7b2601ba740630aa167e68e2e7950c2))
-* **metrics:** instrument the inspect API ([933f4f7](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/commit/933f4f79e54ff4b23745b0c46ca29982d4df1399))
-* show the full MCP answers, as the gateway gives them ([6f9ff47](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/commit/6f9ff471b2671f0126c7f124f505251f7ffa9d57))
-* show the instructions on every detail page ([3dd282e](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/commit/3dd282e1faaf26520ef7083b5c3f9c65420df68d))
-* show what each resource hands out as tools/list ([fc8325d](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/commit/fc8325d03447117c9bcf357ff192d85873c71580))
-* **ui:** add mcp-gateway-ui, a read-only console ([10adbd5](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/commit/10adbd505629c600660c3972ae1b8e98bce96d46))
-* **ui:** count what is not ready in the navigation ([aa2fc3f](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/commit/aa2fc3fb8b832575d23ed1ee7ca9799082d44b3d))
-* **ui:** render instructions as Markdown, with a raw view ([472bcba](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/commit/472bcbaf31f95cccf61a3b0b246bc0f3635d869e))
-* **ui:** rework the subject pages and the sidebar ([de338ab](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/commit/de338ab7496e9e4e97fcae88777b891da7fa1600))
-* **ui:** show the MCP answers in a read-only JSON editor ([3a2f714](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/commit/3a2f714d4d74f57b86e1221ceb151bf107d21e66))
-* **ui:** tooltips with what is behind a pill or badge ([acd88fa](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/commit/acd88fa6c484c7c6ab01252feabb89b47f2723bd))
+* **dashboard:** an Inspect API row ([6ae7454](https://github.com/metapatrol/mcp-gateway/commit/6ae745452594de807cb798cee975d484fda1c1ee))
+* **gateway:** configure instructions of the gateway's own ([66617d5](https://github.com/metapatrol/mcp-gateway/commit/66617d5b1962e89028ae87163d0888a18c3d1005))
+* **gateway:** serve a read-only inspect API for the console ([2c6b903](https://github.com/metapatrol/mcp-gateway/commit/2c6b903fff10cd1e6e1978eb3d292af66ff852d5))
+* **gateway:** stream changes to the console as they happen ([14ef7d2](https://github.com/metapatrol/mcp-gateway/commit/14ef7d29de84095fda759f75c4d1845673bfed6a))
+* **inspect:** serve the API's description publicly ([b9c8a35](https://github.com/metapatrol/mcp-gateway/commit/b9c8a355d7b2601ba740630aa167e68e2e7950c2))
+* **metrics:** instrument the inspect API ([933f4f7](https://github.com/metapatrol/mcp-gateway/commit/933f4f79e54ff4b23745b0c46ca29982d4df1399))
+* show the full MCP answers, as the gateway gives them ([6f9ff47](https://github.com/metapatrol/mcp-gateway/commit/6f9ff471b2671f0126c7f124f505251f7ffa9d57))
+* show the instructions on every detail page ([3dd282e](https://github.com/metapatrol/mcp-gateway/commit/3dd282e1faaf26520ef7083b5c3f9c65420df68d))
+* show what each resource hands out as tools/list ([fc8325d](https://github.com/metapatrol/mcp-gateway/commit/fc8325d03447117c9bcf357ff192d85873c71580))
+* **ui:** add mcp-gateway-ui, a read-only console ([10adbd5](https://github.com/metapatrol/mcp-gateway/commit/10adbd505629c600660c3972ae1b8e98bce96d46))
+* **ui:** count what is not ready in the navigation ([aa2fc3f](https://github.com/metapatrol/mcp-gateway/commit/aa2fc3fb8b832575d23ed1ee7ca9799082d44b3d))
+* **ui:** render instructions as Markdown, with a raw view ([472bcba](https://github.com/metapatrol/mcp-gateway/commit/472bcbaf31f95cccf61a3b0b246bc0f3635d869e))
+* **ui:** rework the subject pages and the sidebar ([de338ab](https://github.com/metapatrol/mcp-gateway/commit/de338ab7496e9e4e97fcae88777b891da7fa1600))
+* **ui:** show the MCP answers in a read-only JSON editor ([3a2f714](https://github.com/metapatrol/mcp-gateway/commit/3a2f714d4d74f57b86e1221ceb151bf107d21e66))
+* **ui:** tooltips with what is behind a pill or badge ([acd88fa](https://github.com/metapatrol/mcp-gateway/commit/acd88fa6c484c7c6ab01252feabb89b47f2723bd))
 
-# [1.6.0](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/compare/v1.5.0...v1.6.0) (2026-09-15)
+# [1.6.0](https://github.com/metapatrol/mcp-gateway/compare/v1.5.0...v1.6.0) (2026-09-15)
 
 
-* refactor!: rename the project to mcp-gateway ([0a2fbe1](http://forgejo-http.forgejo.svc.cluster.local:3000/platform/mcp-gateway/commit/0a2fbe1228bf0007edb0b7e62c1d1757c28e42f7))
+* refactor!: rename the project to mcp-gateway ([0a2fbe1](https://github.com/metapatrol/mcp-gateway/commit/0a2fbe1228bf0007edb0b7e62c1d1757c28e42f7))
 
 
 ### BREAKING CHANGES
