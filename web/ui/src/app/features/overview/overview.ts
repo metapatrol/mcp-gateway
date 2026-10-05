@@ -104,14 +104,22 @@ export class Overview {
 
   constructor() {
     // The lines connect boxes wherever the layout put them, so they are drawn
-    // after it: once per graph, and again when the window changes size.
+    // after it: once per graph, and again whenever the map changes size — the
+    // window, the navigation folding in or out, a font arriving late.
     afterRenderEffect(() => {
       this.graph();
       this.layout();
     });
-    const onResize = () => this.layout();
-    window.addEventListener('resize', onResize);
-    inject(DestroyRef).onDestroy(() => window.removeEventListener('resize', onResize));
+    let observer: ResizeObserver | undefined;
+    afterRenderEffect(() => {
+      const el = this.map()?.nativeElement;
+      observer?.disconnect();
+      if (el && typeof ResizeObserver !== 'undefined') {
+        observer = new ResizeObserver(() => this.layout());
+        observer.observe(el);
+      }
+    });
+    inject(DestroyRef).onDestroy(() => observer?.disconnect());
   }
 
   protected isLit(id: string): boolean {
