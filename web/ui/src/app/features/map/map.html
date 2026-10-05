@@ -1,0 +1,141 @@
+<mp-page-header title="Map" note="Grant → capability → tool set → server" />
+
+<mp-load-state
+  [error]="lists.error()"
+  [loading]="lists.loading() && !lists.loaded()"
+  what="resources"
+/>
+
+@if (lists.loaded()) {
+  <section class="mp-panel mp-panel-flush flex h-[calc(100dvh-132px)] min-h-[420px] flex-col">
+    <header class="mp-panel-head flex-wrap gap-3">
+      <mp-list-search
+        param="focus"
+        placeholder="Highlight a name"
+        [query]="focus()"
+        [shown]="matches()?.size ?? boxes()"
+        [total]="boxes()"
+      />
+      <div class="flex items-center gap-1.5">
+        <button
+          type="button"
+          class="mp-btn"
+          title="Zoom out"
+          aria-label="Zoom out"
+          (click)="zoom(1 / 1.25)"
+        >
+          −
+        </button>
+        <span class="text-fg-subtle w-12 text-center text-xs tabular-nums"
+          >{{ (view().k * 100).toFixed(0) }}%</span
+        >
+        <button
+          type="button"
+          class="mp-btn"
+          title="Zoom in"
+          aria-label="Zoom in"
+          (click)="zoom(1.25)"
+        >
+          +
+        </button>
+        <button type="button" class="mp-btn" (click)="fitAll()">Fit</button>
+      </div>
+    </header>
+    <div
+      #viewport
+      class="relative min-h-0 flex-1 touch-none overflow-hidden"
+      style="cursor: grab"
+      (wheel)="wheel($event)"
+      (pointerdown)="pointerDown($event)"
+      (pointermove)="pointerMove($event)"
+      (pointerup)="pointerUp()"
+      (pointercancel)="pointerUp()"
+      (mouseleave)="hovered.set(null)"
+    >
+      <div
+        #content
+        class="absolute top-0 left-0 grid w-[1120px] origin-top-left grid-cols-4 gap-14"
+        [style.transform]="transform()"
+      >
+        <svg
+          class="pointer-events-none absolute inset-0 overflow-visible"
+          [attr.width]="size().width"
+          [attr.height]="size().height"
+          aria-hidden="true"
+        >
+          @for (e of lines(); track e.from + e.to) {
+            <path
+              [attr.d]="e.d"
+              fill="none"
+              [attr.stroke-dasharray]="e.broken ? '4 4' : null"
+              [class]="
+                e.broken
+                  ? 'stroke-error'
+                  : edgeLit(e)
+                    ? 'stroke-signal'
+                    : lit()
+                      ? 'stroke-line-strong/30'
+                      : 'stroke-line-strong'
+              "
+              [attr.stroke-width]="edgeLit(e) ? 2 : 1.4"
+            />
+          }
+        </svg>
+        @for (col of columns; track col.kind) {
+          <div class="relative z-10 flex flex-col gap-2">
+            <h3 class="mp-label mb-1">{{ col.title }}</h3>
+            @for (n of graph().columns[col.kind]; track n.id) {
+              @if (routeOf(n); as route) {
+                <a
+                  [routerLink]="route"
+                  [attr.data-node]="n.id"
+                  [title]="nodeTitle(n)"
+                  draggable="false"
+                  (mouseenter)="hovered.set(n.id)"
+                  (mouseleave)="hovered.set(null)"
+                  (focus)="hovered.set(n.id)"
+                  (blur)="hovered.set(null)"
+                  class="flex items-center justify-between gap-2 rounded-md border bg-surface px-2.5 py-1.5 font-mono text-[12.5px] transition-opacity"
+                  [class]="
+                    (isLit(n.id)
+                      ? lit()
+                        ? 'border-signal'
+                        : 'border-line'
+                      : 'border-line opacity-25') +
+                    (matches()?.has(n.id) ? ' ring-2 ring-signal/50' : '')
+                  "
+                >
+                  <span class="min-w-0">
+                    <span class="block truncate">{{ n.name }}</span>
+                    @if (n.detail) {
+                      <span class="text-fg-subtle block truncate font-sans text-[11px]">{{
+                        n.detail
+                      }}</span>
+                    }
+                  </span>
+                  <span
+                    class="size-2 shrink-0 rounded-full"
+                    [class]="n.healthy ? 'bg-success' : 'bg-error'"
+                    [attr.aria-label]="n.healthy ? 'ready' : 'not ready'"
+                  ></span>
+                </a>
+              } @else {
+                <span
+                  [attr.data-node]="n.id"
+                  [title]="nodeTitle(n)"
+                  (mouseenter)="hovered.set(n.id)"
+                  (mouseleave)="hovered.set(null)"
+                  class="rounded-md border border-dashed border-error/60 bg-error/12 px-2.5 py-1.5 font-mono text-[12.5px] text-error"
+                  [class.opacity-25]="!isLit(n.id)"
+                >
+                  {{ n.name }}
+                  <span class="block font-sans text-[11px]">not found</span>
+                </span>
+              }
+            }
+          </div>
+        }
+      </div>
+    </div>
+  </section>
+}

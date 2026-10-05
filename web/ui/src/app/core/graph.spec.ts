@@ -1,5 +1,5 @@
 import { CapabilitySummary, GrantSummary, ServerSummary, ToolSetSummary } from '../api/models';
-import { buildGraph, focusOn, matching, related, troubled } from './graph';
+import { buildGraph, focusOn, matching, related } from './graph';
 
 const meta = (name: string) => ({ name, generation: 1, creationTimestamp: '' });
 const ok = [{ type: 'Ready' as const, status: 'True' as const, reason: 'Available', message: '', lastTransitionTime: '' }];
@@ -40,12 +40,9 @@ describe('focusOn', () => {
     expect(focusOn(g.edges, []).size).toBe(0);
   });
 
-  it('finds seeds by name or subject, and the troubled ones', () => {
+  it('finds seeds by name or subject', () => {
     const g = buildGraph(servers, toolSets, capabilities, grants);
     expect(matching(g, 'AGENT')).toEqual(['grant:coder']);
     expect(matching(g, 'si-')).toEqual(['toolset:si-read']);
-    // The fixtures report Ready only, so the kinds that need Valid too count as troubled.
-    expect(troubled(g)).toEqual(expect.arrayContaining(['capability:missing', 'server:gone']));
-    expect(troubled(g)).not.toContain('server:si');
   });
 });

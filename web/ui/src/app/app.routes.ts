@@ -36,6 +36,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/overview/overview').then((m) => m.Overview),
   },
   {
+    path: 'map',
+    title: title('Map'),
+    loadComponent: () => import('./features/map/map').then((m) => m.MapPage),
+  },
+  {
     path: 'servers',
     title: title('Servers'),
     loadComponent: () => import('./features/servers/servers').then((m) => m.Servers),

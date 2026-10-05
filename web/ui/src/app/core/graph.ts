@@ -109,13 +109,10 @@ export function related(edges: GraphEdge[], start: string): Set<string> {
   return new Set([...walk(true), ...walk(false)]);
 }
 
-/** Above this many boxes the map shows a part of itself unless asked for all. */
-export const MAP_LIMIT = 50;
-
 /**
  * Every node on a path through any of the seeds: the chains they sit on.
  * One walk each way from all seeds at once, so a map of thousands of boxes
- * with hundreds of seeds stays cheap.
+ * with hundreds of matches stays cheap.
  */
 export function focusOn(edges: GraphEdge[], seeds: Iterable<string>): Set<string> {
   const next = new Map<string, string[]>();
@@ -148,14 +145,6 @@ export function matching(graph: Graph, query: string): string[] {
   return Object.values(graph.columns)
     .flat()
     .filter((n) => n.name.toLowerCase().includes(q) || (n.kind === 'grant' && n.detail?.toLowerCase().includes(q)))
-    .map((n) => n.id);
-}
-
-/** The nodes that are not ready, or that a reference names but do not exist. */
-export function troubled(graph: Graph): string[] {
-  return Object.values(graph.columns)
-    .flat()
-    .filter((n) => !n.healthy || n.missing)
     .map((n) => n.id);
 }
 

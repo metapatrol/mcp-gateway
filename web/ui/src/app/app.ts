@@ -59,6 +59,7 @@ export class App {
         label: 'cluster',
         items: [
           { path: '/overview', label: 'Overview', icon: 'layout-dashboard' },
+          { path: '/map', label: 'Map', icon: 'network' },
           {
             path: '/servers',
             label: 'Servers',
