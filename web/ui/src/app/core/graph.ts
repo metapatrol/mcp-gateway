@@ -11,6 +11,8 @@ export interface GraphNode {
   healthy: boolean;
   /** Named by a reference, but no resource of that name exists. */
   missing: boolean;
+  /** How many healthy boxes this one stands for, when it is a bundle of them. */
+  bundle?: number;
 }
 
 export interface GraphEdge {
@@ -83,8 +85,12 @@ export function buildGraph(
     }
     edges.push({ from: id(fromKind, from), to: target, broken: node.missing });
   };
-  grants.forEach((g) => g.spec.capabilities.forEach((c) => link('grant', g.meta.name, 'capability', c)));
-  capabilities.forEach((c) => c.spec.toolSets.forEach((t) => link('capability', c.meta.name, 'toolset', t)));
+  grants.forEach((g) =>
+    g.spec.capabilities.forEach((c) => link('grant', g.meta.name, 'capability', c)),
+  );
+  capabilities.forEach((c) =>
+    c.spec.toolSets.forEach((t) => link('capability', c.meta.name, 'toolset', t)),
+  );
   toolSets.forEach((t) => link('toolset', t.meta.name, 'server', t.spec.serverRef));
   return { columns, edges };
 }
@@ -139,19 +145,63 @@ export function focusOn(edges: GraphEdge[], seeds: Iterable<string>): Set<string
   return out;
 }
 
-/** The nodes whose name, or a grant's subject, contain the query, ignoring case. */
-export function matching(graph: Graph, query: string): string[] {
-  const q = query.trim().toLowerCase();
-  return Object.values(graph.columns)
-    .flat()
-    .filter((n) => n.name.toLowerCase().includes(q) || (n.kind === 'grant' && n.detail?.toLowerCase().includes(q)))
-    .map((n) => n.id);
+/**
+ * Above this many boxes a column shows only those with a problem and bundles
+ * the rest into one box. Which kind outnumbers the others is the cluster's
+ * business: a thousand servers with five grants, or the other way round.
+ */
+export const COLUMN_LIMIT = 20;
+
+/**
+ * The map as it is drawn: every column of at most limit boxes whole, every
+ * longer one with its troubled boxes and one bundle for the rest. Lines to
+ * bundled boxes go to the bundle, one per neighbour.
+ */
+export function condense(graph: Graph, limit = COLUMN_LIMIT): Graph {
+  const into = new Map<string, string>();
+  const columns = {} as Record<Kind, GraphNode[]>;
+  for (const kind of Object.keys(graph.columns) as Kind[]) {
+    const nodes = graph.columns[kind];
+    if (nodes.length <= limit) {
+      columns[kind] = nodes;
+      continue;
+    }
+    const kept = nodes.filter((n) => !n.healthy || n.missing);
+    const rest = nodes.length - kept.length;
+    columns[kind] = kept;
+    if (rest) {
+      const bundle: GraphNode = {
+        id: `${kind}:*`,
+        kind,
+        name: `+${rest}`,
+        healthy: true,
+        missing: false,
+        bundle: rest,
+      };
+      columns[kind] = [...kept, bundle];
+      nodes.filter((n) => n.healthy && !n.missing).forEach((n) => into.set(n.id, bundle.id));
+    }
+  }
+  const edges = new Map<string, GraphEdge>();
+  for (const e of graph.edges) {
+    const from = into.get(e.from) ?? e.from;
+    const to = into.get(e.to) ?? e.to;
+    const key = `${from}>${to}`;
+    const seen = edges.get(key);
+    edges.set(key, { from, to, broken: e.broken || !!seen?.broken });
+  }
+  return { columns, edges: [...edges.values()] };
 }
 
 export function routeOf(node: GraphNode): string[] | null {
   if (node.missing) {
     return null;
   }
-  const base = { grant: 'grants', capability: 'capabilities', toolset: 'toolsets', server: 'servers' }[node.kind];
-  return ['/', base, node.name];
+  const base = {
+    grant: 'grants',
+    capability: 'capabilities',
+    toolset: 'toolsets',
+    server: 'servers',
+  }[node.kind];
+  return node.bundle ? ['/', base] : ['/', base, node.name];
 }

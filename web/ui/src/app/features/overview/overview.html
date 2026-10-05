@@ -60,5 +60,112 @@
         <p class="px-4 py-3 text-sm text-success">Everything is Valid and Ready.</p>
       }
     </section>
+
+    <section class="mp-panel mp-panel-flush">
+      <header class="mp-panel-head">
+        <h2 class="mp-label">Grant → capability → tool set → server</h2>
+      </header>
+      <div class="overflow-x-auto p-4">
+        <div
+          #map
+          class="relative grid min-w-[760px] grid-cols-4 gap-14"
+          (mouseleave)="hovered.set(null)"
+        >
+          <svg
+            class="pointer-events-none absolute inset-0 overflow-visible"
+            [attr.width]="box().width"
+            [attr.height]="box().height"
+            aria-hidden="true"
+          >
+            @for (e of lines(); track e.from + e.to) {
+              <path
+                [attr.d]="e.d"
+                fill="none"
+                [attr.stroke-dasharray]="e.broken ? '4 4' : null"
+                [class]="
+                  e.broken
+                    ? 'stroke-error'
+                    : edgeLit(e)
+                      ? 'stroke-signal'
+                      : lit()
+                        ? 'stroke-line-strong/30'
+                        : 'stroke-line-strong'
+                "
+                [attr.stroke-width]="edgeLit(e) ? 2 : 1.4"
+              />
+            }
+          </svg>
+          @for (col of columns; track col.kind) {
+            <div class="relative z-10 flex flex-col gap-2">
+              <h3 class="mp-label mb-1">{{ col.title }}</h3>
+              @for (n of graph().columns[col.kind]; track n.id) {
+                @if (n.bundle) {
+                  <a
+                    [routerLink]="routeOf(n)"
+                    [attr.data-node]="n.id"
+                    (mouseenter)="hovered.set(n.id)"
+                    (focus)="hovered.set(n.id)"
+                    (blur)="hovered.set(null)"
+                    class="flex items-center justify-between gap-2 rounded-md border border-dashed bg-surface px-2.5 py-1.5 text-[12.5px] transition-opacity"
+                    [class]="
+                      isLit(n.id)
+                        ? lit()
+                          ? 'border-signal'
+                          : 'border-line-strong'
+                        : 'border-line-strong opacity-35'
+                    "
+                  >
+                    <span class="text-fg-muted">{{ bundleLabel(n, col.title) }}</span>
+                    <span class="size-2 shrink-0 rounded-full bg-success" aria-label="ready"></span>
+                  </a>
+                } @else if (routeOf(n); as route) {
+                  <a
+                    [routerLink]="route"
+                    [attr.data-node]="n.id"
+                    [title]="nodeTitle(n)"
+                    (mouseenter)="hovered.set(n.id)"
+                    (focus)="hovered.set(n.id)"
+                    (blur)="hovered.set(null)"
+                    class="flex items-center justify-between gap-2 rounded-md border bg-surface px-2.5 py-1.5 font-mono text-[12.5px] transition-opacity"
+                    [class]="
+                      isLit(n.id)
+                        ? lit()
+                          ? 'border-signal'
+                          : 'border-line'
+                        : 'border-line opacity-35 '
+                    "
+                  >
+                    <span class="min-w-0">
+                      <span class="block truncate">{{ n.name }}</span>
+                      @if (n.detail) {
+                        <span class="text-fg-subtle block truncate font-sans text-[11px]">{{
+                          n.detail
+                        }}</span>
+                      }
+                    </span>
+                    <span
+                      class="size-2 shrink-0 rounded-full"
+                      [class]="n.healthy ? 'bg-success' : 'bg-error'"
+                      [attr.aria-label]="n.healthy ? 'ready' : 'not ready'"
+                    ></span>
+                  </a>
+                } @else {
+                  <span
+                    [attr.data-node]="n.id"
+                    [title]="nodeTitle(n)"
+                    (mouseenter)="hovered.set(n.id)"
+                    class="rounded-md border border-dashed border-error/60 bg-error/12 px-2.5 py-1.5 font-mono text-[12.5px] text-error"
+                    [class.opacity-35]="!isLit(n.id)"
+                  >
+                    {{ n.name }}
+                    <span class="block font-sans text-[11px]">not found</span>
+                  </span>
+                }
+              }
+            </div>
+          }
+        </div>
+      </div>
+    </section>
   </div>
 }
