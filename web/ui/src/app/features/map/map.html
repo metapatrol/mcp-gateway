@@ -26,9 +26,7 @@
         >
           −
         </button>
-        <span class="text-fg-subtle w-12 text-center text-xs tabular-nums"
-          >{{ (view().k * 100).toFixed(0) }}%</span
-        >
+        <span #zoomLabel class="text-fg-subtle w-12 text-center text-xs tabular-nums">100%</span>
         <button
           type="button"
           class="mp-btn"
@@ -45,17 +43,12 @@
       #viewport
       class="relative min-h-0 flex-1 touch-none overflow-hidden"
       style="cursor: grab"
-      (wheel)="wheel($event)"
-      (pointerdown)="pointerDown($event)"
-      (pointermove)="pointerMove($event)"
-      (pointerup)="pointerUp()"
-      (pointercancel)="pointerUp()"
-      (mouseleave)="hovered.set(null)"
+      (mouseleave)="hover(null)"
     >
       <div
         #content
         class="absolute top-0 left-0 grid w-[1120px] origin-top-left grid-cols-4 gap-14"
-        [style.transform]="transform()"
+        style="will-change: transform"
       >
         <svg
           class="pointer-events-none absolute inset-0 overflow-visible"
@@ -91,10 +84,10 @@
                   [attr.data-node]="n.id"
                   [title]="nodeTitle(n)"
                   draggable="false"
-                  (mouseenter)="hovered.set(n.id)"
-                  (mouseleave)="hovered.set(null)"
-                  (focus)="hovered.set(n.id)"
-                  (blur)="hovered.set(null)"
+                  (mouseenter)="hover(n.id)"
+                  (mouseleave)="hover(null)"
+                  (focus)="hover(n.id)"
+                  (blur)="hover(null)"
                   class="flex items-center justify-between gap-2 rounded-md border bg-surface px-2.5 py-1.5 font-mono text-[12.5px] transition-opacity"
                   [class]="
                     (isLit(n.id)
@@ -123,8 +116,8 @@
                 <span
                   [attr.data-node]="n.id"
                   [title]="nodeTitle(n)"
-                  (mouseenter)="hovered.set(n.id)"
-                  (mouseleave)="hovered.set(null)"
+                  (mouseenter)="hover(n.id)"
+                  (mouseleave)="hover(null)"
                   class="rounded-md border border-dashed border-error/60 bg-error/12 px-2.5 py-1.5 font-mono text-[12.5px] text-error"
                   [class.opacity-25]="!isLit(n.id)"
                 >

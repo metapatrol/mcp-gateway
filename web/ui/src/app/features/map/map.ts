@@ -14,7 +14,7 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MpListSearch, MpLoadState, MpPageHeader } from '@metapatrol/ng';
-import { buildGraph, focusOn, GraphNode, Kind, matching, related, routeOf } from '../../core/graph';
+import { buildGraph, focusOn, GraphNode, Kind, matching, routeOf } from '../../core/graph';
 import { Lists } from '../../core/lists';
 import { Box, fit, fitWidth, show, View, zoomAt } from './viewport';
 
@@ -69,20 +69,24 @@ export class MapPage {
   /** What is lit: the chain under the pointer, else the chains ?focus= names. */
   protected readonly lit = computed(() => {
     const h = this.hovered();
-    return h ? related(this.graph().edges, h) : this.focused();
+    return h ? focusOn(this.graph().edges, [h]) : this.focused();
   });
 
   private readonly viewport = viewChild<ElementRef<HTMLElement>>('viewport');
   private readonly content = viewChild<ElementRef<HTMLElement>>('content');
+  private readonly zoomLabel = viewChild<ElementRef<HTMLElement>>('zoomLabel');
   protected readonly lines = signal<Edge[]>([]);
   protected readonly size = signal({ width: 0, height: 0 });
-  protected readonly view = signal<View>({ x: 0, y: 0, k: 1 });
-  protected readonly transform = computed(() => {
-    const v = this.view();
-    return `translate(${v.x}px, ${v.y}px) scale(${v.k})`;
-  });
 
-  private drag?: { x: number; y: number; view: View; moved: boolean };
+  /**
+   * Zoom and pan. Deliberately no signal: they change with every pointer
+   * event, and are written straight to the content's transform once per
+   * frame, so neither the template nor the lines are looked at again.
+   */
+  private view: View = { x: 0, y: 0, k: 1 };
+  private frame = 0;
+
+  protected drag?: { x: number; y: number; view: View; moved: boolean };
   private suppressClick = false;
   private fitted = false;
 
@@ -102,7 +106,10 @@ export class MapPage {
         observer.observe(el);
       }
     });
-    inject(DestroyRef).onDestroy(() => observer?.disconnect());
+    inject(DestroyRef).onDestroy(() => {
+      observer?.disconnect();
+      cancelAnimationFrame(this.frame);
+    });
 
     // A new ?focus= zooms to the boxes it names — not their whole chains,
     // which may run from the top of one column to the bottom of another — or
@@ -117,21 +124,38 @@ export class MapPage {
       });
     });
 
-    // A drag that ends on a box is no click on it: swallowed before the
-    // box's link sees it.
+    // Wheel and pointer are listened to directly, not through the template:
+    // a template listener has Angular check the whole map after each event,
+    // and these come once per frame and change nothing it renders.
     afterRenderEffect((onCleanup) => {
       const vp = this.viewport()?.nativeElement;
       if (!vp) {
         return;
       }
+      // A drag that ends on a box is no click on it: swallowed before the
+      // box's link sees it.
       const swallow = (e: MouseEvent) => {
         if (this.suppressClick) {
           e.preventDefault();
           e.stopPropagation();
         }
       };
-      vp.addEventListener('click', swallow, { capture: true });
-      onCleanup(() => vp.removeEventListener('click', swallow, { capture: true }));
+      const listeners: [string, (e: never) => void, AddEventListenerOptions][] = [
+        ['wheel', (e: WheelEvent) => this.wheel(e), { passive: false }],
+        ['pointerdown', (e: PointerEvent) => this.pointerDown(e), {}],
+        ['pointermove', (e: PointerEvent) => this.pointerMove(e), {}],
+        ['pointerup', () => this.pointerUp(), {}],
+        ['pointercancel', () => this.pointerUp(), {}],
+        ['click', swallow, { capture: true }],
+      ];
+      for (const [type, fn, opts] of listeners) {
+        vp.addEventListener(type, fn as EventListener, opts);
+      }
+      onCleanup(() => {
+        for (const [type, fn, opts] of listeners) {
+          vp.removeEventListener(type, fn as EventListener, opts);
+        }
+      });
     });
   }
 
@@ -145,6 +169,13 @@ export class MapPage {
     return !!l && l.has(e.from) && l.has(e.to);
   }
 
+  /** Lights a chain under the pointer, but not while the map is dragged across boxes. */
+  protected hover(id: string | null): void {
+    if (!this.drag?.moved) {
+      this.hovered.set(id);
+    }
+  }
+
   protected nodeTitle(n: GraphNode): string {
     return n.missing ? `${n.name}: not found` : n.name;
   }
@@ -154,7 +185,7 @@ export class MapPage {
   protected zoom(factor: number): void {
     const vp = this.viewport()?.nativeElement;
     if (vp) {
-      this.view.update((v) => zoomAt(v, vp.clientWidth / 2, vp.clientHeight / 2, factor));
+      this.setView(zoomAt(this.view, vp.clientWidth / 2, vp.clientHeight / 2, factor));
     }
   }
 
@@ -172,27 +203,32 @@ export class MapPage {
     if (matches?.size) {
       this.fitTo(matches);
     } else {
-      this.view.set(fitWidth(content.offsetWidth, { width: vp.clientWidth }));
+      this.setView(fitWidth(content.offsetWidth, { width: vp.clientWidth }));
     }
     this.fitted = true;
   }
 
-  protected wheel(event: WheelEvent): void {
+  private wheel(event: WheelEvent): void {
     event.preventDefault();
     const r = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    this.view.update((v) =>
-      zoomAt(v, event.clientX - r.left, event.clientY - r.top, Math.exp(-event.deltaY * 0.0015)),
+    this.setView(
+      zoomAt(
+        this.view,
+        event.clientX - r.left,
+        event.clientY - r.top,
+        Math.exp(-event.deltaY * 0.0015),
+      ),
     );
   }
 
-  protected pointerDown(event: PointerEvent): void {
+  private pointerDown(event: PointerEvent): void {
     if (event.button !== 0) {
       return;
     }
-    this.drag = { x: event.clientX, y: event.clientY, view: this.view(), moved: false };
+    this.drag = { x: event.clientX, y: event.clientY, view: this.view, moved: false };
   }
 
-  protected pointerMove(event: PointerEvent): void {
+  private pointerMove(event: PointerEvent): void {
     const d = this.drag;
     if (!d) {
       return;
@@ -204,17 +240,37 @@ export class MapPage {
     }
     if (!d.moved) {
       d.moved = true;
+      this.hovered.set(null);
       (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
     }
-    this.view.set({ ...d.view, x: d.view.x + dx, y: d.view.y + dy });
+    this.setView({ ...d.view, x: d.view.x + dx, y: d.view.y + dy });
   }
 
-  protected pointerUp(): void {
+  private pointerUp(): void {
     if (this.drag?.moved) {
       this.suppressClick = true;
       setTimeout(() => (this.suppressClick = false));
     }
     this.drag = undefined;
+  }
+
+  private setView(view: View): void {
+    this.view = view;
+    if (this.frame) {
+      return;
+    }
+    this.frame = requestAnimationFrame(() => {
+      this.frame = 0;
+      const v = this.view;
+      const content = this.content()?.nativeElement;
+      if (content) {
+        content.style.transform = `translate(${v.x}px, ${v.y}px) scale(${v.k})`;
+      }
+      const label = this.zoomLabel()?.nativeElement;
+      if (label) {
+        label.textContent = `${Math.round(v.k * 100)}%`;
+      }
+    });
   }
 
   /** Shows the boxes of ids whole, or the whole map without ids. */
@@ -238,7 +294,7 @@ export class MapPage {
           viewport,
         );
     if (view) {
-      this.view.set(view);
+      this.setView(view);
     }
   }
 
@@ -246,7 +302,7 @@ export class MapPage {
   private boxOf(el: HTMLElement, content: HTMLElement): Box {
     const origin = content.getBoundingClientRect();
     const r = el.getBoundingClientRect();
-    const k = this.view().k;
+    const k = this.view.k;
     return {
       left: (r.left - origin.left) / k,
       top: (r.top - origin.top) / k,
