@@ -43,6 +43,8 @@ them. If your provider generates IDs, see
 A values file, with at least one way of verifying tokens:
 
 ```yaml
+imagePullSecrets:
+  - name: ghcr                 # see below
 gateway:
   oauth:
     issuer: https://id.example.com/
@@ -60,9 +62,20 @@ The chart refuses to render without `gateway.oauth.jwksURL` or
 serve anyone. Set `issuer` and `audience` too — without an audience, a token the
 same provider issued for any other service is accepted.
 
+The chart and the images are on ghcr.io, readable by members of the
+metapatrol organisation for now. Log in with a GitHub token that has
+`read:packages`, and give the cluster the same as the pull secret the values name:
+
+```bash
+echo "$GITHUB_TOKEN" | helm registry login ghcr.io -u <github-user> --password-stdin
+kubectl create namespace mcp-system
+kubectl -n mcp-system create secret docker-registry ghcr \
+  --docker-server=ghcr.io --docker-username=<github-user> --docker-password="$GITHUB_TOKEN"
+```
+
 ```bash
 helm install mcp-gateway oci://ghcr.io/metapatrol/charts/mcp-gateway \
-  --namespace mcp-system --create-namespace -f values.yaml
+  --namespace mcp-system -f values.yaml
 ```
 
 That installs the four CRDs, the controller and two gateway replicas. The
