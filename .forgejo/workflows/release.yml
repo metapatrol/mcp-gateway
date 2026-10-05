@@ -134,6 +134,8 @@ jobs:
             --add-host "$FORGE_HOST:$FORGE_IP" \
             --secret id=npm_token,src=/tmp/npm_token \
             --secret id=platform_ca,src=/tmp/platform_ca \
+            --build-arg NODE_IMAGE="$REGISTRY/library/node:$NODE_VERSION-alpine" \
+            --build-arg GO_IMAGE="$REGISTRY/library/golang:$GO_VERSION-alpine" \
             --build-arg BINARY="$BINARY" \
             --build-arg VERSION="$VERSION" \
             --build-arg COMMIT="$COMMIT" \
@@ -324,6 +326,9 @@ jobs:
 
           for CHART_DIR in charts/mcp-gateway charts/mcp-gateway-grafana-dashboard; do
             CHART_NAME=$(basename "$CHART_DIR")
+            # The charts default to the public images on ghcr.io; the ones
+            # released here point at the internal registry's instead.
+            sed -i -E "s#^(    repository: ).*/(mcp-gateway(-[a-z]+)?)\$#\\1$REGISTRY/images/platform/\\2#" "$CHART_DIR/values.yaml"
             sed -i "s/^version:.*/version: $VERSION/" "$CHART_DIR/Chart.yaml"
             sed -i "s/^appVersion:.*/appVersion: \"$VERSION\"/" "$CHART_DIR/Chart.yaml"
             helm package "$CHART_DIR" -d /tmp/

@@ -23,7 +23,7 @@ controller:
   # leaderElect, and then only one of them is active.
   replicaCount: 1
   image:
-    repository: zot.metapatrol.local/images/platform/mcp-gateway-controller
+    repository: ghcr.io/metapatrol/mcp-gateway-controller
     pullPolicy: IfNotPresent
     tag: ""  # Defaults to the chart version, see _helpers.tpl
   serviceAccount:
@@ -54,7 +54,7 @@ gateway:
   # replica answers any request.
   replicaCount: 2
   image:
-    repository: zot.metapatrol.local/images/platform/mcp-gateway
+    repository: ghcr.io/metapatrol/mcp-gateway
     pullPolicy: IfNotPresent
     tag: ""
   serviceAccount:
@@ -177,7 +177,7 @@ ui:
   enabled: false
   replicaCount: 1
   image:
-    repository: zot.metapatrol.local/images/platform/mcp-gateway-ui
+    repository: ghcr.io/metapatrol/mcp-gateway-ui
     pullPolicy: IfNotPresent
     tag: ""  # Defaults to the chart version, see _helpers.tpl
   serviceAccount:

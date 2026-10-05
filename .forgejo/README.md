@@ -62,10 +62,17 @@ semantic-release's `successCmd`, which dispatches `release.yml` directly.
 **The runner label.** Every job says `runs-on: docker` — a label, not an image.
 If the runners are registered under another label, the workflows sit queued.
 
-**Fully qualified base images.** podman does not guess registries, so the
-Dockerfile's `FROM` names zot: `zot.metapatrol.local/library/golang:1.27-alpine`.
-The image jobs build with `--tls-verify=false` because zot uses the instance's
-private CA.
+**Base images through zot.** The Dockerfile defaults to the public images, so
+that a build anywhere works; the image jobs here pass zot's mirrors instead
+(`--build-arg GO_IMAGE=$REGISTRY/library/golang:…`), and build with
+`--tls-verify=false` because zot uses the instance's private CA.
+
+**Charts point at zot.** The charts in the repository default to the public
+images on ghcr.io, which the GitHub mirror publishes
+([`.github/workflows/publish.yml`](../.github/workflows/publish.yml)). `release.chart`
+rewrites `image.repository` to zot's before it packages them, so the charts
+released here pull from the internal registry. A HelmRelease that reads a chart
+from Git gets ghcr.io unless it sets the repositories itself.
 
 **The race detector** needs cgo and a C compiler; the test jobs install `gcc` when
 the runner image lacks it.
@@ -86,7 +93,7 @@ resolves the forge in the job and hands the address in, because the build does
 not inherit the job container's name resolution. The GitHub mirror cannot
 reach the forge: it builds `mcp-gateway-ui` with the same versions from GitHub
 Packages, where the brand's own GitHub mirror publishes them
-(`.github/workflows/images.yml`).
+(`.github/workflows/publish.yml`).
 
 **Secrets and variables.**
 

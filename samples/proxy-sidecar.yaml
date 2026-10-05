@@ -25,7 +25,7 @@ spec:
             - name: MCP_SERVER_URL
               value: http://127.0.0.1:8765/mcp
         - name: mcp-gateway-proxy
-          image: zot.metapatrol.local/images/platform/mcp-gateway-proxy:0.1.0
+          image: ghcr.io/metapatrol/mcp-gateway-proxy:1.10.0
           env:
             - name: MCP_GATEWAY_URL
               value: http://mcp-gateway.mcp-system.svc/mcp

@@ -20,7 +20,7 @@ Kubernetes-native access layer for MCP backends — one governed MCP endpoint, t
 | controller.env | list | `[]` |  |
 | controller.healthProbeBindAddress | string | `":8081"` |  |
 | controller.image.pullPolicy | string | `"IfNotPresent"` |  |
-| controller.image.repository | string | `"zot.metapatrol.local/images/platform/mcp-gateway-controller"` |  |
+| controller.image.repository | string | `"ghcr.io/metapatrol/mcp-gateway-controller"` |  |
 | controller.image.tag | string | `""` |  |
 | controller.leaderElect | bool | `false` |  |
 | controller.metricsBindAddress | string | `":8080"` |  |
@@ -43,7 +43,7 @@ Kubernetes-native access layer for MCP backends — one governed MCP endpoint, t
 | gateway.env | list | `[]` |  |
 | gateway.healthProbeBindAddress | string | `":8081"` |  |
 | gateway.image.pullPolicy | string | `"IfNotPresent"` |  |
-| gateway.image.repository | string | `"zot.metapatrol.local/images/platform/mcp-gateway"` |  |
+| gateway.image.repository | string | `"ghcr.io/metapatrol/mcp-gateway"` |  |
 | gateway.image.tag | string | `""` |  |
 | gateway.inspect.bindAddress | string | `":8095"` |  |
 | gateway.inspect.enabled | bool | `false` |  |
@@ -100,7 +100,7 @@ Kubernetes-native access layer for MCP backends — one governed MCP endpoint, t
 | ui.enabled | bool | `false` |  |
 | ui.env | list | `[]` |  |
 | ui.image.pullPolicy | string | `"IfNotPresent"` |  |
-| ui.image.repository | string | `"zot.metapatrol.local/images/platform/mcp-gateway-ui"` |  |
+| ui.image.repository | string | `"ghcr.io/metapatrol/mcp-gateway-ui"` |  |
 | ui.image.tag | string | `""` |  |
 | ui.listenAddress | string | `":8080"` |  |
 | ui.nodeSelector | object | `{}` |  |

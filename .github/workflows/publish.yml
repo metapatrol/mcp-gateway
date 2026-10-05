@@ -1,0 +1,272 @@
+# What the GitHub mirror publishes for everyone outside the private network.
+# linux/amd64 images.
+#
+# The repository lives on Forgejo, which builds, tests and releases it and
+# pushes its images to the internal registry (.forgejo/workflows). GitHub gets
+# a push mirror of it: branches and tags arrive as pushes, and this workflow
+# builds the same sources from them. It decides nothing — versions are
+# semantic-release's, on Forgejo; a tag arriving here is only built.
+#
+# Forgejo reads .forgejo/workflows and ignores this directory.
+#
+#   ghcr.io/metapatrol/mcp-gateway{,-controller,-proxy,-ui}
+#     :1.10.0 :1.10 :latest   from a release tag
+#     :main :<short sha>      from main
+#   oci://ghcr.io/metapatrol/charts/mcp-gateway{,-grafana-dashboard}
+#     :1.10.0                 from a release tag
+#   a GitHub release with binaries and both charts, from a release tag
+#
+# mcp-gateway-ui's @metapatrol packages come from the forge's npm registry,
+# which GitHub cannot reach. The brand's own GitHub mirror publishes the same
+# versions to GitHub Packages, so this build points web/ui at that registry
+# and reads it with its GITHUB_TOKEN.
+#
+# A release tagged before this workflow existed is built by running it by hand
+# with that tag: the tag's source, this commit's Dockerfile — an older one
+# pulls its base images from the internal registry, which GitHub cannot reach.
+name: publish
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to build, e.g. v1.9.0. Empty builds the branch it runs on.
+        required: false
+        default: ""
+      latest:
+        description: Also tag it latest — for the newest release only.
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: publish-${{ inputs.tag || github.ref }}
+  cancel-in-progress: false
+
+env:
+  GO_VERSION: "1.27"
+  NODE_VERSION: "24"
+  HELM_VERSION: v3.16.3
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        binary: [mcp-gateway-controller, mcp-gateway, mcp-gateway-proxy, mcp-gateway-ui]
+    env:
+      TAG: ${{ inputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Build arguments
+        id: args
+        run: |
+          # This workflow's own Dockerfile, which a tag built by hand may predate.
+          git fetch -q --depth=1 origin "$GITHUB_SHA"
+          git show "$GITHUB_SHA:Dockerfile" > "$RUNNER_TEMP/Dockerfile"
+
+          ref="${TAG:-$GITHUB_REF_NAME}"
+          commit=$(git rev-parse HEAD)
+          # ghcr.io wants the owner in lower case.
+          echo "image=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/${{ matrix.binary }}" >> "$GITHUB_OUTPUT"
+          echo "revision=$commit" >> "$GITHUB_OUTPUT"
+          echo "commit=${commit::7}" >> "$GITHUB_OUTPUT"
+          echo "built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+          if [[ -n "$TAG" || "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "tag=$ref" >> "$GITHUB_OUTPUT"
+            echo "version=${ref#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${commit::7}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.args.outputs.image }}
+          flavor: latest=false
+          tags: |
+            type=semver,pattern={{version}},value=${{ steps.args.outputs.tag }},enable=${{ steps.args.outputs.tag != '' }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.args.outputs.tag }},enable=${{ steps.args.outputs.tag != '' }}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') || inputs.latest == true }}
+            type=ref,event=branch,enable=${{ inputs.tag == '' }}
+            type=raw,value=${{ steps.args.outputs.commit }}
+          labels: |
+            org.opencontainers.image.title=${{ matrix.binary }}
+            org.opencontainers.image.licenses=Apache-2.0
+            org.opencontainers.image.revision=${{ steps.args.outputs.revision }}
+            org.opencontainers.image.version=${{ steps.args.outputs.version }}
+
+      # The console's packages from GitHub Packages instead of the forge (see
+      # above). The lockfile keeps their versions but loses their forge
+      # tarball URLs and checksums: the tarballs on GitHub are built there,
+      # so npm resolves each version through the registry configured here.
+      - name: Point the console at GitHub Packages
+        if: matrix.binary == 'mcp-gateway-ui'
+        working-directory: web/ui
+        run: |
+          set -eu
+          {
+            echo "@metapatrol:registry=https://npm.pkg.github.com"
+            echo "//npm.pkg.github.com/:_authToken=\${NPM_TOKEN}"
+          } > .npmrc
+          node -e '
+            const fs = require("fs");
+            const lock = JSON.parse(fs.readFileSync("package-lock.json", "utf8"));
+            let n = 0;
+            for (const [path, entry] of Object.entries(lock.packages)) {
+              if (path.startsWith("node_modules/@metapatrol/")) { delete entry.resolved; delete entry.integrity; n++; }
+            }
+            fs.writeFileSync("package-lock.json", JSON.stringify(lock, null, 2) + "\n");
+            console.log(`${n} @metapatrol packages from GitHub Packages`);
+          '
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ runner.temp }}/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            BINARY=${{ matrix.binary }}
+            VERSION=${{ steps.args.outputs.version }}
+            COMMIT=${{ steps.args.outputs.commit }}
+            BUILT_AT=${{ steps.args.outputs.built_at }}
+            NODE_IMAGE=docker.io/library/node:${{ env.NODE_VERSION }}-alpine
+            GO_IMAGE=docker.io/library/golang:${{ env.GO_VERSION }}-alpine
+          # read by the console's npm ci only (see the Dockerfile's ui stage)
+          secrets: |
+            npm_token=${{ secrets.GITHUB_TOKEN }}
+          cache-from: type=gha,scope=${{ matrix.binary }}
+          cache-to: type=gha,scope=${{ matrix.binary }},mode=max
+
+  # Charts, binaries and the GitHub release, for release tags only. After the
+  # images: a release whose images do not exist is worse than none.
+  release:
+    needs: image
+    if: inputs.tag != '' || startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Version
+        run: |
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "not a release tag: $TAG"; exit 1; }
+          commit=$(git rev-parse HEAD)
+          echo "VERSION=${TAG#v}" >> "$GITHUB_ENV"
+          echo "COMMIT=${commit::7}" >> "$GITHUB_ENV"
+          echo "BUILT_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+
+      # The console's packages from GitHub Packages instead of the forge (see
+      # the image job). The lockfile keeps their versions but loses their forge
+      # tarball URLs and checksums: the tarballs on GitHub are built there,
+      # so npm resolves each version through the registry configured here.
+      - name: Point the console at GitHub Packages
+        working-directory: web/ui
+        run: |
+          set -eu
+          {
+            echo "@metapatrol:registry=https://npm.pkg.github.com"
+            echo "//npm.pkg.github.com/:_authToken=\${NPM_TOKEN}"
+          } > .npmrc
+          node -e '
+            const fs = require("fs");
+            const lock = JSON.parse(fs.readFileSync("package-lock.json", "utf8"));
+            let n = 0;
+            for (const [path, entry] of Object.entries(lock.packages)) {
+              if (path.startsWith("node_modules/@metapatrol/")) { delete entry.resolved; delete entry.integrity; n++; }
+            }
+            fs.writeFileSync("package-lock.json", JSON.stringify(lock, null, 2) + "\n");
+            console.log(`${n} @metapatrol packages from GitHub Packages`);
+          '
+
+      # mcp-gateway-ui embeds the web UI, so it is built before the binaries.
+      # The proxy is the binary people download — it runs on workstations as
+      # well as in pods — so it alone is built for macOS too.
+      - name: Binaries
+        env:
+          CGO_ENABLED: "0"
+          NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          make ui-install ui-build
+          mkdir -p dist
+          for os in linux darwin; do
+            for arch in amd64 arm64; do
+              for bin in mcp-gateway-controller mcp-gateway mcp-gateway-proxy mcp-gateway-ui; do
+                [ "$os" = linux ] || [ "$bin" = mcp-gateway-proxy ] || continue
+                GOOS=$os GOARCH=$arch go build -trimpath \
+                  -ldflags "-s -w -X main.version=$VERSION -X main.commit=$COMMIT -X main.builtAt=$BUILT_AT" \
+                  -o "dist/$bin-$os-$arch" "./cmd/$bin"
+              done
+            done
+          done
+          (cd dist && sha256sum mcp-gateway-* > SHA256SUMS)
+
+      - name: Charts
+        env:
+          OWNER: ${{ github.repository_owner }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$GH_TOKEN" | helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
+          for chart in charts/mcp-gateway charts/mcp-gateway-grafana-dashboard; do
+            # The released chart points at the public images by default, also
+            # for a tag whose values still name the internal registry.
+            sed -i -E "s#^(    repository: ).*/(mcp-gateway(-[a-z]+)?)\$#\\1ghcr.io/${OWNER,,}/\\2#" "$chart/values.yaml"
+            helm package "$chart" --version "$VERSION" --app-version "$VERSION" -d dist
+          done
+          for tgz in dist/*.tgz; do
+            helm push "$tgz" "oci://ghcr.io/${OWNER,,}/charts"
+          done
+
+      - name: Release notes
+        run: |
+          # This version's section of the changelog semantic-release wrote,
+          # with links into the private Forgejo pointed at this repository.
+          awk -v v="$VERSION" '
+            /^#+ \[?[0-9]+\.[0-9]+\.[0-9]+/ { if (on) exit; if (index($0, "[" v "]")) { on = 1; next } }
+            on { print }' CHANGELOG.md \
+            | sed -E "s#https?://[^/)]+/platform/mcp-gate(way)?/#https://github.com/${GITHUB_REPOSITORY}/#g" > dist/notes.md
+          [ -s dist/notes.md ] || echo "Release $TAG" > dist/notes.md
+
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          assets=(dist/mcp-gateway-* dist/SHA256SUMS)
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${assets[@]}" --clobber
+          else
+            gh release create "$TAG" --title "$TAG" --notes-file dist/notes.md --verify-tag "${assets[@]}"
+          fi

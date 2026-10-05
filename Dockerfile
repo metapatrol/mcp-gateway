@@ -12,15 +12,15 @@
 # The console's packages come from the forge's npm registry, so building
 # mcp-gateway-ui needs the npm_token secret (see the ui stage) and the forge
 # within reach; the other binaries need neither. The GitHub mirror points
-# web/ui/.npmrc at GitHub Packages instead (.github/workflows/images.yml).
+# web/ui/.npmrc at GitHub Packages instead (.github/workflows/publish.yml).
 #
-# The base images come from the internal registry's mirror; a build outside
-# the network, such as the GitHub mirror's, passes the public ones:
+# Public base images, so that a build works anywhere. A build that should pull
+# through a registry mirror passes its own:
 #
-#   --build-arg NODE_IMAGE=docker.io/library/node:24-alpine
-#   --build-arg GO_IMAGE=docker.io/library/golang:1.27-alpine
-ARG NODE_IMAGE=zot.metapatrol.local/library/node:24-alpine
-ARG GO_IMAGE=zot.metapatrol.local/library/golang:1.27-alpine
+#   --build-arg NODE_IMAGE=registry.example.com/library/node:24-alpine
+#   --build-arg GO_IMAGE=registry.example.com/library/golang:1.27-alpine
+ARG NODE_IMAGE=docker.io/library/node:24-alpine
+ARG GO_IMAGE=docker.io/library/golang:1.27-alpine
 
 FROM ${NODE_IMAGE} AS ui
 

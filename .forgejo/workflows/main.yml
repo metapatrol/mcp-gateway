@@ -208,6 +208,8 @@ jobs:
             --add-host "$FORGE_HOST:$FORGE_IP" \
             --secret id=npm_token,src=/tmp/npm_token \
             --secret id=platform_ca,src=/tmp/platform_ca \
+            --build-arg NODE_IMAGE="$REGISTRY/library/node:$NODE_VERSION-alpine" \
+            --build-arg GO_IMAGE="$REGISTRY/library/golang:$GO_VERSION-alpine" \
             --build-arg BINARY="$BINARY" \
             --build-arg VERSION="$COMMIT" \
             --build-arg COMMIT="$COMMIT" \
