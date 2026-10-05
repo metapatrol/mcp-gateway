@@ -55,12 +55,37 @@ paths:
         Every MCP backend the gateway knows, with its endpoint, whether its
         catalog is currently served, and how many tools it has. Start here to find a
         server's name, or to see which backends are unavailable.
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - name: q
+          in: query
+          description: |
+            Keep only the items where its name, its endpoint or the type of
+            its `spec.auth` contains this text, ignoring case. Empty keeps
+            every item.
+          schema: { type: string }
+        - name: sort
+          in: query
+          description: |
+            The column to sort by, descending with a leading `-`. Text sorts
+            naturally (`agent-2` before `agent-10`), numbers as numbers; items
+            without a value come last either way, and ties are ordered by
+            name. `tools` is the catalog size on this replica, `discovery` the
+            time of its last successful discovery here, `ready` the Ready
+            condition. Conditions order False, then Unknown, then True.
+            Default `name`.
+          schema:
+            type: string
+            enum: [name, endpoint, auth, tools, discovery, ready, -name, -endpoint, -auth, -tools, -discovery, -ready]
+            default: name
       responses:
         "200":
-          description: Every MCPServer, sorted by name.
+          description: The items that match `q`, in the order `sort` gives — all of them, or one page with `limit`.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ServerList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         default: { $ref: "#/components/responses/Problem" }
 
@@ -115,12 +140,36 @@ paths:
       description: |
         Every tool set, with the server it selects from, how many tools it
         selects, and whether it is ready.
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - name: q
+          in: query
+          description: |
+            Keep only the items where its name, its server, its prefix or an
+            entry of `tools` or `exclude` contains this text, ignoring case.
+            Empty keeps every item.
+          schema: { type: string }
+        - name: sort
+          in: query
+          description: |
+            The column to sort by, descending with a leading `-`. Text sorts
+            naturally (`agent-2` before `agent-10`), numbers as numbers; items
+            without a value come last either way, and ties are ordered by
+            name. `selection` is the entries of `tools`, `tools` how many
+            tools it resolves to, `valid` and `ready` its conditions.
+            Conditions order False, then Unknown, then True. Default `name`.
+          schema:
+            type: string
+            enum: [name, server, selection, tools, valid, ready, -name, -server, -selection, -tools, -valid, -ready]
+            default: name
       responses:
         "200":
-          description: Every MCPToolSet, sorted by name.
+          description: The items that match `q`, in the order `sort` gives — all of them, or one page with `limit`.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ToolSetList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         default: { $ref: "#/components/responses/Problem" }
 
@@ -175,12 +224,35 @@ paths:
       description: |
         Every capability, with the tool sets it combines, how many tools it comes
         to, and whether it is ready.
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - name: q
+          in: query
+          description: |
+            Keep only the items where its name, its description or one of its
+            tool sets contains this text, ignoring case. Empty keeps every
+            item.
+          schema: { type: string }
+        - name: sort
+          in: query
+          description: |
+            The column to sort by, descending with a leading `-`. Text sorts
+            naturally (`agent-2` before `agent-10`), numbers as numbers; items
+            without a value come last either way, and ties are ordered by
+            name. `valid` and `ready` are its conditions. Conditions order
+            False, then Unknown, then True. Default `name`.
+          schema:
+            type: string
+            enum: [name, description, toolsets, valid, ready, -name, -description, -toolsets, -valid, -ready]
+            default: name
       responses:
         "200":
-          description: Every MCPCapability, sorted by name.
+          description: The items that match `q`, in the order `sort` gives — all of them, or one page with `limit`.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/CapabilityList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         default: { $ref: "#/components/responses/Problem" }
 
@@ -234,12 +306,35 @@ paths:
       description: |
         Every grant, with the subject it names, the capabilities it binds, and
         whether it is ready.
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - name: q
+          in: query
+          description: |
+            Keep only the items where its name, its subject or one of its
+            capabilities contains this text, ignoring case. Empty keeps every
+            item.
+          schema: { type: string }
+        - name: sort
+          in: query
+          description: |
+            The column to sort by, descending with a leading `-`. Text sorts
+            naturally (`agent-2` before `agent-10`), numbers as numbers; items
+            without a value come last either way, and ties are ordered by
+            name. `valid` and `ready` are its conditions. Conditions order
+            False, then Unknown, then True. Default `name`.
+          schema:
+            type: string
+            enum: [name, subject, capabilities, valid, ready, -name, -subject, -capabilities, -valid, -ready]
+            default: name
       responses:
         "200":
-          description: Every MCPGrant, sorted by name.
+          description: The items that match `q`, in the order `sort` gives — all of them, or one page with `limit`.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/GrantList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         default: { $ref: "#/components/responses/Problem" }
 
@@ -291,12 +386,37 @@ paths:
       description: |
         Every token subject at least one grant names. Use it to find the exact
         subject to pass to getSubject.
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - name: q
+          in: query
+          description: |
+            Keep only the items where the subject or the name of a grant that
+            names it contains this text, ignoring case. Empty keeps every
+            item.
+          schema: { type: string }
+        - name: sort
+          in: query
+          description: |
+            The column to sort by, descending with a leading `-`. Text sorts
+            naturally (`agent-2` before `agent-10`), numbers as numbers; items
+            without a value come last either way, and ties are ordered by
+            name. `grants` is the names of its grants, `tools` how many tools
+            it is offered. Sorting by `tools` resolves every subject that
+            matches `q` before a page can be cut; every other key resolves
+            only the subjects on the page. Default `name`.
+          schema:
+            type: string
+            enum: [name, grants, tools, -name, -grants, -tools]
+            default: name
       responses:
         "200":
-          description: Every subject at least one MCPGrant names, sorted.
+          description: The items that match `q`, in the order `sort` gives — all of them, or one page with `limit`.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/SubjectList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         default: { $ref: "#/components/responses/Problem" }
 
@@ -441,6 +561,23 @@ components:
         checks with a TokenReview against the ServiceAccount the chart allows.
 
   parameters:
+    Limit:
+      name: limit
+      in: query
+      description: |
+        Return at most this many items, and a `nextCursor` to read on from
+        when there are more. Left out, every item comes in one answer, as
+        before paging existed.
+      schema: { type: integer, minimum: 1, maximum: 1000 }
+    Cursor:
+      name: cursor
+      in: query
+      description: |
+        Read on after the last item of a previous answer: its `nextCursor`,
+        passed as is together with the same `q`, `sort` and `limit`. A
+        cursor names the item it follows, not a position, so items added or
+        removed in the meantime neither repeat nor skip the ones after it.
+      schema: { type: string, minLength: 1 }
     Name:
       name: name
       in: path
@@ -449,6 +586,11 @@ components:
       schema: { type: string, minLength: 1 }
 
   responses:
+    BadRequest:
+      description: A parameter is not valid — a limit out of range, an unknown sort key, or a cursor this API did not hand out for the same q and sort.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
     Unauthorized:
       description: The request carried no token, or one the TokenReview did not accept for the allowed ServiceAccount.
       content:
@@ -765,8 +907,14 @@ components:
 
     ServerList:
       type: object
-      required: [items, source]
+      required: [items, total, source]
       properties:
+        total:
+          type: integer
+          description: How many items match `q`, on all pages together.
+        nextCursor:
+          type: string
+          description: Where the next page starts, for `cursor`. Absent on the last page.
         items:
           type: array
           items: { $ref: "#/components/schemas/ServerSummary" }
@@ -832,8 +980,14 @@ components:
 
     ToolSetList:
       type: object
-      required: [items, source]
+      required: [items, total, source]
       properties:
+        total:
+          type: integer
+          description: How many items match `q`, on all pages together.
+        nextCursor:
+          type: string
+          description: Where the next page starts, for `cursor`. Absent on the last page.
         items:
           type: array
           items: { $ref: "#/components/schemas/ToolSetSummary" }
@@ -995,8 +1149,14 @@ components:
 
     CapabilityList:
       type: object
-      required: [items, source]
+      required: [items, total, source]
       properties:
+        total:
+          type: integer
+          description: How many items match `q`, on all pages together.
+        nextCursor:
+          type: string
+          description: Where the next page starts, for `cursor`. Absent on the last page.
         items:
           type: array
           items: { $ref: "#/components/schemas/CapabilitySummary" }
@@ -1080,8 +1240,14 @@ components:
 
     GrantList:
       type: object
-      required: [items, source]
+      required: [items, total, source]
       properties:
+        total:
+          type: integer
+          description: How many items match `q`, on all pages together.
+        nextCursor:
+          type: string
+          description: Where the next page starts, for `cursor`. Absent on the last page.
         items:
           type: array
           items: { $ref: "#/components/schemas/GrantSummary" }
@@ -1123,8 +1289,14 @@ components:
 
     SubjectList:
       type: object
-      required: [items, source]
+      required: [items, total, source]
       properties:
+        total:
+          type: integer
+          description: How many items match `q`, on all pages together.
+        nextCursor:
+          type: string
+          description: Where the next page starts, for `cursor`. Absent on the last page.
         items:
           type: array
           items: { $ref: "#/components/schemas/SubjectSummary" }

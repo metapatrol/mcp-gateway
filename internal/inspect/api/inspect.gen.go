@@ -131,16 +131,16 @@ func (e ConditionStatus) Valid() bool {
 
 // Defines values for ConditionType.
 const (
-	Ready ConditionType = "Ready"
-	Valid ConditionType = "Valid"
+	ConditionTypeReady ConditionType = "Ready"
+	ConditionTypeValid ConditionType = "Valid"
 )
 
 // Valid indicates whether the value is a known member of the ConditionType enum.
 func (e ConditionType) Valid() bool {
 	switch e {
-	case Ready:
+	case ConditionTypeReady:
 		return true
-	case Valid:
+	case ConditionTypeValid:
 		return true
 	default:
 		return false
@@ -222,6 +222,216 @@ func (e SubjectToolState) Valid() bool {
 	case SubjectToolStateOffered:
 		return true
 	case SubjectToolStateUnavailable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListCapabilitiesParamsSort.
+const (
+	ListCapabilitiesParamsSortDescription      ListCapabilitiesParamsSort = "description"
+	ListCapabilitiesParamsSortMinusDescription ListCapabilitiesParamsSort = "-description"
+	ListCapabilitiesParamsSortMinusName        ListCapabilitiesParamsSort = "-name"
+	ListCapabilitiesParamsSortMinusReady       ListCapabilitiesParamsSort = "-ready"
+	ListCapabilitiesParamsSortMinusToolsets    ListCapabilitiesParamsSort = "-toolsets"
+	ListCapabilitiesParamsSortMinusValid       ListCapabilitiesParamsSort = "-valid"
+	ListCapabilitiesParamsSortName             ListCapabilitiesParamsSort = "name"
+	ListCapabilitiesParamsSortReady            ListCapabilitiesParamsSort = "ready"
+	ListCapabilitiesParamsSortToolsets         ListCapabilitiesParamsSort = "toolsets"
+	ListCapabilitiesParamsSortValid            ListCapabilitiesParamsSort = "valid"
+)
+
+// Valid indicates whether the value is a known member of the ListCapabilitiesParamsSort enum.
+func (e ListCapabilitiesParamsSort) Valid() bool {
+	switch e {
+	case ListCapabilitiesParamsSortDescription:
+		return true
+	case ListCapabilitiesParamsSortMinusDescription:
+		return true
+	case ListCapabilitiesParamsSortMinusName:
+		return true
+	case ListCapabilitiesParamsSortMinusReady:
+		return true
+	case ListCapabilitiesParamsSortMinusToolsets:
+		return true
+	case ListCapabilitiesParamsSortMinusValid:
+		return true
+	case ListCapabilitiesParamsSortName:
+		return true
+	case ListCapabilitiesParamsSortReady:
+		return true
+	case ListCapabilitiesParamsSortToolsets:
+		return true
+	case ListCapabilitiesParamsSortValid:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListGrantsParamsSort.
+const (
+	ListGrantsParamsSortCapabilities      ListGrantsParamsSort = "capabilities"
+	ListGrantsParamsSortMinusCapabilities ListGrantsParamsSort = "-capabilities"
+	ListGrantsParamsSortMinusName         ListGrantsParamsSort = "-name"
+	ListGrantsParamsSortMinusReady        ListGrantsParamsSort = "-ready"
+	ListGrantsParamsSortMinusSubject      ListGrantsParamsSort = "-subject"
+	ListGrantsParamsSortMinusValid        ListGrantsParamsSort = "-valid"
+	ListGrantsParamsSortName              ListGrantsParamsSort = "name"
+	ListGrantsParamsSortReady             ListGrantsParamsSort = "ready"
+	ListGrantsParamsSortSubject           ListGrantsParamsSort = "subject"
+	ListGrantsParamsSortValid             ListGrantsParamsSort = "valid"
+)
+
+// Valid indicates whether the value is a known member of the ListGrantsParamsSort enum.
+func (e ListGrantsParamsSort) Valid() bool {
+	switch e {
+	case ListGrantsParamsSortCapabilities:
+		return true
+	case ListGrantsParamsSortMinusCapabilities:
+		return true
+	case ListGrantsParamsSortMinusName:
+		return true
+	case ListGrantsParamsSortMinusReady:
+		return true
+	case ListGrantsParamsSortMinusSubject:
+		return true
+	case ListGrantsParamsSortMinusValid:
+		return true
+	case ListGrantsParamsSortName:
+		return true
+	case ListGrantsParamsSortReady:
+		return true
+	case ListGrantsParamsSortSubject:
+		return true
+	case ListGrantsParamsSortValid:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListServersParamsSort.
+const (
+	ListServersParamsSortAuth           ListServersParamsSort = "auth"
+	ListServersParamsSortDiscovery      ListServersParamsSort = "discovery"
+	ListServersParamsSortEndpoint       ListServersParamsSort = "endpoint"
+	ListServersParamsSortMinusAuth      ListServersParamsSort = "-auth"
+	ListServersParamsSortMinusDiscovery ListServersParamsSort = "-discovery"
+	ListServersParamsSortMinusEndpoint  ListServersParamsSort = "-endpoint"
+	ListServersParamsSortMinusName      ListServersParamsSort = "-name"
+	ListServersParamsSortMinusReady     ListServersParamsSort = "-ready"
+	ListServersParamsSortMinusTools     ListServersParamsSort = "-tools"
+	ListServersParamsSortName           ListServersParamsSort = "name"
+	ListServersParamsSortReady          ListServersParamsSort = "ready"
+	ListServersParamsSortTools          ListServersParamsSort = "tools"
+)
+
+// Valid indicates whether the value is a known member of the ListServersParamsSort enum.
+func (e ListServersParamsSort) Valid() bool {
+	switch e {
+	case ListServersParamsSortAuth:
+		return true
+	case ListServersParamsSortDiscovery:
+		return true
+	case ListServersParamsSortEndpoint:
+		return true
+	case ListServersParamsSortMinusAuth:
+		return true
+	case ListServersParamsSortMinusDiscovery:
+		return true
+	case ListServersParamsSortMinusEndpoint:
+		return true
+	case ListServersParamsSortMinusName:
+		return true
+	case ListServersParamsSortMinusReady:
+		return true
+	case ListServersParamsSortMinusTools:
+		return true
+	case ListServersParamsSortName:
+		return true
+	case ListServersParamsSortReady:
+		return true
+	case ListServersParamsSortTools:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListSubjectsParamsSort.
+const (
+	ListSubjectsParamsSortGrants      ListSubjectsParamsSort = "grants"
+	ListSubjectsParamsSortMinusGrants ListSubjectsParamsSort = "-grants"
+	ListSubjectsParamsSortMinusName   ListSubjectsParamsSort = "-name"
+	ListSubjectsParamsSortMinusTools  ListSubjectsParamsSort = "-tools"
+	ListSubjectsParamsSortName        ListSubjectsParamsSort = "name"
+	ListSubjectsParamsSortTools       ListSubjectsParamsSort = "tools"
+)
+
+// Valid indicates whether the value is a known member of the ListSubjectsParamsSort enum.
+func (e ListSubjectsParamsSort) Valid() bool {
+	switch e {
+	case ListSubjectsParamsSortGrants:
+		return true
+	case ListSubjectsParamsSortMinusGrants:
+		return true
+	case ListSubjectsParamsSortMinusName:
+		return true
+	case ListSubjectsParamsSortMinusTools:
+		return true
+	case ListSubjectsParamsSortName:
+		return true
+	case ListSubjectsParamsSortTools:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListToolSetsParamsSort.
+const (
+	ListToolSetsParamsSortMinusName      ListToolSetsParamsSort = "-name"
+	ListToolSetsParamsSortMinusReady     ListToolSetsParamsSort = "-ready"
+	ListToolSetsParamsSortMinusSelection ListToolSetsParamsSort = "-selection"
+	ListToolSetsParamsSortMinusServer    ListToolSetsParamsSort = "-server"
+	ListToolSetsParamsSortMinusTools     ListToolSetsParamsSort = "-tools"
+	ListToolSetsParamsSortMinusValid     ListToolSetsParamsSort = "-valid"
+	ListToolSetsParamsSortName           ListToolSetsParamsSort = "name"
+	ListToolSetsParamsSortReady          ListToolSetsParamsSort = "ready"
+	ListToolSetsParamsSortSelection      ListToolSetsParamsSort = "selection"
+	ListToolSetsParamsSortServer         ListToolSetsParamsSort = "server"
+	ListToolSetsParamsSortTools          ListToolSetsParamsSort = "tools"
+	ListToolSetsParamsSortValid          ListToolSetsParamsSort = "valid"
+)
+
+// Valid indicates whether the value is a known member of the ListToolSetsParamsSort enum.
+func (e ListToolSetsParamsSort) Valid() bool {
+	switch e {
+	case ListToolSetsParamsSortMinusName:
+		return true
+	case ListToolSetsParamsSortMinusReady:
+		return true
+	case ListToolSetsParamsSortMinusSelection:
+		return true
+	case ListToolSetsParamsSortMinusServer:
+		return true
+	case ListToolSetsParamsSortMinusTools:
+		return true
+	case ListToolSetsParamsSortMinusValid:
+		return true
+	case ListToolSetsParamsSortName:
+		return true
+	case ListToolSetsParamsSortReady:
+		return true
+	case ListToolSetsParamsSortSelection:
+		return true
+	case ListToolSetsParamsSortServer:
+		return true
+	case ListToolSetsParamsSortTools:
+		return true
+	case ListToolSetsParamsSortValid:
 		return true
 	default:
 		return false
@@ -315,8 +525,14 @@ type Capability struct {
 type CapabilityList struct {
 	Items []CapabilitySummary `json:"items"`
 
+	// NextCursor Where the next page starts, for `cursor`. Absent on the last page.
+	NextCursor *string `json:"nextCursor,omitempty"`
+
 	// Source Which replica answered, and as of when.
 	Source Source `json:"source"`
+
+	// Total How many items match `q`, on all pages together.
+	Total int `json:"total"`
 }
 
 // CapabilitySpec defines model for CapabilitySpec.
@@ -489,8 +705,14 @@ type Grant struct {
 type GrantList struct {
 	Items []GrantSummary `json:"items"`
 
+	// NextCursor Where the next page starts, for `cursor`. Absent on the last page.
+	NextCursor *string `json:"nextCursor,omitempty"`
+
 	// Source Which replica answered, and as of when.
 	Source Source `json:"source"`
+
+	// Total How many items match `q`, on all pages together.
+	Total int `json:"total"`
 }
 
 // GrantPath One way a tool reaches a subject.
@@ -640,8 +862,14 @@ type Server struct {
 type ServerList struct {
 	Items []ServerSummary `json:"items"`
 
+	// NextCursor Where the next page starts, for `cursor`. Absent on the last page.
+	NextCursor *string `json:"nextCursor,omitempty"`
+
 	// Source Which replica answered, and as of when.
 	Source Source `json:"source"`
+
+	// Total How many items match `q`, on all pages together.
+	Total int `json:"total"`
 }
 
 // ServerSpec defines model for ServerSpec.
@@ -711,8 +939,14 @@ type Subject struct {
 type SubjectList struct {
 	Items []SubjectSummary `json:"items"`
 
+	// NextCursor Where the next page starts, for `cursor`. Absent on the last page.
+	NextCursor *string `json:"nextCursor,omitempty"`
+
 	// Source Which replica answered, and as of when.
 	Source Source `json:"source"`
+
+	// Total How many items match `q`, on all pages together.
+	Total int `json:"total"`
 }
 
 // SubjectSummary defines model for SubjectSummary.
@@ -828,8 +1062,14 @@ type ToolSet struct {
 type ToolSetList struct {
 	Items []ToolSetSummary `json:"items"`
 
+	// NextCursor Where the next page starts, for `cursor`. Absent on the last page.
+	NextCursor *string `json:"nextCursor,omitempty"`
+
 	// Source Which replica answered, and as of when.
 	Source Source `json:"source"`
+
+	// Total How many items match `q`, on all pages together.
+	Total int `json:"total"`
 }
 
 // ToolSetSpec defines model for ToolSetSpec.
@@ -864,14 +1104,112 @@ type ToolSetSummary struct {
 	Status ToolSetStatus `json:"status"`
 }
 
+// Cursor defines model for Cursor.
+type Cursor = string
+
+// Limit defines model for Limit.
+type Limit = int
+
 // Name defines model for Name.
 type Name = string
+
+// BadRequest RFC 9457 problem details.
+type BadRequest = Problem
 
 // NotFound RFC 9457 problem details.
 type NotFound = Problem
 
 // Unauthorized RFC 9457 problem details.
 type Unauthorized = Problem
+
+// ListCapabilitiesParams defines parameters for ListCapabilities.
+type ListCapabilitiesParams struct {
+	// Limit Return at most this many items, and a `nextCursor` to read on from
+	// when there are more. Left out, every item comes in one answer, as
+	// before paging existed.
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Read on after the last item of a previous answer: its `nextCursor`,
+	// passed as is together with the same `q`, `sort` and `limit`. A
+	// cursor names the item it follows, not a position, so items added or
+	// removed in the meantime neither repeat nor skip the ones after it.
+	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Q Keep only the items where its name, its description or one of its
+	// tool sets contains this text, ignoring case. Empty keeps every
+	// item.
+	Q *string `form:"q,omitempty" json:"q,omitempty"`
+
+	// Sort The column to sort by, descending with a leading `-`. Text sorts
+	// naturally (`agent-2` before `agent-10`), numbers as numbers; items
+	// without a value come last either way, and ties are ordered by
+	// name. `valid` and `ready` are its conditions. Conditions order
+	// False, then Unknown, then True. Default `name`.
+	Sort *ListCapabilitiesParamsSort `form:"sort,omitempty" json:"sort,omitempty"`
+}
+
+// ListCapabilitiesParamsSort defines parameters for ListCapabilities.
+type ListCapabilitiesParamsSort string
+
+// ListGrantsParams defines parameters for ListGrants.
+type ListGrantsParams struct {
+	// Limit Return at most this many items, and a `nextCursor` to read on from
+	// when there are more. Left out, every item comes in one answer, as
+	// before paging existed.
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Read on after the last item of a previous answer: its `nextCursor`,
+	// passed as is together with the same `q`, `sort` and `limit`. A
+	// cursor names the item it follows, not a position, so items added or
+	// removed in the meantime neither repeat nor skip the ones after it.
+	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Q Keep only the items where its name, its subject or one of its
+	// capabilities contains this text, ignoring case. Empty keeps every
+	// item.
+	Q *string `form:"q,omitempty" json:"q,omitempty"`
+
+	// Sort The column to sort by, descending with a leading `-`. Text sorts
+	// naturally (`agent-2` before `agent-10`), numbers as numbers; items
+	// without a value come last either way, and ties are ordered by
+	// name. `valid` and `ready` are its conditions. Conditions order
+	// False, then Unknown, then True. Default `name`.
+	Sort *ListGrantsParamsSort `form:"sort,omitempty" json:"sort,omitempty"`
+}
+
+// ListGrantsParamsSort defines parameters for ListGrants.
+type ListGrantsParamsSort string
+
+// ListServersParams defines parameters for ListServers.
+type ListServersParams struct {
+	// Limit Return at most this many items, and a `nextCursor` to read on from
+	// when there are more. Left out, every item comes in one answer, as
+	// before paging existed.
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Read on after the last item of a previous answer: its `nextCursor`,
+	// passed as is together with the same `q`, `sort` and `limit`. A
+	// cursor names the item it follows, not a position, so items added or
+	// removed in the meantime neither repeat nor skip the ones after it.
+	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Q Keep only the items where its name, its endpoint or the type of
+	// its `spec.auth` contains this text, ignoring case. Empty keeps
+	// every item.
+	Q *string `form:"q,omitempty" json:"q,omitempty"`
+
+	// Sort The column to sort by, descending with a leading `-`. Text sorts
+	// naturally (`agent-2` before `agent-10`), numbers as numbers; items
+	// without a value come last either way, and ties are ordered by
+	// name. `tools` is the catalog size on this replica, `discovery` the
+	// time of its last successful discovery here, `ready` the Ready
+	// condition. Conditions order False, then Unknown, then True.
+	// Default `name`.
+	Sort *ListServersParamsSort `form:"sort,omitempty" json:"sort,omitempty"`
+}
+
+// ListServersParamsSort defines parameters for ListServers.
+type ListServersParamsSort string
 
 // GetSubjectParams defines parameters for GetSubject.
 type GetSubjectParams struct {
@@ -885,11 +1223,72 @@ type GetSubjectMCPParams struct {
 	Subject string `form:"subject" json:"subject"`
 }
 
+// ListSubjectsParams defines parameters for ListSubjects.
+type ListSubjectsParams struct {
+	// Limit Return at most this many items, and a `nextCursor` to read on from
+	// when there are more. Left out, every item comes in one answer, as
+	// before paging existed.
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Read on after the last item of a previous answer: its `nextCursor`,
+	// passed as is together with the same `q`, `sort` and `limit`. A
+	// cursor names the item it follows, not a position, so items added or
+	// removed in the meantime neither repeat nor skip the ones after it.
+	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Q Keep only the items where the subject or the name of a grant that
+	// names it contains this text, ignoring case. Empty keeps every
+	// item.
+	Q *string `form:"q,omitempty" json:"q,omitempty"`
+
+	// Sort The column to sort by, descending with a leading `-`. Text sorts
+	// naturally (`agent-2` before `agent-10`), numbers as numbers; items
+	// without a value come last either way, and ties are ordered by
+	// name. `grants` is the names of its grants, `tools` how many tools
+	// it is offered. Sorting by `tools` resolves every subject that
+	// matches `q` before a page can be cut; every other key resolves
+	// only the subjects on the page. Default `name`.
+	Sort *ListSubjectsParamsSort `form:"sort,omitempty" json:"sort,omitempty"`
+}
+
+// ListSubjectsParamsSort defines parameters for ListSubjects.
+type ListSubjectsParamsSort string
+
+// ListToolSetsParams defines parameters for ListToolSets.
+type ListToolSetsParams struct {
+	// Limit Return at most this many items, and a `nextCursor` to read on from
+	// when there are more. Left out, every item comes in one answer, as
+	// before paging existed.
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Read on after the last item of a previous answer: its `nextCursor`,
+	// passed as is together with the same `q`, `sort` and `limit`. A
+	// cursor names the item it follows, not a position, so items added or
+	// removed in the meantime neither repeat nor skip the ones after it.
+	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Q Keep only the items where its name, its server, its prefix or an
+	// entry of `tools` or `exclude` contains this text, ignoring case.
+	// Empty keeps every item.
+	Q *string `form:"q,omitempty" json:"q,omitempty"`
+
+	// Sort The column to sort by, descending with a leading `-`. Text sorts
+	// naturally (`agent-2` before `agent-10`), numbers as numbers; items
+	// without a value come last either way, and ties are ordered by
+	// name. `selection` is the entries of `tools`, `tools` how many
+	// tools it resolves to, `valid` and `ready` its conditions.
+	// Conditions order False, then Unknown, then True. Default `name`.
+	Sort *ListToolSetsParamsSort `form:"sort,omitempty" json:"sort,omitempty"`
+}
+
+// ListToolSetsParamsSort defines parameters for ListToolSets.
+type ListToolSetsParamsSort string
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// ListCapabilities List the MCPCapabilities
 	// (GET /capabilities)
-	ListCapabilities(w http.ResponseWriter, r *http.Request)
+	ListCapabilities(w http.ResponseWriter, r *http.Request, params ListCapabilitiesParams)
 	// GetCapability Get one MCPCapability with the tools it comes to
 	// (GET /capabilities/{name})
 	GetCapability(w http.ResponseWriter, r *http.Request, name Name)
@@ -901,7 +1300,7 @@ type ServerInterface interface {
 	WatchEvents(w http.ResponseWriter, r *http.Request)
 	// ListGrants List the MCPGrants
 	// (GET /grants)
-	ListGrants(w http.ResponseWriter, r *http.Request)
+	ListGrants(w http.ResponseWriter, r *http.Request, params ListGrantsParams)
 	// GetGrant Get one MCPGrant
 	// (GET /grants/{name})
 	GetGrant(w http.ResponseWriter, r *http.Request, name Name)
@@ -916,7 +1315,7 @@ type ServerInterface interface {
 	GetOpenAPIYAML(w http.ResponseWriter, r *http.Request)
 	// ListServers List the MCPServers
 	// (GET /servers)
-	ListServers(w http.ResponseWriter, r *http.Request)
+	ListServers(w http.ResponseWriter, r *http.Request, params ListServersParams)
 	// GetServer Get one MCPServer with its catalog
 	// (GET /servers/{name})
 	GetServer(w http.ResponseWriter, r *http.Request, name Name)
@@ -931,10 +1330,10 @@ type ServerInterface interface {
 	GetSubjectMCP(w http.ResponseWriter, r *http.Request, params GetSubjectMCPParams)
 	// ListSubjects List the subjects that grants name
 	// (GET /subjects)
-	ListSubjects(w http.ResponseWriter, r *http.Request)
+	ListSubjects(w http.ResponseWriter, r *http.Request, params ListSubjectsParams)
 	// ListToolSets List the MCPToolSets
 	// (GET /toolsets)
-	ListToolSets(w http.ResponseWriter, r *http.Request)
+	ListToolSets(w http.ResponseWriter, r *http.Request, params ListToolSetsParams)
 	// GetToolSet Get one MCPToolSet with an explanation of its selection
 	// (GET /toolsets/{name})
 	GetToolSet(w http.ResponseWriter, r *http.Request, name Name)
@@ -955,8 +1354,66 @@ type MiddlewareFunc func(http.Handler) http.Handler
 // ListCapabilities operation middleware
 func (siw *ServerInterfaceWrapper) ListCapabilities(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListCapabilitiesParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "sort" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "sort", r.URL.Query(), &params.Sort, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sort"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListCapabilities(w, r)
+		siw.Handler.ListCapabilities(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1035,8 +1492,66 @@ func (siw *ServerInterfaceWrapper) WatchEvents(w http.ResponseWriter, r *http.Re
 // ListGrants operation middleware
 func (siw *ServerInterfaceWrapper) ListGrants(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListGrantsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "sort" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "sort", r.URL.Query(), &params.Sort, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sort"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListGrants(w, r)
+		siw.Handler.ListGrants(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1129,8 +1644,66 @@ func (siw *ServerInterfaceWrapper) GetOpenAPIYAML(w http.ResponseWriter, r *http
 // ListServers operation middleware
 func (siw *ServerInterfaceWrapper) ListServers(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListServersParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "sort" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "sort", r.URL.Query(), &params.Sort, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sort"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListServers(w, r)
+		siw.Handler.ListServers(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1261,8 +1834,66 @@ func (siw *ServerInterfaceWrapper) GetSubjectMCP(w http.ResponseWriter, r *http.
 // ListSubjects operation middleware
 func (siw *ServerInterfaceWrapper) ListSubjects(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListSubjectsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "sort" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "sort", r.URL.Query(), &params.Sort, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sort"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListSubjects(w, r)
+		siw.Handler.ListSubjects(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1275,8 +1906,66 @@ func (siw *ServerInterfaceWrapper) ListSubjects(w http.ResponseWriter, r *http.R
 // ListToolSets operation middleware
 func (siw *ServerInterfaceWrapper) ListToolSets(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListToolSetsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "sort" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "sort", r.URL.Query(), &params.Sort, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sort"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListToolSets(w, r)
+		siw.Handler.ListToolSets(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1480,6 +2169,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	return m
 }
 
+type BadRequestApplicationProblemPlusJSONResponse Problem
+
 type NotFoundApplicationProblemPlusJSONResponse Problem
 
 type ProblemApplicationProblemPlusJSONResponse Problem
@@ -1487,6 +2178,7 @@ type ProblemApplicationProblemPlusJSONResponse Problem
 type UnauthorizedApplicationProblemPlusJSONResponse Problem
 
 type ListCapabilitiesRequestObject struct {
+	Params ListCapabilitiesParams
 }
 
 type ListCapabilitiesResponseObject interface {
@@ -1503,6 +2195,22 @@ func (response ListCapabilities200JSONResponse) VisitListCapabilitiesResponse(w 
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListCapabilities400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response ListCapabilities400ApplicationProblemPlusJSONResponse) VisitListCapabilitiesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -1780,6 +2488,7 @@ func (response WatchEventsdefaultApplicationProblemPlusJSONResponse) VisitWatchE
 }
 
 type ListGrantsRequestObject struct {
+	Params ListGrantsParams
 }
 
 type ListGrantsResponseObject interface {
@@ -1796,6 +2505,22 @@ func (response ListGrants200JSONResponse) VisitListGrantsResponse(w http.Respons
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListGrants400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response ListGrants400ApplicationProblemPlusJSONResponse) VisitListGrantsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -2024,6 +2749,7 @@ func (response GetOpenAPIYAML200ApplicationyamlResponse) VisitGetOpenAPIYAMLResp
 }
 
 type ListServersRequestObject struct {
+	Params ListServersParams
 }
 
 type ListServersResponseObject interface {
@@ -2040,6 +2766,22 @@ func (response ListServers200JSONResponse) VisitListServersResponse(w http.Respo
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListServers400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response ListServers400ApplicationProblemPlusJSONResponse) VisitListServersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -2330,6 +3072,7 @@ func (response GetSubjectMCPdefaultApplicationProblemPlusJSONResponse) VisitGetS
 }
 
 type ListSubjectsRequestObject struct {
+	Params ListSubjectsParams
 }
 
 type ListSubjectsResponseObject interface {
@@ -2346,6 +3089,22 @@ func (response ListSubjects200JSONResponse) VisitListSubjectsResponse(w http.Res
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListSubjects400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response ListSubjects400ApplicationProblemPlusJSONResponse) VisitListSubjectsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -2384,6 +3143,7 @@ func (response ListSubjectsdefaultApplicationProblemPlusJSONResponse) VisitListS
 }
 
 type ListToolSetsRequestObject struct {
+	Params ListToolSetsParams
 }
 
 type ListToolSetsResponseObject interface {
@@ -2400,6 +3160,22 @@ func (response ListToolSets200JSONResponse) VisitListToolSetsResponse(w http.Res
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListToolSets400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response ListToolSets400ApplicationProblemPlusJSONResponse) VisitListToolSetsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -2677,8 +3453,10 @@ type strictHandler struct {
 }
 
 // ListCapabilities operation middleware
-func (sh *strictHandler) ListCapabilities(w http.ResponseWriter, r *http.Request) {
+func (sh *strictHandler) ListCapabilities(w http.ResponseWriter, r *http.Request, params ListCapabilitiesParams) {
 	var request ListCapabilitiesRequestObject
+
+	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.ListCapabilities(ctx, request.(ListCapabilitiesRequestObject))
@@ -2777,8 +3555,10 @@ func (sh *strictHandler) WatchEvents(w http.ResponseWriter, r *http.Request) {
 }
 
 // ListGrants operation middleware
-func (sh *strictHandler) ListGrants(w http.ResponseWriter, r *http.Request) {
+func (sh *strictHandler) ListGrants(w http.ResponseWriter, r *http.Request, params ListGrantsParams) {
 	var request ListGrantsRequestObject
+
+	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.ListGrants(ctx, request.(ListGrantsRequestObject))
@@ -2901,8 +3681,10 @@ func (sh *strictHandler) GetOpenAPIYAML(w http.ResponseWriter, r *http.Request) 
 }
 
 // ListServers operation middleware
-func (sh *strictHandler) ListServers(w http.ResponseWriter, r *http.Request) {
+func (sh *strictHandler) ListServers(w http.ResponseWriter, r *http.Request, params ListServersParams) {
 	var request ListServersRequestObject
+
+	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.ListServers(ctx, request.(ListServersRequestObject))
@@ -3029,8 +3811,10 @@ func (sh *strictHandler) GetSubjectMCP(w http.ResponseWriter, r *http.Request, p
 }
 
 // ListSubjects operation middleware
-func (sh *strictHandler) ListSubjects(w http.ResponseWriter, r *http.Request) {
+func (sh *strictHandler) ListSubjects(w http.ResponseWriter, r *http.Request, params ListSubjectsParams) {
 	var request ListSubjectsRequestObject
+
+	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.ListSubjects(ctx, request.(ListSubjectsRequestObject))
@@ -3053,8 +3837,10 @@ func (sh *strictHandler) ListSubjects(w http.ResponseWriter, r *http.Request) {
 }
 
 // ListToolSets operation middleware
-func (sh *strictHandler) ListToolSets(w http.ResponseWriter, r *http.Request) {
+func (sh *strictHandler) ListToolSets(w http.ResponseWriter, r *http.Request, params ListToolSetsParams) {
 	var request ListToolSetsRequestObject
+
+	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.ListToolSets(ctx, request.(ListToolSetsRequestObject))
