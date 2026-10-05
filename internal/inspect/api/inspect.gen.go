@@ -1133,6 +1133,14 @@ type ListCapabilitiesParams struct {
 	// passed as is together with the same `q`, `sort` and `limit`. A
 	// cursor names the item it follows, not a position, so items added or
 	// removed in the meantime neither repeat nor skip the ones after it.
+	//
+	// Each page is read from what the replica holds when it is asked for;
+	// the pages together are no snapshot, and a cursor never expires.
+	// Sorted by name, which does not change, a walk through every page
+	// sees each item that existed throughout exactly once. Sorted by a
+	// value that can change between two pages — a condition, a count, a
+	// time — an item whose value changed may cross from one page to the
+	// next and be seen twice or not at all.
 	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
 
 	// Q Keep only the items where its name, its description or one of its
@@ -1162,6 +1170,14 @@ type ListGrantsParams struct {
 	// passed as is together with the same `q`, `sort` and `limit`. A
 	// cursor names the item it follows, not a position, so items added or
 	// removed in the meantime neither repeat nor skip the ones after it.
+	//
+	// Each page is read from what the replica holds when it is asked for;
+	// the pages together are no snapshot, and a cursor never expires.
+	// Sorted by name, which does not change, a walk through every page
+	// sees each item that existed throughout exactly once. Sorted by a
+	// value that can change between two pages — a condition, a count, a
+	// time — an item whose value changed may cross from one page to the
+	// next and be seen twice or not at all.
 	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
 
 	// Q Keep only the items where its name, its subject or one of its
@@ -1191,6 +1207,14 @@ type ListServersParams struct {
 	// passed as is together with the same `q`, `sort` and `limit`. A
 	// cursor names the item it follows, not a position, so items added or
 	// removed in the meantime neither repeat nor skip the ones after it.
+	//
+	// Each page is read from what the replica holds when it is asked for;
+	// the pages together are no snapshot, and a cursor never expires.
+	// Sorted by name, which does not change, a walk through every page
+	// sees each item that existed throughout exactly once. Sorted by a
+	// value that can change between two pages — a condition, a count, a
+	// time — an item whose value changed may cross from one page to the
+	// next and be seen twice or not at all.
 	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
 
 	// Q Keep only the items where its name, its endpoint or the type of
@@ -1234,6 +1258,14 @@ type ListSubjectsParams struct {
 	// passed as is together with the same `q`, `sort` and `limit`. A
 	// cursor names the item it follows, not a position, so items added or
 	// removed in the meantime neither repeat nor skip the ones after it.
+	//
+	// Each page is read from what the replica holds when it is asked for;
+	// the pages together are no snapshot, and a cursor never expires.
+	// Sorted by name, which does not change, a walk through every page
+	// sees each item that existed throughout exactly once. Sorted by a
+	// value that can change between two pages — a condition, a count, a
+	// time — an item whose value changed may cross from one page to the
+	// next and be seen twice or not at all.
 	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
 
 	// Q Keep only the items where the subject or the name of a grant that
@@ -1265,6 +1297,14 @@ type ListToolSetsParams struct {
 	// passed as is together with the same `q`, `sort` and `limit`. A
 	// cursor names the item it follows, not a position, so items added or
 	// removed in the meantime neither repeat nor skip the ones after it.
+	//
+	// Each page is read from what the replica holds when it is asked for;
+	// the pages together are no snapshot, and a cursor never expires.
+	// Sorted by name, which does not change, a walk through every page
+	// sees each item that existed throughout exactly once. Sorted by a
+	// value that can change between two pages — a condition, a count, a
+	// time — an item whose value changed may cross from one page to the
+	// next and be seen twice or not at all.
 	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
 
 	// Q Keep only the items where its name, its server, its prefix or an

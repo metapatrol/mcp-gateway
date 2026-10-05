@@ -577,6 +577,14 @@ components:
         passed as is together with the same `q`, `sort` and `limit`. A
         cursor names the item it follows, not a position, so items added or
         removed in the meantime neither repeat nor skip the ones after it.
+
+        Each page is read from what the replica holds when it is asked for;
+        the pages together are no snapshot, and a cursor never expires.
+        Sorted by name, which does not change, a walk through every page
+        sees each item that existed throughout exactly once. Sorted by a
+        value that can change between two pages — a condition, a count, a
+        time — an item whose value changed may cross from one page to the
+        next and be seen twice or not at all.
       schema: { type: string, minLength: 1 }
     Name:
       name: name
