@@ -27,6 +27,9 @@ removed.
   generate-crds generate-api helm-docs` when you change the API, the inspect
   spec or a chart — CI fails when generated files are out of date.
 - Explain the why in the commit body when the diff does not.
+- [Development](docs/development.md) describes the layout, the tests, running
+  everything locally, and where the console's packages come from outside the
+  maintainers' network.
 - If you change CI configuration (`.forgejo/`, `.github/`), say why in the
   description. Such pull requests are read with particular care before any
   workflow of theirs runs.

@@ -38,7 +38,7 @@ func TestMCPToolSetReconciler_AllToolsPresent(t *testing.T) {
 	assert.NotEmpty(t, ts.Status.CatalogRevision)
 }
 
-// The example from CONCEPT.md, word for word in the message.
+// The example from docs/design.md, word for word in the message.
 func TestMCPToolSetReconciler_MissingTool(t *testing.T) {
 	backend := mcptest.NewBackend(t, "source-intelligence", "source_search", "source_get")
 	c := newFakeClient(readyServer("source-intelligence"),

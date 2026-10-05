@@ -1,7 +1,7 @@
 # Architecture — mcp-gateway
 
 How the pieces fit, what happens on a request, and what happens when something
-breaks. The design goals are in [CONCEPT.md](../CONCEPT.md); this is how the
+breaks. The design goals are in the [design record](./design.md); this is how the
 implementation meets them.
 
 ---
@@ -151,7 +151,7 @@ register another team's backend under a name of their own and grant themselves
 access to it. Preventing that needs cross-namespace references and an
 `allowedFrom` on the referenced side, which the first version does without.
 
-The same reasoning settles where backend credentials come from (CONCEPT §16). A
+The same reasoning settles where backend credentials come from ([design §16](./design.md#16-credentials-towards-backends)). A
 cluster-scoped `MCPServer` that could name a Secret in any namespace would let
 whoever may create one have the gateway read any Secret in the cluster. So a
 Secret reference has no namespace: Secrets are read from the namespace the
@@ -510,7 +510,7 @@ backend report `ServerUnavailable`.
 
 ## Not in this version
 
-- **Token exchange, mTLS, workload identity** towards backends (CONCEPT §16).
+- **Token exchange, mTLS, workload identity** towards backends ([design §16](./design.md#16-credentials-towards-backends)).
   `spec.auth` covers no credentials, passthrough, client credentials and API
   keys; another type is another variant of the union and another
   `credentials.Credential`.

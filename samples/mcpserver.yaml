@@ -1,4 +1,4 @@
-# Two backends, as CONCEPT.md registers them. The catalog is discovered from
+# Two backends, the ones docs/design.md uses as examples. The catalog is discovered from
 # each; nothing here lists a tool.
 apiVersion: mcp-gateway.metapatrol.com/v1alpha1
 kind: MCPServer

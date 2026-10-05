@@ -1,7 +1,7 @@
 package v1alpha1
 
 // Every kind reports its state through the same two conditions, with the
-// meaning CONCEPT.md gives them:
+// meaning docs/design.md gives them:
 //
 //	Valid   the declared configuration holds together: what it names exists and
 //	        does not contradict itself

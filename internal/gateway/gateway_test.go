@@ -45,7 +45,7 @@ func fakeVerifier(_ context.Context, token string, _ *http.Request) (*sdkauth.To
 	return &sdkauth.TokenInfo{UserID: subject, Expiration: time.Now().Add(time.Hour)}, nil
 }
 
-// env is a gateway in front of two backends, as CONCEPT.md draws it.
+// env is a gateway in front of two backends, as docs/design.md draws it.
 type env struct {
 	t        *testing.T
 	registry *discovery.Registry

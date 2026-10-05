@@ -34,7 +34,7 @@ func grantFor(name, subject string, capabilities ...string) mcpv1alpha1.MCPGrant
 	}
 }
 
-// concept is the example CONCEPT.md walks through: two backends, and a subject
+// concept is the example docs/design.md walks through: two backends, and a subject
 // holding a subset of each.
 func concept() *Snapshot {
 	return NewSnapshot(
