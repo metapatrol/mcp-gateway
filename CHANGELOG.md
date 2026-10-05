@@ -1,3 +1,25 @@
+# [1.11.0](https://github.com/metapatrol/mcp-gateway/compare/v1.10.0...v1.11.0) (2026-10-05)
+
+
+### Bug Fixes
+
+* **console:** redraw the overview's lines when the map changes size ([0a61226](https://github.com/metapatrol/mcp-gateway/commit/0a61226f92743004f619bc08a4b5533279fc3b8f))
+
+
+### Features
+
+* **console:** bundle what is fine in long columns of the map, on the overview ([fb977a9](https://github.com/metapatrol/mcp-gateway/commit/fb977a97c0faae3eb5114293aa7497ee86b5fc38))
+* **console:** focus the overview's map once it has more than 50 boxes ([898aecf](https://github.com/metapatrol/mcp-gateway/commit/898aecf35abfed3ac2263ceabc3ae632b3288eed))
+* **console:** load the subjects as the list is scrolled ([566fbd6](https://github.com/metapatrol/mcp-gateway/commit/566fbd69796aa2d535358b9c7958ba966b7b4c59))
+* **console:** the map moves to a page of its own, with zoom and pan ([ac527a3](https://github.com/metapatrol/mcp-gateway/commit/ac527a3734b272e6d0409ab4dc731c6c67db7648))
+* **inspect:** describe cursor paging, search and sort for the lists ([90fcac6](https://github.com/metapatrol/mcp-gateway/commit/90fcac6391d7bc318b2a05b9bfd4c82a01fe2540))
+* **inspect:** page, search and sort the lists on the server ([950f5a3](https://github.com/metapatrol/mcp-gateway/commit/950f5a311c1b0cbefdbd332ccbbd54062c86df64))
+
+
+### Performance Improvements
+
+* **console:** zoom and pan the map without touching the template ([c6f8450](https://github.com/metapatrol/mcp-gateway/commit/c6f845062be3d91bccf59351ebd9634a04da4e13))
+
 # [1.10.0](https://github.com/metapatrol/mcp-gateway/compare/v1.9.0...v1.10.0) (2026-10-04)
 
 
