@@ -6,14 +6,15 @@ import {
   DestroyRef,
   ElementRef,
   inject,
+  input,
   signal,
   viewChild,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { MpLoadState, MpPageHeader, MpPill } from '@metapatrol/ng';
+import { MpListSearch, MpLoadState, MpPageHeader, MpPill } from '@metapatrol/ng';
 import { Condition } from '../../api/models';
 import { CONDITIONS, firstProblem, healthy, SERVER_CONDITIONS, tone } from '../../core/conditions';
-import { buildGraph, GraphNode, Kind, related, routeOf } from '../../core/graph';
+import { buildGraph, focusOn, GraphNode, Kind, MAP_LIMIT, matching, related, routeOf, troubled } from '../../core/graph';
 import { Lists } from '../../core/lists';
 
 interface Issue {
@@ -47,7 +48,7 @@ const COLUMNS: { kind: Kind; title: string }[] = [
 
 @Component({
   selector: 'app-overview',
-  imports: [MpPageHeader, RouterLink, MpPill, MpLoadState],
+  imports: [MpPageHeader, RouterLink, MpPill, MpLoadState, MpListSearch],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './overview.html',
 })
@@ -92,13 +93,46 @@ export class Overview {
     return buildGraph(l.serverItems(), l.toolSetItems(), l.capabilityItems(), l.grantItems());
   });
 
+  /** ?focus=: the chains through every box whose name contains it. */
+  readonly focus = input<string>();
+  /** ?map=all: every box, however many there are. */
+  readonly map = input<string>();
+
+  /**
+   * What the map shows: everything up to MAP_LIMIT boxes or when asked to,
+   * the chains through what ?focus= names, and otherwise the chains through
+   * what is not ready — a map of hundreds of boxes is a tangle.
+   */
+  protected readonly mode = computed<'all' | 'focus' | 'troubled'>(() => {
+    if (this.focus()?.trim()) {
+      return 'focus';
+    }
+    return this.map() === 'all' || this.boxes() <= MAP_LIMIT ? 'all' : 'troubled';
+  });
+  protected readonly boxes = computed(() => Object.values(this.graph().columns).reduce((n, c) => n + c.length, 0));
+  protected readonly limited = computed(() => this.boxes() > MAP_LIMIT);
+  protected readonly visible = computed(() => {
+    const g = this.graph();
+    const mode = this.mode();
+    if (mode === 'all') {
+      return g.columns;
+    }
+    const keep = focusOn(g.edges, mode === 'focus' ? matching(g, this.focus() ?? '') : troubled(g));
+    const columns = {} as Record<Kind, GraphNode[]>;
+    for (const col of COLUMNS) {
+      columns[col.kind] = g.columns[col.kind].filter((n) => keep.has(n.id));
+    }
+    return columns;
+  });
+  protected readonly shownBoxes = computed(() => Object.values(this.visible()).reduce((n, c) => n + c.length, 0));
+
   protected readonly hovered = signal<string | null>(null);
   protected readonly lit = computed(() => {
     const h = this.hovered();
     return h ? related(this.graph().edges, h) : null;
   });
 
-  private readonly map = viewChild<ElementRef<HTMLElement>>('map');
+  private readonly mapEl = viewChild<ElementRef<HTMLElement>>('map');
   protected readonly lines = signal<Edge[]>([]);
   protected readonly box = signal({ width: 0, height: 0 });
 
@@ -107,12 +141,12 @@ export class Overview {
     // after it: once per graph, and again whenever the map changes size — the
     // window, the navigation folding in or out, a font arriving late.
     afterRenderEffect(() => {
-      this.graph();
+      this.visible();
       this.layout();
     });
     let observer: ResizeObserver | undefined;
     afterRenderEffect(() => {
-      const el = this.map()?.nativeElement;
+      const el = this.mapEl()?.nativeElement;
       observer?.disconnect();
       if (el && typeof ResizeObserver !== 'undefined') {
         observer = new ResizeObserver(() => this.layout());
@@ -137,7 +171,7 @@ export class Overview {
   }
 
   private layout(): void {
-    const el = this.map()?.nativeElement;
+    const el = this.mapEl()?.nativeElement;
     if (!el) {
       return;
     }

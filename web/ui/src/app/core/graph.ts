@@ -72,12 +72,14 @@ export function buildGraph(
     })),
   };
   const edges: GraphEdge[] = [];
+  const byId = new Map(Object.values(columns).flatMap((c) => c.map((n) => [n.id, n] as const)));
   const link = (fromKind: Kind, from: string, toKind: Kind, to: string) => {
     const target = id(toKind, to);
-    let node = columns[toKind].find((n) => n.id === target);
+    let node = byId.get(target);
     if (!node) {
       node = { id: target, kind: toKind, name: to, healthy: false, missing: true };
       columns[toKind].push(node);
+      byId.set(target, node);
     }
     edges.push({ from: id(fromKind, from), to: target, broken: node.missing });
   };
@@ -105,6 +107,56 @@ export function related(edges: GraphEdge[], start: string): Set<string> {
     return seen;
   };
   return new Set([...walk(true), ...walk(false)]);
+}
+
+/** Above this many boxes the map shows a part of itself unless asked for all. */
+export const MAP_LIMIT = 50;
+
+/**
+ * Every node on a path through any of the seeds: the chains they sit on.
+ * One walk each way from all seeds at once, so a map of thousands of boxes
+ * with hundreds of seeds stays cheap.
+ */
+export function focusOn(edges: GraphEdge[], seeds: Iterable<string>): Set<string> {
+  const next = new Map<string, string[]>();
+  const prev = new Map<string, string[]>();
+  for (const e of edges) {
+    next.set(e.from, [...(next.get(e.from) ?? []), e.to]);
+    prev.set(e.to, [...(prev.get(e.to) ?? []), e.from]);
+  }
+  const out = new Set<string>();
+  for (const step of [next, prev]) {
+    const seen = new Set(seeds);
+    const queue = [...seen];
+    while (queue.length) {
+      const n = queue.pop() as string;
+      out.add(n);
+      for (const m of step.get(n) ?? []) {
+        if (!seen.has(m)) {
+          seen.add(m);
+          queue.push(m);
+        }
+      }
+    }
+  }
+  return out;
+}
+
+/** The nodes whose name, or a grant's subject, contain the query, ignoring case. */
+export function matching(graph: Graph, query: string): string[] {
+  const q = query.trim().toLowerCase();
+  return Object.values(graph.columns)
+    .flat()
+    .filter((n) => n.name.toLowerCase().includes(q) || (n.kind === 'grant' && n.detail?.toLowerCase().includes(q)))
+    .map((n) => n.id);
+}
+
+/** The nodes that are not ready, or that a reference names but do not exist. */
+export function troubled(graph: Graph): string[] {
+  return Object.values(graph.columns)
+    .flat()
+    .filter((n) => !n.healthy || n.missing)
+    .map((n) => n.id);
 }
 
 export function routeOf(node: GraphNode): string[] | null {
