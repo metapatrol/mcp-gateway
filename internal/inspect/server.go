@@ -16,6 +16,7 @@ import (
 	"errors"
 	"slices"
 	"sort"
+	"sync"
 	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -161,6 +162,16 @@ func notFound(kind, name string) api.NotFoundApplicationProblemPlusJSONResponse 
 	return api.NotFoundApplicationProblemPlusJSONResponse{Title: "Not Found", Status: 404, Detail: &detail}
 }
 
+// isInvalidParam turns a parameter the client got wrong into the problem a
+// 400 answers with.
+func isInvalidParam(err error) (api.BadRequestApplicationProblemPlusJSONResponse, bool) {
+	var bad invalidParam
+	if !errors.As(err, &bad) {
+		return api.BadRequestApplicationProblemPlusJSONResponse{}, false
+	}
+	return api.BadRequestApplicationProblemPlusJSONResponse{Title: "Bad Request", Status: 400, Detail: &bad.msg}, true
+}
+
 // ---------------------------------------------------------------- events
 
 func (s *Server) WatchEvents(ctx context.Context, _ api.WatchEventsRequestObject) (api.WatchEventsResponseObject, error) {
@@ -182,7 +193,7 @@ func (s *Server) WatchEvents(ctx context.Context, _ api.WatchEventsRequestObject
 
 // ---------------------------------------------------------------- servers
 
-func (s *Server) ListServers(ctx context.Context, _ api.ListServersRequestObject) (api.ListServersResponseObject, error) {
+func (s *Server) ListServers(ctx context.Context, req api.ListServersRequestObject) (api.ListServersResponseObject, error) {
 	w, err := s.load(ctx)
 	if err != nil {
 		return nil, err
@@ -195,7 +206,15 @@ func (s *Server) ListServers(ctx context.Context, _ api.ListServersRequestObject
 		}
 		items = append(items, sum)
 	}
-	return api.ListServers200JSONResponse{Items: items, Source: s.source()}, nil
+	p := req.Params
+	items, total, next, err := page(items, serverListing, newPageRequest(p.Limit, p.Cursor, p.Q, p.Sort))
+	if bad, ok := isInvalidParam(err); ok {
+		return api.ListServers400ApplicationProblemPlusJSONResponse{BadRequestApplicationProblemPlusJSONResponse: bad}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return api.ListServers200JSONResponse{Items: items, Total: total, NextCursor: next, Source: s.source()}, nil
 }
 
 func (s *Server) GetServer(ctx context.Context, req api.GetServerRequestObject) (api.GetServerResponseObject, error) {
@@ -266,7 +285,7 @@ func (s *Server) discovery(name string) api.Discovery {
 
 // ---------------------------------------------------------------- tool sets
 
-func (s *Server) ListToolSets(ctx context.Context, _ api.ListToolSetsRequestObject) (api.ListToolSetsResponseObject, error) {
+func (s *Server) ListToolSets(ctx context.Context, req api.ListToolSetsRequestObject) (api.ListToolSetsResponseObject, error) {
 	w, err := s.load(ctx)
 	if err != nil {
 		return nil, err
@@ -279,7 +298,15 @@ func (s *Server) ListToolSets(ctx context.Context, _ api.ListToolSetsRequestObje
 		}
 		items = append(items, sum)
 	}
-	return api.ListToolSets200JSONResponse{Items: items, Source: s.source()}, nil
+	p := req.Params
+	items, total, next, err := page(items, toolSetListing, newPageRequest(p.Limit, p.Cursor, p.Q, p.Sort))
+	if bad, ok := isInvalidParam(err); ok {
+		return api.ListToolSets400ApplicationProblemPlusJSONResponse{BadRequestApplicationProblemPlusJSONResponse: bad}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return api.ListToolSets200JSONResponse{Items: items, Total: total, NextCursor: next, Source: s.source()}, nil
 }
 
 func (s *Server) GetToolSet(ctx context.Context, req api.GetToolSetRequestObject) (api.GetToolSetResponseObject, error) {
@@ -327,7 +354,7 @@ func (s *Server) GetToolSet(ctx context.Context, req api.GetToolSetRequestObject
 
 // ---------------------------------------------------------------- capabilities
 
-func (s *Server) ListCapabilities(ctx context.Context, _ api.ListCapabilitiesRequestObject) (api.ListCapabilitiesResponseObject, error) {
+func (s *Server) ListCapabilities(ctx context.Context, req api.ListCapabilitiesRequestObject) (api.ListCapabilitiesResponseObject, error) {
 	w, err := s.load(ctx)
 	if err != nil {
 		return nil, err
@@ -336,7 +363,15 @@ func (s *Server) ListCapabilities(ctx context.Context, _ api.ListCapabilitiesReq
 	for i := range w.capabilities {
 		items = append(items, capabilitySummary(&w.capabilities[i]))
 	}
-	return api.ListCapabilities200JSONResponse{Items: items, Source: s.source()}, nil
+	p := req.Params
+	items, total, next, err := page(items, capabilityListing, newPageRequest(p.Limit, p.Cursor, p.Q, p.Sort))
+	if bad, ok := isInvalidParam(err); ok {
+		return api.ListCapabilities400ApplicationProblemPlusJSONResponse{BadRequestApplicationProblemPlusJSONResponse: bad}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return api.ListCapabilities200JSONResponse{Items: items, Total: total, NextCursor: next, Source: s.source()}, nil
 }
 
 func (s *Server) GetCapability(ctx context.Context, req api.GetCapabilityRequestObject) (api.GetCapabilityResponseObject, error) {
@@ -421,7 +456,7 @@ func (s *Server) claimedThrough(w *world, toolSets []string, catalogs policy.Cat
 
 // ---------------------------------------------------------------- grants
 
-func (s *Server) ListGrants(ctx context.Context, _ api.ListGrantsRequestObject) (api.ListGrantsResponseObject, error) {
+func (s *Server) ListGrants(ctx context.Context, req api.ListGrantsRequestObject) (api.ListGrantsResponseObject, error) {
 	w, err := s.load(ctx)
 	if err != nil {
 		return nil, err
@@ -430,7 +465,15 @@ func (s *Server) ListGrants(ctx context.Context, _ api.ListGrantsRequestObject) 
 	for i := range w.grants {
 		items = append(items, grantSummary(&w.grants[i]))
 	}
-	return api.ListGrants200JSONResponse{Items: items, Source: s.source()}, nil
+	p := req.Params
+	items, total, next, err := page(items, grantListing, newPageRequest(p.Limit, p.Cursor, p.Q, p.Sort))
+	if bad, ok := isInvalidParam(err); ok {
+		return api.ListGrants400ApplicationProblemPlusJSONResponse{BadRequestApplicationProblemPlusJSONResponse: bad}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return api.ListGrants200JSONResponse{Items: items, Total: total, NextCursor: next, Source: s.source()}, nil
 }
 
 func (s *Server) GetGrant(ctx context.Context, req api.GetGrantRequestObject) (api.GetGrantResponseObject, error) {
@@ -465,25 +508,41 @@ func (s *Server) GetGrant(ctx context.Context, req api.GetGrantRequestObject) (a
 
 // ---------------------------------------------------------------- subjects
 
-func (s *Server) ListSubjects(ctx context.Context, _ api.ListSubjectsRequestObject) (api.ListSubjectsResponseObject, error) {
+func (s *Server) ListSubjects(ctx context.Context, req api.ListSubjectsRequestObject) (api.ListSubjectsResponseObject, error) {
 	w, err := s.load(ctx)
 	if err != nil {
 		return nil, err
 	}
 	snap := s.Gateway.Policy()
 	catalogs := s.catalogs()
-	items := []api.SubjectSummary{}
+	// Resolving a subject is the expensive part of this list, so it happens
+	// for the subjects a page shows, and for every one only when the page is
+	// sorted by what they are offered.
+	rows := []subjectRow{}
 	for _, subject := range snap.Subjects() {
-		res := snap.Resolve(subject, catalogs)
-		count := 0
-		for _, ref := range res.Tools {
-			if _, ok := s.offered(ref); ok {
-				count++
+		rows = append(rows, subjectRow{subject: subject, grants: grantsOf(w, subject), tools: sync.OnceValue(func() int {
+			count := 0
+			for _, ref := range snap.Resolve(subject, catalogs).Tools {
+				if _, ok := s.offered(ref); ok {
+					count++
+				}
 			}
-		}
-		items = append(items, api.SubjectSummary{Subject: subject, Grants: grantsOf(w, subject), ToolCount: count})
+			return count
+		})})
 	}
-	return api.ListSubjects200JSONResponse{Items: items, Source: s.source()}, nil
+	p := req.Params
+	rows, total, next, err := page(rows, subjectListing, newPageRequest(p.Limit, p.Cursor, p.Q, p.Sort))
+	if bad, ok := isInvalidParam(err); ok {
+		return api.ListSubjects400ApplicationProblemPlusJSONResponse{BadRequestApplicationProblemPlusJSONResponse: bad}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	items := make([]api.SubjectSummary, 0, len(rows))
+	for _, r := range rows {
+		items = append(items, api.SubjectSummary{Subject: r.subject, Grants: r.grants, ToolCount: r.tools()})
+	}
+	return api.ListSubjects200JSONResponse{Items: items, Total: total, NextCursor: next, Source: s.source()}, nil
 }
 
 func (s *Server) GetSubject(ctx context.Context, req api.GetSubjectRequestObject) (api.GetSubjectResponseObject, error) {

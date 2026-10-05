@@ -450,6 +450,16 @@ than WebSocket because the traffic goes one way, a stream is an ordinary GET
 that OpenAPI describes and a reverse proxy passes on, and browsers reconnect by
 themselves.
 
+The five lists page, search and sort on the server. `limit` cuts a page and
+`nextCursor` says where the next one starts; `q` filters and `sort` orders by
+the columns the console shows, by the rules its tables follow. A cursor names
+the last item of its page — its sort value and name — rather than a position,
+so a page read after a change neither repeats nor skips what follows it, and
+it is refused with a different `q` or `sort`. Without `limit` a list comes
+whole. Paging is what keeps `/subjects` cheap: a subject is resolved only when
+its page is read, unless the list is sorted by how many tools each is offered,
+which needs all of them.
+
 Every answer is one replica's view and says which (`source.replica`). Replicas
 discover independently, so two of them can differ for up to a discovery
 interval. Resolution goes through `internal/policy` against the catalogs the

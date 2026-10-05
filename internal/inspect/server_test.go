@@ -339,6 +339,45 @@ func TestSubject(t *testing.T) {
 	get[api.Problem](t, h, "/subject", http.StatusBadRequest)
 }
 
+func TestListsPage(t *testing.T) {
+	h := newTestServer(t)
+
+	first := get[api.SubjectList](t, h, "/subjects?limit=1", http.StatusOK)
+	require.Len(t, first.Items, 1)
+	assert.Equal(t, "agent-coder", first.Items[0].Subject)
+	assert.Equal(t, 4, first.Items[0].ToolCount, "the subjects on the page are resolved")
+	assert.Equal(t, 2, first.Total)
+	require.NotNil(t, first.NextCursor)
+
+	second := get[api.SubjectList](t, h, "/subjects?limit=1&cursor="+url.QueryEscape(*first.NextCursor), http.StatusOK)
+	require.Len(t, second.Items, 1)
+	assert.Equal(t, "https://idp.example.com/clients/svc-support", second.Items[0].Subject)
+	assert.Nil(t, second.NextCursor, "the last page")
+
+	byTools := get[api.SubjectList](t, h, "/subjects?sort=-tools", http.StatusOK)
+	require.Len(t, byTools.Items, 2)
+	assert.GreaterOrEqual(t, byTools.Items[0].ToolCount, byTools.Items[1].ToolCount)
+
+	grants := get[api.GrantList](t, h, "/grants?q=CODER&sort=-name", http.StatusOK)
+	assert.Equal(t, 2, grants.Total)
+	assert.Equal(t, "coder-web", grants.Items[0].Meta.Name)
+
+	notReady := get[api.ServerList](t, h, "/servers?sort=ready&limit=1", http.StatusOK)
+	assert.Equal(t, "tickets", notReady.Items[0].Meta.Name, "Ready=False first")
+	assert.Equal(t, 4, notReady.Total)
+
+	toolSets := get[api.ToolSetList](t, h, "/toolsets?q=source-intelligence", http.StatusOK)
+	assert.Equal(t, 2, toolSets.Total, "searched by server")
+
+	capabilities := get[api.CapabilityList](t, h, "/capabilities?q=read+code", http.StatusOK)
+	assert.Equal(t, 1, capabilities.Total, "searched by description")
+
+	get[api.Problem](t, h, "/subjects?limit=0", http.StatusBadRequest)
+	get[api.Problem](t, h, "/subjects?sort=colour", http.StatusBadRequest)
+	get[api.Problem](t, h, "/subjects?cursor=nope", http.StatusBadRequest)
+	get[api.Problem](t, h, "/grants?limit=1&sort=-name&cursor="+url.QueryEscape(*first.NextCursor), http.StatusBadRequest)
+}
+
 // TestAPIMirrorsTheCRDs guards the one place the spec repeats something:
 // spec and status of the four kinds, which the API passes on as written. A
 // field added to a CRD and not to api/openapi/inspect.yaml fails here, since
