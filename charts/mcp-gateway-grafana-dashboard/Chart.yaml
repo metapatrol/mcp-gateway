@@ -12,5 +12,5 @@ home: https://github.com/metapatrol/mcp-gateway
 sources:
   - https://github.com/metapatrol/mcp-gateway
 maintainers:
-  - name: Magnus
-    email: magnus@forge.metapatrol.com
+  - name: Denis Neuling
+    url: https://github.com/denisneuling
