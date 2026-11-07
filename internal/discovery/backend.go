@@ -13,6 +13,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	mcpv1alpha1 "forgejo.metapatrol.local/platform/mcp-gateway/api/v1alpha1"
 	"forgejo.metapatrol.local/platform/mcp-gateway/internal/credentials"
 )
 
@@ -46,6 +47,7 @@ import (
 type Backend struct {
 	name       string
 	endpoint   string
+	transport  mcpv1alpha1.BackendTransport
 	client     *mcp.Client
 	httpClient *http.Client
 	timeout    time.Duration
@@ -129,10 +131,11 @@ const (
 
 // newBackend builds a backend. client makes its requests; listenClient, when not
 // nil, is the client its listener connects with.
-func newBackend(name, endpoint string, auth credentials.Auth, client, listenClient *mcp.Client, httpClient *http.Client, connectTimeout time.Duration) *Backend {
+func newBackend(name, endpoint string, transport mcpv1alpha1.BackendTransport, auth credentials.Auth, client, listenClient *mcp.Client, httpClient *http.Client, connectTimeout time.Duration) *Backend {
 	b := &Backend{
 		name:       name,
 		endpoint:   endpoint,
+		transport:  transport,
 		client:     client,
 		httpClient: httpClient,
 		timeout:    connectTimeout,
@@ -214,10 +217,7 @@ func (b *Backend) listen(ctx context.Context, client *mcp.Client) {
 			}}
 		})
 		connectCtx, cancel := context.WithTimeout(ctx, b.timeout)
-		session, err := client.Connect(connectCtx, &mcp.StreamableClientTransport{
-			Endpoint:   b.endpoint,
-			HTTPClient: httpClient,
-		}, nil)
+		session, err := client.Connect(connectCtx, b.clientTransport(httpClient, true), nil)
 		cancel()
 
 		wait := retry
@@ -245,6 +245,33 @@ func (b *Backend) listen(ctx context.Context, client *mcp.Client) {
 		case <-time.After(wait):
 		}
 	}
+}
+
+// clientTransport is how one connection reaches the backend. listens says
+// whether the connection is the listener, the one that hears notifications.
+//
+// Over SSE every connection holds an event stream open: it is where the
+// backend's answers arrive, not only its notifications. A connection that is
+// not the listener simply ignores what notifications come in on it.
+func (b *Backend) clientTransport(httpClient *http.Client, listens bool) mcp.Transport {
+	if b.transport == mcpv1alpha1.TransportSSE {
+		return &sseTransport{mcp.SSEClientTransport{Endpoint: b.endpoint, HTTPClient: httpClient}}
+	}
+	return &mcp.StreamableClientTransport{
+		Endpoint:   b.endpoint,
+		HTTPClient: httpClient,
+		// Notifications are the listener's. A session-based backend
+		// would otherwise be held to a GET stream per connection.
+		DisableStandaloneSSE: !listens,
+	}
+}
+
+// Transport is the MCP transport the backend is reached over.
+func (b *Backend) Transport() mcpv1alpha1.BackendTransport {
+	if b.transport == "" {
+		return mcpv1alpha1.TransportStreamableHTTP
+	}
+	return b.transport
 }
 
 // Name is the MCPServer this backend belongs to.
@@ -315,13 +342,7 @@ func (c *conn) shake(h *handshake) {
 	b := c.backend
 	ctx, cancel := context.WithTimeout(context.Background(), b.timeout)
 	defer cancel()
-	session, err := b.client.Connect(ctx, &mcp.StreamableClientTransport{
-		Endpoint:   b.endpoint,
-		HTTPClient: c.httpClient,
-		// Notifications are the listener's. A session-based backend
-		// would otherwise be held to a GET stream per connection.
-		DisableStandaloneSSE: true,
-	}, nil)
+	session, err := b.client.Connect(ctx, b.clientTransport(c.httpClient, false), nil)
 
 	c.mu.Lock()
 	defer c.mu.Unlock()

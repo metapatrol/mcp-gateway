@@ -196,6 +196,7 @@ func TestServers(t *testing.T) {
 	si := get[api.Server](t, h, "/servers/source-intelligence", http.StatusOK)
 	assert.Equal(t, "1m0s", si.Spec.DiscoveryInterval, "defaulted")
 	assert.Equal(t, api.None, si.Spec.Auth.Type, "defaulted")
+	assert.Equal(t, api.StreamableHTTP, si.Spec.Transport, "defaulted")
 	assert.True(t, si.Discovery.Usable)
 	require.NotNil(t, si.Catalog)
 	assert.Equal(t, "Treat a partial answer as incomplete.", si.Catalog.Instructions)
@@ -397,7 +398,7 @@ func TestAPIMirrorsTheCRDs(t *testing.T) {
 		out  any
 	}{
 		{"MCPServer spec", mcpv1alpha1.MCPServerSpec{
-			Endpoint: "http://x/mcp", DiscoveryInterval: &metav1.Duration{Duration: time.Minute},
+			Endpoint: "http://x/mcp", Transport: mcpv1alpha1.TransportSSE, DiscoveryInterval: &metav1.Duration{Duration: time.Minute},
 			Auth: &mcpv1alpha1.BackendAuth{
 				Type: mcpv1alpha1.BackendAuthPassthrough, Passthrough: &mcpv1alpha1.PassthroughAuth{Discovery: &mcpv1alpha1.DiscoveryAuth{ClientCredentials: cc, APIKey: key}},
 				ClientCredentials: cc, APIKey: key,

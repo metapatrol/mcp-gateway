@@ -24,7 +24,7 @@ The examples use the OAuth provider at `id.example.com`, the namespace
 | Kubernetes | A cluster and permission to install cluster-scoped resources: four CRDs and two ClusterRoles. The integration tests run against Kubernetes 1.34. |
 | Helm | 3.8 or later, for charts from an OCI registry. |
 | An OAuth 2.0 provider | One that issues access tokens by the client credentials grant, and either publishes a JWKS for JWT access tokens or offers RFC 7662 introspection for opaque ones. Ory Hydra, Keycloak, Zitadel and others do. |
-| MCP backends | Servers speaking MCP over Streamable HTTP. Any version works towards backends; the SDK negotiates it. |
+| MCP backends | Servers speaking MCP over Streamable HTTP, or over HTTP+SSE with `spec.transport: SSE`. Any version works towards backends; the SDK negotiates it. |
 | Agents | Clients speaking **MCP 2026-07-28**, or any MCP client behind `mcp-gateway-proxy`. |
 
 ## 1. An OAuth client per agent

@@ -129,7 +129,8 @@ where it is   which tools    a useful ability  who holds it
 ## Quick start
 
 You need a Kubernetes cluster, an OAuth provider that issues access tokens by
-the client credentials grant, and MCP backends that speak Streamable HTTP. The
+the client credentials grant, and MCP backends that speak Streamable HTTP (or
+the older HTTP+SSE transport). The
 chart and images on ghcr.io are readable by members of the metapatrol
 organisation for now: log in first, as the
 [installation guide](docs/installation.md#2-install-the-chart) shows.

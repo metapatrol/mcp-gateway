@@ -15,7 +15,7 @@ const ok = [
 const servers = [
   {
     meta: meta('si'),
-    spec: { endpoint: '', discoveryInterval: '1m', auth: { type: 'None' } },
+    spec: { endpoint: '', transport: 'StreamableHTTP', discoveryInterval: '1m', auth: { type: 'None' } },
     status: { available: true, conditions: ok },
   },
 ] as unknown as ServerSummary[];
@@ -93,7 +93,7 @@ describe('condense', () => {
   const serversOf = (n: number) =>
     Array.from({ length: n }, (_, i) => ({
       meta: meta(`srv${i}`),
-      spec: { endpoint: '', discoveryInterval: '1m', auth: { type: 'None' } },
+      spec: { endpoint: '', transport: 'StreamableHTTP', discoveryInterval: '1m', auth: { type: 'None' } },
       status: { available: true, conditions: ok },
     })) as unknown as ServerSummary[];
 

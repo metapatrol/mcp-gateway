@@ -32,11 +32,33 @@ spec:
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `endpoint` | string | yes | URL of the backend's Streamable HTTP MCP endpoint. Must start with `http://` or `https://`. |
+| `endpoint` | string | yes | URL of the backend's MCP endpoint; with `transport: SSE`, the URL its event stream is opened at. Must start with `http://` or `https://`. |
+| `transport` | string | no | `StreamableHTTP` (default) or `SSE`, for a backend that offers only the HTTP+SSE transport of MCP 2024-11-05. |
 | `discoveryInterval` | duration | no | How often the catalog is re-read when the backend does not announce changes. Default `1m`; values below `10s` are raised to `10s`. |
 | `auth` | object | no | How the gateway and the controller authenticate to the backend. Left out: no credentials. |
 
 There is no list of tools. The catalog is discovered.
+
+#### An SSE-only backend
+
+Some servers still speak only the HTTP+SSE transport, at a URL such as
+`/mcp/sse`. `transport: SSE` reaches them directly, without a bridge in front:
+
+```yaml
+spec:
+  endpoint: http://crawl4ai.ai-search.svc/mcp/sse
+  transport: SSE
+  auth:
+    type: APIKey
+    apiKey:
+      secretRef: {name: crawl4ai, key: token}
+```
+
+Agents still speak Streamable HTTP to the gateway. Each connection the gateway
+holds to such a backend keeps an event stream open, since that stream is where
+the backend's answers arrive; credentials go on the stream and on every request
+posted. Changing the transport counts as changing the endpoint: the catalog is
+discarded and read anew. WebSocket is not supported.
 
 ### spec.auth
 

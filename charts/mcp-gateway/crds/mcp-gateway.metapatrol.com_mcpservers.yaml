@@ -22,6 +22,10 @@ spec:
     - jsonPath: .spec.endpoint
       name: Endpoint
       type: string
+    - jsonPath: .spec.transport
+      name: Transport
+      priority: 1
+      type: string
     - jsonPath: .status.available
       name: Available
       type: boolean
@@ -349,12 +353,23 @@ spec:
                 type: string
               endpoint:
                 description: |-
-                  Endpoint is the URL of the backend's Streamable HTTP MCP endpoint, for
-                  example http://source-intelligence.mcp-system.svc/mcp.
+                  Endpoint is the URL of the backend's MCP endpoint, for example
+                  http://source-intelligence.mcp-system.svc/mcp — with transport SSE, the
+                  URL the event stream is opened at, such as http://crawl4ai.svc/mcp/sse.
 
                   The gateway is the only thing meant to reach it: agents talk to the
                   gateway, and a NetworkPolicy on the backend's side should say so.
                 pattern: ^https?://[^\s]+$
+                type: string
+              transport:
+                default: StreamableHTTP
+                description: |-
+                  Transport is the MCP transport the backend speaks: StreamableHTTP, or
+                  SSE for a backend that offers only the HTTP+SSE transport of MCP
+                  2024-11-05. Agents speak Streamable HTTP to the gateway either way.
+                enum:
+                - StreamableHTTP
+                - SSE
                 type: string
             required:
             - endpoint

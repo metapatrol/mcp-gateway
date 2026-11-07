@@ -66,6 +66,7 @@ func serverSpec(s *mcpv1alpha1.MCPServer) (api.ServerSpec, error) {
 	if out.Auth.Type == "" {
 		out.Auth.Type = api.BackendAuthType(s.AuthType())
 	}
+	out.Transport = api.ServerSpecTransport(s.TransportType())
 	return out, nil
 }
 

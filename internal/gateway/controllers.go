@@ -94,7 +94,7 @@ func (r *CatalogReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
-	r.Registry.Ensure(server.Name, server.Spec.Endpoint, server.Spec.Auth)
+	r.Registry.EnsureServer(&server)
 	before, _ := r.Registry.Health(server.Name)
 	discoverCtx, cancel := context.WithTimeout(ctx, discoveryTimeout)
 	defer cancel()

@@ -207,6 +207,24 @@ func (e SelectionEntryOutcome) Valid() bool {
 	}
 }
 
+// Defines values for ServerSpecTransport.
+const (
+	SSE            ServerSpecTransport = "SSE"
+	StreamableHTTP ServerSpecTransport = "StreamableHTTP"
+)
+
+// Valid indicates whether the value is a known member of the ServerSpecTransport enum.
+func (e ServerSpecTransport) Valid() bool {
+	switch e {
+	case SSE:
+		return true
+	case StreamableHTTP:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SubjectToolState.
 const (
 	SubjectToolStateConflict    SubjectToolState = "conflict"
@@ -882,7 +900,13 @@ type ServerSpec struct {
 	// Example: 1m0s
 	DiscoveryInterval string `json:"discoveryInterval"`
 	Endpoint          string `json:"endpoint"`
+
+	// Transport The MCP transport the backend is reached over; StreamableHTTP when unset.
+	Transport ServerSpecTransport `json:"transport"`
 }
+
+// ServerSpecTransport The MCP transport the backend is reached over; StreamableHTTP when unset.
+type ServerSpecTransport string
 
 // ServerStatus status as the controller wrote it.
 type ServerStatus struct {

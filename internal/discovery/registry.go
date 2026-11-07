@@ -85,20 +85,31 @@ func NewRegistry(opts Options) *Registry {
 // another; dropping it in between would make every agent's tools vanish and
 // reappear.
 func (r *Registry) Ensure(name, endpoint string, auth *mcpv1alpha1.BackendAuth) *Backend {
+	return r.ensure(name, endpoint, mcpv1alpha1.TransportStreamableHTTP, auth)
+}
+
+// EnsureServer registers the backend an MCPServer describes, or updates it, as
+// Ensure does. A changed transport counts as a changed endpoint.
+func (r *Registry) EnsureServer(server *mcpv1alpha1.MCPServer) *Backend {
+	return r.ensure(server.Name, server.Spec.Endpoint, server.TransportType(), server.Spec.Auth)
+}
+
+func (r *Registry) ensure(name, endpoint string, transport mcpv1alpha1.BackendTransport, auth *mcpv1alpha1.BackendAuth) *Backend {
 	built := credentials.Build(auth, r.opts.Secrets, r.opts.HTTPClient)
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	e, ok := r.entries[name]
-	if ok && e.backend.Endpoint() == endpoint && e.backend.auth.Fingerprint == built.Fingerprint {
+	sameAddress := ok && e.backend.Endpoint() == endpoint && e.backend.Transport() == transport
+	if sameAddress && e.backend.auth.Fingerprint == built.Fingerprint {
 		return e.backend
 	}
-	b := newBackend(name, endpoint, built, r.newClient(nil), r.listenClient(name), r.opts.HTTPClient, r.opts.ConnectTimeout)
+	b := newBackend(name, endpoint, transport, built, r.newClient(nil), r.listenClient(name), r.opts.HTTPClient, r.opts.ConnectTimeout)
 	b.progress = r.progress
 	switch {
 	case !ok:
 		r.entries[name] = &entry{backend: b}
-	case e.backend.Endpoint() != endpoint:
+	case !sameAddress:
 		_ = e.backend.Close()
 		r.entries[name] = &entry{backend: b}
 	default:

@@ -42,9 +42,12 @@ type Backend struct {
 	// stateless serves MCP 2026-07-28, which has no sessions, in addition to
 	// the session-based versions a stateful handler speaks.
 	stateless bool
+	// sse serves the HTTP+SSE transport of MCP 2024-11-05 instead of
+	// Streamable HTTP.
+	sse bool
 
 	server  atomic.Pointer[mcp.Server]
-	handler atomic.Pointer[mcp.StreamableHTTPHandler]
+	handler atomic.Pointer[http.Handler]
 	http    *httptest.Server
 
 	guard atomic.Pointer[func(*http.Request) int]
@@ -68,6 +71,13 @@ func NewBackend(t testing.TB, name string, tools ...string) *Backend {
 func NewStatelessBackend(t testing.TB, name string, tools ...string) *Backend {
 	t.Helper()
 	return newBackend(t, &Backend{Name: name, stateless: true}, tools)
+}
+
+// NewSSEBackend starts a backend that speaks only the HTTP+SSE transport of
+// MCP 2024-11-05, at its URL.
+func NewSSEBackend(t testing.TB, name string, tools ...string) *Backend {
+	t.Helper()
+	return newBackend(t, &Backend{Name: name, sse: true}, tools)
 }
 
 // NewBackendWithInstructions starts a backend that gives clients the given
@@ -99,7 +109,7 @@ func (b *Backend) serve(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	var h http.Handler = b.handler.Load()
+	h := *b.handler.Load()
 	if users := b.users.Load(); users != nil {
 		h = sdkauth.RequireBearerToken(func(_ context.Context, token string, _ *http.Request) (*sdkauth.TokenInfo, error) {
 			user, ok := (*users)[token]
@@ -147,7 +157,11 @@ func (b *Backend) install(tools []string) {
 	for _, tool := range tools {
 		b.AddTool(tool)
 	}
-	b.handler.Store(mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return server }, &mcp.StreamableHTTPOptions{Stateless: b.stateless}))
+	var h http.Handler = mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return server }, &mcp.StreamableHTTPOptions{Stateless: b.stateless})
+	if b.sse {
+		h = mcp.NewSSEHandler(func(*http.Request) *mcp.Server { return server }, nil)
+	}
+	b.handler.Store(&h)
 }
 
 // Server is the SDK server currently answering.

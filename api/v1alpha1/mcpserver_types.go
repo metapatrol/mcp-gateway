@@ -12,13 +12,21 @@ import (
 // truth for what it offers; the controller and the gateway both read the
 // catalog from it, and a copy here would be a second source that drifts.
 type MCPServerSpec struct {
-	// Endpoint is the URL of the backend's Streamable HTTP MCP endpoint, for
-	// example http://source-intelligence.mcp-system.svc/mcp.
+	// Endpoint is the URL of the backend's MCP endpoint, for example
+	// http://source-intelligence.mcp-system.svc/mcp — with transport SSE, the
+	// URL the event stream is opened at, such as http://crawl4ai.svc/mcp/sse.
 	//
 	// The gateway is the only thing meant to reach it: agents talk to the
 	// gateway, and a NetworkPolicy on the backend's side should say so.
 	// +kubebuilder:validation:Pattern=`^https?://[^\s]+$`
 	Endpoint string `json:"endpoint"`
+
+	// Transport is the MCP transport the backend speaks: StreamableHTTP, or
+	// SSE for a backend that offers only the HTTP+SSE transport of MCP
+	// 2024-11-05. Agents speak Streamable HTTP to the gateway either way.
+	// +optional
+	// +kubebuilder:default=StreamableHTTP
+	Transport BackendTransport `json:"transport,omitempty"`
 
 	// DiscoveryInterval is how often the catalog is re-read when the backend
 	// does not announce changes itself. A backend that sends
@@ -81,6 +89,7 @@ type MCPServerStatus struct {
 // +kubebuilder:resource:scope=Cluster,shortName=mcpsrv,categories=mcp-gateway
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Endpoint",type=string,JSONPath=`.spec.endpoint`
+// +kubebuilder:printcolumn:name="Transport",type=string,JSONPath=`.spec.transport`,priority=1
 // +kubebuilder:printcolumn:name="Available",type=boolean,JSONPath=`.status.available`
 // +kubebuilder:printcolumn:name="Tools",type=integer,JSONPath=`.status.discoveredTools`
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
@@ -107,6 +116,26 @@ type MCPServerList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []MCPServer `json:"items"`
+}
+
+// BackendTransport names the MCP transport a backend is reached over.
+// +kubebuilder:validation:Enum=StreamableHTTP;SSE
+type BackendTransport string
+
+const (
+	// TransportStreamableHTTP is MCP's HTTP transport since 2025-03-26.
+	TransportStreamableHTTP BackendTransport = "StreamableHTTP"
+	// TransportSSE is the HTTP+SSE transport of MCP 2024-11-05: one
+	// long-lived event stream, and requests posted to the URL it names.
+	TransportSSE BackendTransport = "SSE"
+)
+
+// TransportType returns spec.transport, defaulted.
+func (s *MCPServer) TransportType() BackendTransport {
+	if s.Spec.Transport == "" {
+		return TransportStreamableHTTP
+	}
+	return s.Spec.Transport
 }
 
 // DefaultDiscoveryInterval applies when spec.discoveryInterval is unset — which

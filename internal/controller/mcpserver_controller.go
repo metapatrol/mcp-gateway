@@ -83,7 +83,7 @@ func (r *MCPServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, nil
 	}
 
-	r.Registry.Ensure(server.Name, server.Spec.Endpoint, server.Spec.Auth)
+	r.Registry.EnsureServer(&server)
 	discoverCtx, cancel := context.WithTimeout(ctx, discoveryTimeout)
 	defer cancel()
 	catalog, changed, err := r.Registry.Discover(discoverCtx, server.Name)

@@ -847,9 +847,13 @@ components:
 
     ServerSpec:
       type: object
-      required: [endpoint, discoveryInterval, auth]
+      required: [endpoint, transport, discoveryInterval, auth]
       properties:
         endpoint: { type: string }
+        transport:
+          type: string
+          description: The MCP transport the backend is reached over; StreamableHTTP when unset.
+          enum: [StreamableHTTP, SSE]
         discoveryInterval:
           type: string
           description: As written, a Go duration. The gateway clamps it to at least 10s.

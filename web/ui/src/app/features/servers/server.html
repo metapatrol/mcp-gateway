@@ -2,7 +2,7 @@
   <div class="min-w-0">
     <mp-detail-title section="Servers" link="/servers" [name]="name()" />
     @if (s(); as s) {
-      <p class="text-fg-muted mt-0.5 text-[13px]"><span class="font-mono">{{ s.spec.endpoint }}</span> · {{ s.spec.auth.type }}</p>
+      <p class="text-fg-muted mt-0.5 text-[13px]"><span class="font-mono">{{ s.spec.endpoint }}</span> · {{ s.spec.transport }} · {{ s.spec.auth.type }}</p>
     }
   </div>
   @if (s(); as s) {
