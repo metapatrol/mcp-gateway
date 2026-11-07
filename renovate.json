@@ -33,6 +33,16 @@
       "description": "TypeScript 7 is not supported by the Angular compiler nor by typescript-eslint yet; lift this once both are",
       "matchPackageNames": ["typescript"],
       "allowedVersions": "<7"
+    },
+    {
+      "description": "npm is the one Node ships; packageManager only records it, and nothing installs another (#16, #49)",
+      "matchPackageNames": ["npm"],
+      "allowedVersions": "<12"
+    },
+    {
+      "description": "The @metapatrol packages come from the forge's npm registry, which Renovate cannot read to update the lockfile; bump them together by hand",
+      "matchPackageNames": ["@metapatrol/*"],
+      "enabled": false
     }
   ]
 }
