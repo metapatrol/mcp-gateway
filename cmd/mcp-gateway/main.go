@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"go.opentelemetry.io/otel"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -24,6 +26,7 @@ import (
 	"forgejo.metapatrol.local/platform/mcp-gateway/internal/gateway"
 	"forgejo.metapatrol.local/platform/mcp-gateway/internal/inspect"
 	"forgejo.metapatrol.local/platform/mcp-gateway/internal/metrics"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/tracing"
 )
 
 var (
@@ -128,6 +131,18 @@ func main() {
 	)
 
 	metrics.SetBuildInfo("gateway", version, commit, builtAt)
+
+	ctx := ctrl.SetupSignalHandler()
+	tracingLog := ctrl.Log.WithName("tracing")
+	otel.SetErrorHandler(otel.ErrorHandlerFunc(func(err error) { tracingLog.Error(err, "exporting spans") }))
+	stopTracing, err := tracing.Setup(ctx, "mcp-gateway", version)
+	if err != nil {
+		setupLog.Error(err, "unable to set up tracing")
+		os.Exit(1)
+	}
+	if tracing.Enabled() {
+		setupLog.Info("exporting tool call spans over OTLP")
+	}
 
 	secret, err := readSecret(introspectionSecretFile, "MCP_GATEWAY_INTROSPECTION_CLIENT_SECRET")
 	if err != nil {
@@ -252,7 +267,14 @@ func main() {
 	}
 
 	setupLog.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	err = mgr.Start(ctx)
+	// The spans of the last calls still go out.
+	flush, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := stopTracing(flush); err != nil {
+		setupLog.Error(err, "unable to flush spans")
+	}
+	if err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}

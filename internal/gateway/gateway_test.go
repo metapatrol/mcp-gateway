@@ -138,12 +138,25 @@ func (e *env) connect(token string) *mcp.ClientSession {
 }
 
 func (e *env) connectWith(token string, opts *mcp.ClientOptions) (*mcp.ClientSession, error) {
+	return e.connectVia(bearer(token), opts)
+}
+
+// connectThrough connects with requests sent through transport, which
+// supplies the token.
+func (e *env) connectThrough(transport http.RoundTripper) *mcp.ClientSession {
+	e.t.Helper()
+	session, err := e.connectVia(transport, nil)
+	require.NoError(e.t, err)
+	return session
+}
+
+func (e *env) connectVia(transport http.RoundTripper, opts *mcp.ClientOptions) (*mcp.ClientSession, error) {
 	client := mcp.NewClient(&mcp.Implementation{Name: "agent", Version: "test"}, opts)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	session, err := client.Connect(ctx, &mcp.StreamableClientTransport{
 		Endpoint:   e.url,
-		HTTPClient: &http.Client{Transport: bearer(token)},
+		HTTPClient: &http.Client{Transport: transport},
 	}, nil)
 	if err == nil {
 		e.t.Cleanup(func() { _ = session.Close() })

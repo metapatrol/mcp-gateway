@@ -119,6 +119,15 @@ gateway:
   #    You reach the platform's tools through mcp-gateway. Prefer read-only
   #    tools; ask before anything that publishes or deletes.
 
+  # Traces of tool calls, exported over OTLP/HTTP: one span per tools/call,
+  # continuing the caller's traceparent and passed on to the backend. Off while
+  # endpoint is empty. The endpoint is the collector's base URL; the gateway
+  # posts to /v1/traces under it. Any other OTEL_* variable goes into env.
+  tracing:
+    endpoint: ""
+    #  endpoint: http://otel-collector.observability:4318
+    serviceName: mcp-gateway
+
   # The read-only inspect API: the four kinds, the backends' catalogs with their
   # tool descriptions, and what each subject resolves to, as this replica sees
   # them. The console reads it. It is served on a port of its own, behind a

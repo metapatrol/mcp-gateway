@@ -78,6 +78,8 @@ Kubernetes-native access layer for MCP backends — one governed MCP endpoint, t
 | gateway.serviceAccount.create | bool | `true` |  |
 | gateway.serviceAccount.name | string | `""` |  |
 | gateway.tolerations | list | `[]` |  |
+| gateway.tracing.endpoint | string | `""` |  |
+| gateway.tracing.serviceName | string | `"mcp-gateway"` |  |
 | imagePullSecrets | list | `[]` |  |
 | logging.format | string | `"json"` |  |
 | nameOverride | string | `""` |  |

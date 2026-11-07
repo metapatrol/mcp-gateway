@@ -118,8 +118,9 @@ where it is   which tools    a useful ability  who holds it
   request.
 - OAuth 2.0 with any provider: JWTs against a JWKS, or RFC 7662 introspection;
   RFC 9728 protected resource metadata.
-- Prometheus metrics, a Grafana dashboard chart, and an audit record for every
-  call and every refusal.
+- Prometheus metrics, a Grafana dashboard chart, an audit record for every
+  call and every refusal, and OpenTelemetry spans that continue the caller's
+  trace to the backend.
 - A read-only console that shows, for any tool set or subject, which tools it
   comes to and why — and the exact MCP answers an agent receives.
 
@@ -195,7 +196,7 @@ including the network policies that keep agents from going around the gateway.
 | [CRD Reference](docs/crd-reference.md) | every field and condition of the four kinds |
 | [Authentication](docs/authentication.md) | tokens, subjects, credentials towards backends, the proxy |
 | [Console](docs/console.md) | what the console shows, and how data reaches it |
-| [Operations](docs/operations.md) | metrics, alerts, audit records, troubleshooting, upgrades |
+| [Operations](docs/operations.md) | metrics, alerts, audit records, traces, troubleshooting, upgrades |
 | [Architecture](docs/architecture.md) | how it works inside |
 | [FAQ](docs/faq.md) | why discovery, why cluster scope, why only MCP 2026-07-28, and more |
 | [Development](docs/development.md) | building, testing and changing it |

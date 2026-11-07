@@ -68,7 +68,7 @@ func registeredNames() map[string]bool {
 	names := map[string]bool{}
 	collectors := []prometheus.Collector{
 		BuildInfo, Resources, Discoveries, DiscoveredTools, BackendAvailable,
-		ToolCalls, ToolCallDuration, DeniedToolCalls, AuthFailures,
+		ToolCalls, ToolCallDuration, SubjectToolCalls, DeniedToolCalls, AuthFailures,
 		InspectRequests, InspectRequestDuration, InspectEventStreams, InspectAuthFailures,
 	}
 	fqName := regexp.MustCompile(`fqName: "([^"]+)"`)

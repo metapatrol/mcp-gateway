@@ -10,6 +10,7 @@ is not Ready, scaling and upgrades.
 - [The Grafana dashboard](#the-grafana-dashboard)
 - [Alerts](#alerts)
 - [Audit records](#audit-records)
+- [Traces](#traces)
 - [When something is not Ready](#when-something-is-not-ready)
 - [Scaling](#scaling)
 - [Upgrades](#upgrades)
@@ -41,6 +42,7 @@ select ServiceMonitors by a label — `serviceMonitor.additionalLabels`).
 | `mcp_gateway_discovered_tools{server}` | both | Catalog size per backend |
 | `mcp_gateway_tool_calls_total{server,tool,outcome}` | gateway | Forwarded calls: `ok`, `tool_error`, `backend_error`, `unauthorized` |
 | `mcp_gateway_tool_call_duration_seconds{server,tool}` | gateway | How long backends take |
+| `mcp_gateway_subject_tool_calls_total{subject,outcome}` | gateway | Forwarded calls by the subject that made them |
 | `mcp_gateway_tool_calls_denied_total{subject}` | gateway | Calls refused for want of a grant |
 | `mcp_gateway_auth_failures_total{reason}` | gateway | Refused tokens, by reason: `missing_token`, `expired`, `audience`, `signature`, `unavailable`, … |
 | `mcp_gateway_inspect_requests_total{operation,code}` | gateway | Inspect API requests, by the spec's operationId (`none` if no operation was reached) |
@@ -116,6 +118,44 @@ the fields `subject`, `clientID` (when the token has one), `tool`, `server`
 
 Logs are JSON by default (`logging.format`). The arguments and results of
 tool calls are not logged.
+
+## Traces
+
+With an OTLP endpoint set, the gateway exports a span for every `tools/call`
+over OTLP/HTTP:
+
+```yaml
+gateway:
+  tracing:
+    endpoint: http://otel-collector.observability:4318
+```
+
+The value becomes `OTEL_EXPORTER_OTLP_ENDPOINT`, and `serviceName` becomes
+`OTEL_SERVICE_NAME`. Any other standard `OTEL_*` variable, such as
+`OTEL_EXPORTER_OTLP_HEADERS` or `OTEL_TRACES_SAMPLER`, goes into
+`gateway.env`. Without an endpoint, nothing is exported.
+
+A call that arrives with a W3C `traceparent` header continues that trace, and
+the request to the backend carries the gateway's span on as its parent. A
+harness that traces its model calls thus sees its tool calls, and a backend
+that traces sees them as well, in one trace.
+
+The span is named `tools/call <tool>`, its kind is server, and it carries:
+
+| Attribute | Value |
+|---|---|
+| `mcp.method.name` | `tools/call` |
+| `gen_ai.operation.name` | `execute_tool` |
+| `gen_ai.tool.name` | The tool name the agent called |
+| `user.id` | The subject |
+| `client.id` | The token's `client_id`, when it has one |
+| `mcp.server`, `mcp.tool` | The backend, and the tool's name there |
+| `mcp.outcome` | `ok`, `tool_error`, `backend_error`, `unauthorized` (as in the metrics), or `denied` |
+
+A denied call has a span too. It carries the name the agent sent and nothing
+about the backend. `backend_error` and `unauthorized` mark the span as an
+error. Catalog discoveries are not traced, and arguments and results never go
+into a span.
 
 ## When something is not Ready
 

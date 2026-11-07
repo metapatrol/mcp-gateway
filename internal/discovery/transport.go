@@ -9,6 +9,9 @@ import (
 	"net/url"
 	"time"
 
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
+
 	"forgejo.metapatrol.local/platform/mcp-gateway/internal/credentials"
 )
 
@@ -82,6 +85,9 @@ func (t *authTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			}
 			out.Body = body
 		}
+		// The trace a tool call is part of goes on to the backend; a request
+		// outside any trace, a discovery, carries nothing.
+		otel.GetTextMapPropagator().Inject(req.Context(), propagation.HeaderCarrier(out.Header))
 		credential := t.credential
 		if t.callers {
 			if authorization, ok := credentials.Caller(req.Context()); ok {

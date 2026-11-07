@@ -91,8 +91,16 @@ spec:
             - --inspect-token-audience={{ $inspect.tokenAudience }}
             - --inspect-service-accounts={{ include "mcp-gateway.inspect.serviceAccounts" . }}
             {{- end }}
-          {{- if or $oauth.introspection.clientSecretRef.name .Values.gateway.env }}
+          {{- if or $oauth.introspection.clientSecretRef.name .Values.gateway.env .Values.gateway.tracing.endpoint }}
           env:
+            {{- with .Values.gateway.tracing }}
+            {{- if .endpoint }}
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ .endpoint | quote }}
+            - name: OTEL_SERVICE_NAME
+              value: {{ .serviceName | default "mcp-gateway" | quote }}
+            {{- end }}
+            {{- end }}
             {{- with $oauth.introspection.clientSecretRef }}
             {{- if .name }}
             - name: MCP_GATEWAY_INTROSPECTION_CLIENT_SECRET

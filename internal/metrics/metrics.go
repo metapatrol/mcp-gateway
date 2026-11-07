@@ -91,6 +91,17 @@ var (
 		[]string{"server", "tool"},
 	)
 
+	// SubjectToolCalls counts forwarded tool calls by the subject that made
+	// them. It has no tool label: subjects times tools would be a series per
+	// pair, and the per-tool view is ToolCalls.
+	SubjectToolCalls = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "mcp_gateway_subject_tool_calls_total",
+			Help: "Tool calls forwarded to MCP backends by subject and outcome.",
+		},
+		[]string{"subject", "outcome"},
+	)
+
 	// DeniedToolCalls counts tools/call requests refused by authorisation.
 	DeniedToolCalls = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
@@ -156,7 +167,7 @@ var (
 func init() {
 	metrics.Registry.MustRegister(
 		BuildInfo, Resources, Discoveries, DiscoveredTools, BackendAvailable,
-		ToolCalls, ToolCallDuration, DeniedToolCalls, AuthFailures,
+		ToolCalls, ToolCallDuration, SubjectToolCalls, DeniedToolCalls, AuthFailures,
 		InspectRequests, InspectRequestDuration, InspectEventStreams, InspectAuthFailures,
 	)
 }
@@ -224,8 +235,9 @@ const (
 )
 
 // RecordToolCall records one forwarded tool call.
-func RecordToolCall(server, tool, outcome string, seconds float64) {
+func RecordToolCall(subject, server, tool, outcome string, seconds float64) {
 	ToolCalls.WithLabelValues(server, tool, outcome).Inc()
+	SubjectToolCalls.WithLabelValues(subject, outcome).Inc()
 	ToolCallDuration.WithLabelValues(server, tool).Observe(seconds)
 }
 

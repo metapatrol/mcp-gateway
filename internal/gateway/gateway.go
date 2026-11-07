@@ -43,11 +43,17 @@ import (
 	sdkauth "github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace"
 
 	"forgejo.metapatrol.local/platform/mcp-gateway/internal/credentials"
 	"forgejo.metapatrol.local/platform/mcp-gateway/internal/discovery"
 	"forgejo.metapatrol.local/platform/mcp-gateway/internal/metrics"
 	"forgejo.metapatrol.local/platform/mcp-gateway/internal/policy"
+	"forgejo.metapatrol.local/platform/mcp-gateway/internal/tracing"
 )
 
 // Options configures a Gateway.
@@ -224,7 +230,7 @@ func (g *Gateway) serverFor(subject string) *mcp.Server {
 			server: g.newServer(),
 			tools:  map[string]exposed{},
 		}
-		ss.server.AddReceivingMiddleware(g.auditRefusals(subject), g.forwardInstructions(subject))
+		ss.server.AddReceivingMiddleware(traceCalls, g.auditRefusals(subject), g.forwardInstructions(subject))
 		g.subjects[subject] = ss
 		g.syncLocked(subject, ss)
 	}
@@ -242,6 +248,7 @@ func (g *Gateway) auditRefusals(subject string) mcp.Middleware {
 			if call, ok := req.(*mcp.CallToolRequest); ok && call.Params != nil && !g.registered(subject, call.Params.Name) {
 				g.log.Info("tool call denied", "subject", subject, "tool", call.Params.Name, "reason", "no grant")
 				metrics.RecordDenied(subject)
+				trace.SpanFromContext(ctx).SetAttributes(attribute.String("mcp.outcome", outcomeDenied))
 			}
 			return next(ctx, method, req)
 		}
@@ -489,8 +496,58 @@ func errUnknownTool(name string) error {
 	return &jsonrpc.Error{Code: jsonrpc.CodeInvalidParams, Message: fmt.Sprintf("unknown tool %q", name)}
 }
 
-// callTool authorises and forwards one tool call.
+// traceCalls puts every tools/call in a span of its own, a child of the
+// caller's when the request carried a traceparent. It runs ahead of
+// everything else, so a call the SDK refuses has its span too.
+func traceCalls(next mcp.MethodHandler) mcp.MethodHandler {
+	return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
+		call, ok := req.(*mcp.CallToolRequest)
+		if !ok || call.Params == nil {
+			return next(ctx, method, req)
+		}
+		if call.Extra != nil {
+			ctx = otel.GetTextMapPropagator().Extract(ctx, propagation.HeaderCarrier(call.Extra.Header))
+		}
+		ctx, span := otel.Tracer(tracing.Name).Start(ctx, "tools/call "+call.Params.Name,
+			trace.WithSpanKind(trace.SpanKindServer),
+			trace.WithAttributes(
+				attribute.String("mcp.method.name", "tools/call"),
+				attribute.String("gen_ai.operation.name", "execute_tool"),
+				attribute.String("gen_ai.tool.name", call.Params.Name),
+			))
+		defer span.End()
+		return next(ctx, method, req)
+	}
+}
+
+// callTool authorises and forwards one tool call, and records how it went on
+// the call's span.
 func (g *Gateway) callTool(ctx context.Context, serverSubject string, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	t := &traced{span: trace.SpanFromContext(ctx)}
+	res, err := g.forward(ctx, serverSubject, req, t)
+	t.span.SetAttributes(attribute.String("mcp.outcome", t.outcome))
+	switch t.outcome {
+	case metrics.CallBackendError, metrics.CallUnauthorized:
+		t.span.SetStatus(codes.Error, t.outcome)
+		t.span.SetAttributes(attribute.String("error.type", t.outcome))
+	}
+	return res, err
+}
+
+// outcomeDenied is a call refused by the gateway itself. It is a span's
+// outcome only; the metrics count refusals apart, without the tool name.
+const outcomeDenied = "denied"
+
+// traced collects what forward learns about a call for its span.
+type traced struct {
+	span    trace.Span
+	outcome string
+}
+
+func (t *traced) denied() { t.outcome = outcomeDenied }
+
+// forward authorises and forwards one tool call.
+func (g *Gateway) forward(ctx context.Context, serverSubject string, req *mcp.CallToolRequest, t *traced) (*mcp.CallToolResult, error) {
 	name := req.Params.Name
 
 	// The subject is taken from the token on this very request, not from the
@@ -503,31 +560,41 @@ func (g *Gateway) callTool(ctx context.Context, serverSubject string, req *mcp.C
 	if info == nil || info.UserID == "" || info.UserID != serverSubject {
 		g.log.Info("tool call denied", "subject", serverSubject, "tool", name, "reason", "subject mismatch")
 		metrics.RecordDenied(serverSubject)
+		t.denied()
 		return nil, errUnknownTool(name)
 	}
 	subject := info.UserID
+	t.span.SetAttributes(attribute.String("user.id", subject))
 	audit := g.log.WithValues("subject", subject, "tool", name)
 	if clientID, ok := info.Extra["client_id"].(string); ok {
 		audit = audit.WithValues("clientID", clientID)
+		t.span.SetAttributes(attribute.String("client.id", clientID))
 	}
 
 	ref, ok := g.policy.Load().Authorize(subject, name, g.catalogs)
 	if !ok {
 		audit.Info("tool call denied", "reason", "no grant")
 		metrics.RecordDenied(subject)
+		t.denied()
 		return nil, errUnknownTool(name)
 	}
 	audit = audit.WithValues("server", ref.Server)
+	t.span.SetAttributes(attribute.String("mcp.server", ref.Server), attribute.String("mcp.tool", ref.Tool))
+	record := func(outcome string, elapsed time.Duration) {
+		t.outcome = outcome
+		metrics.RecordToolCall(subject, ref.Server, ref.Tool, outcome, elapsed.Seconds())
+	}
 
 	catalog, ok := g.usableCatalog(ref.Server)
 	backend, registered := g.opts.Registry.Backend(ref.Server)
 	if !ok || !registered {
 		audit.Info("tool call failed", "reason", "backend unavailable")
-		metrics.RecordToolCall(ref.Server, ref.Tool, metrics.CallBackendError, 0)
+		record(metrics.CallBackendError, 0)
 		return unavailableResult(), nil
 	}
 	if _, exposedNow := catalog.Tool(ref.Tool); !exposedNow {
 		audit.Info("tool call denied", "reason", "backend does not expose the tool")
+		t.denied()
 		return nil, errUnknownTool(name)
 	}
 
@@ -562,7 +629,7 @@ func (g *Gateway) callTool(ctx context.Context, serverSubject string, req *mcp.C
 	var credential *discovery.CredentialError
 	switch {
 	case errors.As(err, &refused):
-		metrics.RecordToolCall(ref.Server, ref.Tool, metrics.CallUnauthorized, elapsed.Seconds())
+		record(metrics.CallUnauthorized, elapsed)
 		if backend.Passthrough() {
 			// The caller's own token: a matter between the caller and the
 			// backend, and one the caller can act on.
@@ -572,11 +639,11 @@ func (g *Gateway) callTool(ctx context.Context, serverSubject string, req *mcp.C
 		audit.Error(err, "tool call refused by backend", "status", refused.StatusCode, "duration", elapsed)
 		return unavailableResult(), nil
 	case errors.As(err, &credential):
-		metrics.RecordToolCall(ref.Server, ref.Tool, metrics.CallUnauthorized, elapsed.Seconds())
+		record(metrics.CallUnauthorized, elapsed)
 		audit.Error(err, "tool call failed", "reason", "credentials unavailable", "duration", elapsed)
 		return unavailableResult(), nil
 	case err != nil:
-		metrics.RecordToolCall(ref.Server, ref.Tool, metrics.CallBackendError, elapsed.Seconds())
+		record(metrics.CallBackendError, elapsed)
 		// A JSON-RPC error from the backend — invalid arguments, typically —
 		// is the backend's answer and goes back as it came.
 		if wire, ok := discovery.BackendError(err); ok {
@@ -586,10 +653,10 @@ func (g *Gateway) callTool(ctx context.Context, serverSubject string, req *mcp.C
 		audit.Error(err, "tool call failed", "duration", elapsed)
 		return unavailableResult(), nil
 	case res.IsError:
-		metrics.RecordToolCall(ref.Server, ref.Tool, metrics.CallToolError, elapsed.Seconds())
+		record(metrics.CallToolError, elapsed)
 		audit.Info("tool call returned an error", "duration", elapsed)
 	default:
-		metrics.RecordToolCall(ref.Server, ref.Tool, metrics.CallOK, elapsed.Seconds())
+		record(metrics.CallOK, elapsed)
 		audit.Info("tool call", "duration", elapsed)
 	}
 	return res, nil
