@@ -1,3 +1,18 @@
+# [1.12.0](https://github.com/metapatrol/mcp-gateway/compare/v1.11.0...v1.12.0) (2026-11-07)
+
+
+### Bug Fixes
+
+* **deps:** update @metapatrol/brand, ng and style to ^0.9.0 ([a36dba9](https://github.com/metapatrol/mcp-gateway/commit/a36dba9386796d10f10823ec086d2efb3f6574a4)), closes [#65](https://github.com/metapatrol/mcp-gateway/issues/65) [#66](https://github.com/metapatrol/mcp-gateway/issues/66) [#67](https://github.com/metapatrol/mcp-gateway/issues/67)
+* **deps:** update go dependencies ([694df86](https://github.com/metapatrol/mcp-gateway/commit/694df86f754fd7dbe9d2ce4df5a3773fadf48611))
+* **deps:** update module github.com/prometheus/client_golang to v1.25.0 ([c83a348](https://github.com/metapatrol/mcp-gateway/commit/c83a3487d7ce540950bb65e6cbed31227e4d538a))
+
+
+### Features
+
+* **crd:** reach SSE-only backends with spec.transport ([87cc0b1](https://github.com/metapatrol/mcp-gateway/commit/87cc0b12a24d6a4d3755316ff078eda0d195d73d)), closes [#69](https://github.com/metapatrol/mcp-gateway/issues/69)
+* **gateway:** trace tool calls with OpenTelemetry ([fa63abf](https://github.com/metapatrol/mcp-gateway/commit/fa63abf273d9d37ed787bcf0ac6efdc3b22eb90a)), closes [#68](https://github.com/metapatrol/mcp-gateway/issues/68)
+
 # [1.11.0](https://github.com/metapatrol/mcp-gateway/compare/v1.10.0...v1.11.0) (2026-10-05)
 
 

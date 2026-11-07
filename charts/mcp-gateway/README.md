@@ -6,8 +6,8 @@ Kubernetes-native access layer for MCP backends — one governed MCP endpoint, t
 
 | Field | Value |
 |---|---|
-| Version | `1.11.0` |
-| App Version | `1.11.0` |
+| Version | `1.12.0` |
+| App Version | `1.12.0` |
 | Type | `application` |
 
 ## Values
