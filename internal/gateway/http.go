@@ -89,7 +89,7 @@ func (g *Gateway) Handler(opts HandlerOptions) (http.Handler, error) {
 		AllowMissingExpiration: true,
 		ClockSkew:              30 * time.Second,
 	})
-	mux.Handle(opts.Path, countMissingTokens(requireToken(streamable)))
+	mux.Handle(opts.Path, countMissingTokens(requireToken(requireProtocol(streamable))))
 	return mux, nil
 }
 
@@ -112,6 +112,25 @@ func countMissingTokens(next http.Handler) http.Handler {
 			metrics.RecordAuthFailure(auth.ReasonMissingToken)
 		}
 		next.ServeHTTP(w, r)
+	})
+}
+
+// requireProtocol refuses every request that does not name MCP 2026-07-28 in
+// its MCP-Protocol-Version header. The SDK takes a request without the header
+// for one of the session-based protocols and answers it — initialize included,
+// with a version the next request is refused for. A client of those protocols
+// would get halfway and then fail; refused here, it learns at once what the
+// gateway speaks.
+func requireProtocol(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch v := r.Header.Get("MCP-Protocol-Version"); v {
+		case ProtocolVersion:
+			next.ServeHTTP(w, r)
+		case "":
+			http.Error(w, "Bad Request: missing MCP-Protocol-Version header (supported versions: "+ProtocolVersion+")", http.StatusBadRequest)
+		default:
+			http.Error(w, "Bad Request: Unsupported protocol version (supported versions: "+ProtocolVersion+")", http.StatusBadRequest)
+		}
 	})
 }
 

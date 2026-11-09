@@ -61,7 +61,9 @@ maintainers use it. See [authentication](authentication.md).
 
 Towards agents, **MCP 2026-07-28** only. It has no sessions, so any replica
 answers any request; clients of the older, session-based versions are
-refused. Towards backends, whatever they speak: the SDK negotiates
+refused. Every request must carry `MCP-Protocol-Version: 2026-07-28`; one
+without it, `initialize` included, is answered 400 with the supported
+version. Towards backends, whatever they speak: the SDK negotiates
 2026-07-28 or the backend's newest session-based version.
 
 ## Our agent cannot do OAuth. Can it still connect?

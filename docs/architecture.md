@@ -301,8 +301,11 @@ since it carries backend addresses.
 Agents speak **MCP 2026-07-28** to the gateway, and nothing older. That version has
 no sessions: every request carries its own identity and is answered on its own,
 and a client that wants to hear about changes keeps a `subscriptions/listen`
-stream open. A client of a session-based version is refused; the gateway keeps
-no compatibility layer for a superseded specification.
+stream open. A client of a session-based version is refused at its first
+request: anything without `MCP-Protocol-Version: 2026-07-28` gets a 400 that
+names the supported version, before the SDK could take it for an older
+protocol. The gateway keeps no compatibility layer for a superseded
+specification.
 
 That is what makes replicas plain. Any replica answers any request, nothing pins
 an agent to one, and every replica keeps each subject's tools in step with the
