@@ -81,6 +81,7 @@ This is Hydra's default token strategy.
 | No `Authorization: Bearer` | 401 | `missing_token` |
 | Bad signature, wrong issuer or audience, expired, no subject … | 401 | `signature`, `issuer`, `audience`, `expired`, `no_subject`, … |
 | JWKS or introspection endpoint unreachable | 500 | `unavailable` |
+| Valid token, but no `MCP-Protocol-Version: 2026-07-28` | 400, naming the supported version | — |
 
 The provider being down is deliberately not a 401: a 401 tells a well-behaved
 client its token is bad, and it would go and fetch a new one from the provider

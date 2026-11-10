@@ -311,7 +311,7 @@ the backend's names.
 
 **`tools/list`** is answered from the subject's tool list, which the gateway
 keeps current as manifests and catalogs change. A slow or failing backend does
-not hold up the others: its tools stay listed for `catalogMaxAge` and then drop
+not hold up the others: its tools stay listed for the gateway's `--catalog-max-age` and then drop
 out until discovery succeeds again.
 
 **`tools/call`** is authorised again, on every call, against the current
@@ -380,7 +380,7 @@ may widen access.
 
 | Situation | Outcome |
 |---|---|
-| A backend is unavailable | Its tools drop out after `catalogMaxAge`; other backends are unaffected. Its tool sets go `Ready=False`. |
+| A backend is unavailable | Its tools drop out after the gateway's `--catalog-max-age`; other backends are unaffected. Its tool sets go `Ready=False`. |
 | A named tool disappears | It is no longer exposed; the rest of its tool set is. `MissingTools`. |
 | A grant names a missing capability | That name grants nothing; the rest of the grant applies. `Valid=False`. |
 | Two tools claim one name | Neither is exposed. `ToolNameConflict`. |

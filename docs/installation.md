@@ -25,7 +25,7 @@ The examples use the OAuth provider at `id.example.com`, the namespace
 | Helm | 3.8 or later, for charts from an OCI registry. |
 | An OAuth 2.0 provider | One that issues access tokens by the client credentials grant, and either publishes a JWKS for JWT access tokens or offers RFC 7662 introspection for opaque ones. Ory Hydra, Keycloak, Zitadel and others do. |
 | MCP backends | Servers speaking MCP over Streamable HTTP, or over HTTP+SSE with `spec.transport: SSE`. Any version works towards backends; the SDK negotiates it. |
-| Agents | Clients speaking **MCP 2026-07-28**, or any MCP client behind `mcp-gateway-proxy`. |
+| Agents | Clients speaking **MCP 2026-07-28** — directly with an OAuth token, or behind `mcp-gateway-proxy`, which adds the token and passes everything else unchanged. Older clients are refused with 400; see the [compatibility matrix](faq.md#which-mcp-versions-does-it-speak). |
 
 ## 1. An OAuth client per agent
 

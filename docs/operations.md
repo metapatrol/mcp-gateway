@@ -49,7 +49,7 @@ select ServiceMonitors by a label — `serviceMonitor.additionalLabels`).
 | `mcp_gateway_inspect_request_duration_seconds{operation}` | gateway | Inspect API latency, the event stream excepted |
 | `mcp_gateway_inspect_event_streams` | gateway | Open event streams |
 | `mcp_gateway_inspect_auth_failures_total{reason}` | gateway | Refused inspect tokens: `missing_token`, `review_failed`, `not_authenticated`, `wrong_audience`, `not_service_account`, `service_account_not_allowed` |
-| `mcp_gateway_build_info{component,…}` | all | Version, commit, build time, Go version |
+| `mcp_gateway_build_info{component,…}` | both | Version, commit, build time, Go version |
 
 controller-runtime's own `controller_runtime_*` and `workqueue_*` families come
 with them.
@@ -64,8 +64,8 @@ helm install mcp-gateway-dashboard oci://ghcr.io/metapatrol/charts/mcp-gateway-g
   --namespace monitoring
 ```
 
-Its rows: tool calls, access, backend availability, resource state, the
-inspect API, reconcilers and runtime. → [Dashboard chart](../charts/mcp-gateway-grafana-dashboard/README.md)
+Its rows: an overview, tool calls, access, backend availability, resource
+state, reconcilers, the inspect API and runtime. → [Dashboard chart](../charts/mcp-gateway-grafana-dashboard/README.md)
 
 ## Alerts
 
@@ -130,8 +130,8 @@ gateway:
     endpoint: http://otel-collector.observability:4318
 ```
 
-The value becomes `OTEL_EXPORTER_OTLP_ENDPOINT`, and `serviceName` becomes
-`OTEL_SERVICE_NAME`. Any other standard `OTEL_*` variable, such as
+The value becomes `OTEL_EXPORTER_OTLP_ENDPOINT`, and `serviceName` (default
+`mcp-gateway`) becomes `OTEL_SERVICE_NAME`. Any other standard `OTEL_*` variable, such as
 `OTEL_EXPORTER_OTLP_HEADERS` or `OTEL_TRACES_SAMPLER`, goes into
 `gateway.env`. Without an endpoint, nothing is exported.
 
@@ -213,12 +213,13 @@ them from the release's tag first:
 
 ```bash
 v=<new version>
-for kind in mcpservers mcptoolsets mcpcapabilities mcpgrants; do
-  kubectl apply --server-side -f "https://raw.githubusercontent.com/metapatrol/mcp-gateway/v$v/charts/mcp-gateway/crds/mcp-gateway.metapatrol.com_$kind.yaml"
-done
+git -C mcp-gateway fetch --tags && git -C mcp-gateway checkout "v$v"
+kubectl apply --server-side -f mcp-gateway/charts/mcp-gateway/crds/
 ```
 
-or from a checkout: `kubectl apply --server-side -f charts/mcp-gateway/crds/`.
+or from the chart itself:
+`helm pull oci://ghcr.io/metapatrol/charts/mcp-gateway --version "$v" --untar`,
+then `kubectl apply --server-side -f mcp-gateway/crds/`.
 
 The API is `v1alpha1`. Changes that break manifests are marked as breaking in
 the changelog.

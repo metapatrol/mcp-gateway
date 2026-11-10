@@ -115,7 +115,8 @@ where it is   which tools    a useful ability  who holds it
 **Operations**
 
 - Agents speak MCP 2026-07-28, without sessions: any replica answers any
-  request.
+  request. Backends may speak any version since 2024-11-05 — see the
+  [compatibility matrix](docs/faq.md#which-mcp-versions-does-it-speak).
 - OAuth 2.0 with any provider: JWTs against a JWKS, or RFC 7662 introspection;
   RFC 9728 protected resource metadata.
 - Prometheus metrics, a Grafana dashboard chart, an audit record for every

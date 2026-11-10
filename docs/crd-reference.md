@@ -8,8 +8,8 @@ kubectl get mcp-gateway
 kubectl explain mcptoolset.spec
 ```
 
-Every kind reports `status.observedGeneration` and conditions of type `Valid`
-and `Ready`. Their reasons are listed per kind below and are stable: alerts and
+Every kind reports `status.observedGeneration` and a `Ready` condition; all but
+`MCPServer` also report `Valid`. Their reasons are listed per kind below and are stable: alerts and
 tooling may match on them.
 
 ---
@@ -183,7 +183,8 @@ While the backend is down, `discoveredTools`, `catalogRevision` and
 | `Ready=False` | `CredentialsUnavailable` | The credentials `spec.auth` names could not be obtained: a Secret or key is missing — the message names it, and lists the keys the Secret does have — or the token endpoint refused the client. |
 | `Ready=False` | `Unauthorized` | The backend answered 401 or 403: it refused the credentials `spec.auth` sends, or wants credentials and `spec.auth` sends none. |
 
-Printer columns: `Endpoint`, `Available`, `Tools`, `Ready`.
+Printer columns: `Endpoint`, `Available`, `Tools`, `Ready`, `Age`; with
+`-o wide` also `Transport`.
 
 ---
 

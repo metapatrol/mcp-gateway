@@ -61,7 +61,7 @@ resolving a subject is the expensive part of it; the other four come whole.
 | Page | Shows |
 |---|---|
 | Overview | How many of each kind are Ready, everything that is not — the resource at fault first, the ones only passing it on after — and a map from grants through capabilities and tool sets to servers. Hovering a box follows its chain |
-| Servers | Endpoint, `spec.auth` with Secrets by name and key only, discovery as the controller reports it and as this gateway replica sees it, the backend's instructions, and its catalog with every tool's description, arguments, and the hints the backend declares for it |
+| Servers | Endpoint, transport, `spec.auth` with Secrets by name and key only, discovery as the controller reports it and as this gateway replica sees it, the backend's instructions, and its catalog with every tool's description, arguments, and the hints the backend declares for it |
 | Tool sets | The entries of `tools`, `exclude`, `prefix` and `aliases` beside the whole catalog, and for every tool whether it is exposed, under which name, and which entry decided it. Selecting an entry marks the tools it selected or removed. The instructions an agent holding the tool set would be sent |
 | Capabilities | Its tool sets, the grants that use it, the tools it comes to, name conflicts, and the instructions an agent holding it would be sent |
 | Grants | Its subject, its capabilities, the ones that do not exist, the other grants for the same subject, and the instructions an agent holding it would be sent |

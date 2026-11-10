@@ -33,6 +33,7 @@ internal/inspect/api          generated from api/openapi/inspect.yaml
 internal/proxy              mcp-gateway-proxy
 internal/ui                 mcp-gateway-ui: the embedded web UI, /api passed on
 internal/metrics            Prometheus metrics
+internal/tracing            OpenTelemetry setup, OTLP/HTTP
 internal/mcptest            real MCP backends for tests
 web/ui                      the console's web UI (Angular)
 charts/mcp-gateway          the Helm chart; its crds/ are generated

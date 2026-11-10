@@ -61,10 +61,29 @@ maintainers use it. See [authentication](authentication.md).
 
 Towards agents, **MCP 2026-07-28** only. It has no sessions, so any replica
 answers any request; clients of the older, session-based versions are
-refused. Every request must carry `MCP-Protocol-Version: 2026-07-28`; one
-without it, `initialize` included, is answered 400 with the supported
-version. Towards backends, whatever they speak: the SDK negotiates
+refused. Towards backends, whatever they speak: the SDK negotiates
 2026-07-28 or the backend's newest session-based version.
+
+| MCP version | Transport | Agent → gateway | Gateway → backend |
+|---|---|---|---|
+| 2026-07-28 | Streamable HTTP, stateless | ✅ the only one | ✅ preferred: no sessions |
+| 2025-11-25 | Streamable HTTP, sessions | ❌ 400 | ✅ |
+| 2025-06-18 | Streamable HTTP, sessions | ❌ 400 | ✅ |
+| 2025-03-26 | Streamable HTTP, sessions | ❌ 400 | ✅ |
+| 2024-11-05 | HTTP+SSE | ❌ 400 | ✅ with `transport: SSE` |
+| any | stdio | ❌ | ❌ — wrap it in an HTTP server |
+
+Every request from an agent must carry `MCP-Protocol-Version: 2026-07-28`,
+the `Mcp-Method` header and the `io.modelcontextprotocol/*` fields in
+`params._meta`; it starts with `server/discover`, not `initialize`. A request
+without the version header, `initialize` included, is answered 400 with the
+supported version. `mcp-gateway-proxy` forwards HTTP unchanged, so an agent
+behind it speaks 2026-07-28 too.
+
+There is no compatibility layer for a superseded version towards agents. A
+backend is someone else's software, so there the gateway takes what the SDK
+can negotiate. When a new revision is released, the gateway will accept it
+next to 2026-07-28 until its own agents have moved.
 
 ## Our agent cannot do OAuth. Can it still connect?
 
@@ -117,7 +136,7 @@ an `exclude` for what must never be granted by accident, and check
 
 ## What happens when a backend is down?
 
-Its tools stay listed for `catalogMaxAge` (five minutes by default) and calls
+Its tools stay listed for `--catalog-max-age` (five minutes by default) and calls
 to them return a tool error the model can see; then they drop out of tool
 lists until discovery succeeds again. Other backends are not affected. See
 [architecture: failure behaviour](architecture.md#failure-behaviour).

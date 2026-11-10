@@ -67,6 +67,7 @@ graph TB
 | `internal/controller` | The control plane: verification and status |
 | `internal/proxy` | `mcp-gateway-proxy` |
 | `internal/metrics` | Prometheus metrics of the gateway, the controller and the proxy |
+| `internal/tracing` | OpenTelemetry setup: OTLP/HTTP when `OTEL_EXPORTER_OTLP_*` is set, otherwise nothing |
 | `internal/inspect` | The gateway's read-only inspect API and its event stream; `internal/inspect/api` is generated from `api/openapi/inspect.yaml` |
 | `internal/ui` | `mcp-gateway-ui`: serves the embedded web UI and passes `/api` on to the inspect API |
 | `web/ui` | The console's web UI (Angular); its API client is generated from the same spec |
@@ -257,6 +258,7 @@ sequenceDiagram
     participant B as Backend
 
     Agent->>S: tools/call name=artifact_get
+    Note over S: span "tools/call artifact_get", continuing the agent's traceparent
     alt tool not registered for this subject
         S-->>Agent: error "unknown tool" (audited, counted)
     else
@@ -292,6 +294,12 @@ after the answer for notifications the backend sent before it: not at all when
 the last one reported the work complete, otherwise until none has come for 25 ms,
 at most 250 ms.
 
+Every call is a span, started before the SDK looks the tool up, so a refused call
+is traced too: it continues the agent's `traceparent`, carries the subject, the
+server, the tool and the outcome, and the request to the backend carries it on.
+Without an OTLP endpoint nothing is recorded. See
+[Operations](./operations.md#traces).
+
 A backend failure comes back as a tool result with `isError: true` — something
 the model can see and work around — and the cause is logged rather than returned,
 since it carries backend addresses.
@@ -302,9 +310,10 @@ Agents speak **MCP 2026-07-28** to the gateway, and nothing older. That version 
 no sessions: every request carries its own identity and is answered on its own,
 and a client that wants to hear about changes keeps a `subscriptions/listen`
 stream open. A client of a session-based version is refused at its first
-request: anything without `MCP-Protocol-Version: 2026-07-28` gets a 400 that
-names the supported version, before the SDK could take it for an older
-protocol. The gateway keeps no compatibility layer for a superseded
+authenticated request: anything without `MCP-Protocol-Version: 2026-07-28` gets
+a 400 that names the supported version, before the SDK could take it for an
+older protocol. The token is checked first, so a request without one still
+gets the 401 that says where to get one. The gateway keeps no compatibility layer for a superseded
 specification.
 
 That is what makes replicas plain. Any replica answers any request, nothing pins
@@ -316,7 +325,15 @@ affinity is needed.
 Towards backends the protocol is the SDK's to negotiate: 2026-07-28 with a
 backend that speaks it, the backend's newest session-based version with one
 that does not. Backends are not the gateway's to choose, and talking to an older
-one takes no code of the gateway's own.
+one takes no code of the gateway's own. The
+[FAQ](./faq.md#which-mcp-versions-does-it-speak) has the matrix.
+
+A backend speaks Streamable HTTP unless its `spec.transport` is `SSE`: the
+HTTP+SSE transport of MCP 2024-11-05, for backends that never moved on. There
+every connection — the shared one, a caller's, the listener — holds an event
+stream open for as long as it lives, and requests go out as POSTs to the
+endpoint the stream names. Changing the transport discards the catalog, as
+changing the endpoint does.
 
 Requests go out on **one client connection per backend**, shared by every
 caller. When a session-based backend restarts and no longer knows the session,
@@ -344,8 +361,8 @@ connect timeout and retried with backoff, that costs neither a catalog read nor
 a tool call anything. The listener also notices a listen stream that ends —
 which the SDK does not report — and connects again.
 
-Credentials are added by a per-connection HTTP transport, which also turns a 401
-or 403 into a transport error. The SDK ends a session on an HTTP error it cannot
+Credentials are added by a per-connection HTTP transport, which also carries the
+trace context on and turns a 401 or 403 into a transport error. The SDK ends a session on an HTTP error it cannot
 decode; a refused request must not end one that other callers share.
 See [Authentication](./authentication.md#towards-backends).
 
