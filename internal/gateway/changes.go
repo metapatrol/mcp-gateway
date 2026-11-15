@@ -93,12 +93,15 @@ func (g *Gateway) watch(subject string) (<-chan struct{}, func()) {
 	}
 }
 
+// acceptsEventStream reports whether a GET asks for the stream by name, as an
+// MCP client must. A wildcard does not count: a plain GET — a browser, a probe
+// for OAuth metadata — would otherwise be held open by a stream that never
+// ends.
 func acceptsEventStream(r *http.Request) bool {
 	for _, v := range r.Header.Values("Accept") {
 		for part := range strings.SplitSeq(v, ",") {
 			media, _, _ := strings.Cut(part, ";")
-			switch strings.TrimSpace(media) {
-			case "text/event-stream", "text/*", "*/*":
+			if strings.TrimSpace(media) == "text/event-stream" {
 				return true
 			}
 		}

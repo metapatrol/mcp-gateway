@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -127,6 +128,8 @@ func TestChangeStream(t *testing.T) {
 	assert.Equal(t, http.StatusMethodNotAllowed, get("token-reviewer", ProtocolVersion, "text/event-stream").StatusCode,
 		"2026-07-28 listens with subscriptions/listen")
 	assert.Equal(t, http.StatusNotAcceptable, get("token-reviewer", "", "application/json").StatusCode)
+	assert.Equal(t, http.StatusNotAcceptable, get("token-reviewer", "", "*/*").StatusCode,
+		"a plain GET is not held open: an MCP client names the stream")
 
 	resp := get("token-reviewer", "2025-06-18", "text/event-stream")
 	require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -207,4 +210,26 @@ func TestProtocolVersionHeader(t *testing.T) {
 	code, body = send("initialize", ProtocolVersion, meta)
 	assert.Equal(t, http.StatusNotFound, code)
 	assert.Contains(t, body, "method not found")
+}
+
+// An endpoint served at / answers only /. A client probing for OAuth metadata
+// at the well-known path — LibreChat does, with a plain GET — gets a 404 at
+// once, not the endpoint and its stream.
+func TestEndpointAtTheRootServesOnlyTheRoot(t *testing.T) {
+	e := newEnv(t, Options{})
+	handler, err := e.gateway.Handler(HandlerOptions{Path: "/", Verifier: fakeVerifier})
+	require.NoError(t, err)
+
+	for _, path := range []string{"/.well-known/oauth-protected-resource", "/.well-known/oauth-protected-resource/", "/mcp", "/anything"} {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		req.Header.Set("Authorization", "Bearer token-reviewer")
+		handler.ServeHTTP(rec, req)
+		assert.Equal(t, http.StatusNotFound, rec.Code, path)
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{}`))
+	handler.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusUnauthorized, rec.Code, "the endpoint itself")
 }

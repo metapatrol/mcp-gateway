@@ -90,7 +90,7 @@ func (g *Gateway) Handler(opts HandlerOptions) (http.Handler, error) {
 		AllowMissingExpiration: true,
 		ClockSkew:              30 * time.Second,
 	})
-	mux.Handle(opts.Path, countMissingTokens(requireToken(requireProtocol(g.routeChanges(streamable)))))
+	mux.Handle(opts.Path, exactPath(opts.Path, countMissingTokens(requireToken(requireProtocol(g.routeChanges(streamable))))))
 	return mux, nil
 }
 
@@ -103,6 +103,21 @@ func (g *Gateway) serverForRequest(r *http.Request) *mcp.Server {
 		return nil
 	}
 	return g.serverFor(info.UserID)
+}
+
+// exactPath answers 404 for any path but the endpoint's own. A mux pattern
+// ending in / matches everything below it, and the endpoint served at / would
+// otherwise take every request for a path nothing else claims — a client's
+// probe for /.well-known/oauth-protected-resource among them, when no metadata
+// is configured.
+func exactPath(path string, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != path {
+			http.NotFound(w, r)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // countMissingTokens records requests that arrive without any bearer token. The
