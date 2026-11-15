@@ -1,3 +1,16 @@
+# [1.13.0](https://github.com/metapatrol/mcp-gateway/compare/v1.12.0...v1.13.0) (2026-11-15)
+
+
+### Bug Fixes
+
+* **deps:** update go dependencies ([e81ebcb](https://github.com/metapatrol/mcp-gateway/commit/e81ebcbe7d266e4ed0cc52e84478a690aa9b5be5))
+* **gateway:** refuse requests that do not name MCP 2026-07-28 ([f6b0045](https://github.com/metapatrol/mcp-gateway/commit/f6b00458d53a831eea4dfa2c29f352d358126c18))
+
+
+### Features
+
+* **gateway:** serve agents of MCP 2025-03-26 to 2025-11-25 without sessions ([f8c5bbe](https://github.com/metapatrol/mcp-gateway/commit/f8c5bbea4b28646543875178f6ac0da625f25855)), closes [#102](https://github.com/metapatrol/mcp-gateway/issues/102) [#103](https://github.com/metapatrol/mcp-gateway/issues/103)
+
 # [1.12.0](https://github.com/metapatrol/mcp-gateway/compare/v1.11.0...v1.12.0) (2026-11-07)
 
 
