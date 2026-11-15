@@ -3,12 +3,14 @@
 //
 // # Protocol
 //
-// Agents speak MCP 2026-07-28 to the gateway, and nothing older. That version
-// has no sessions: each request carries its own identity and is answered on its
-// own, which is what lets any number of replicas stand behind one Service
-// without pinning a client to one of them. Clients of the session-based
-// versions are refused; the gateway keeps no compatibility layer for a
-// superseded specification.
+// Agents speak MCP 2026-07-28 to the gateway, or one of the Streamable HTTP
+// versions before it, back to 2025-03-26. 2026-07-28 has no sessions: each
+// request carries its own identity and is answered on its own, which is what
+// lets any number of replicas stand behind one Service without pinning a
+// client to one of them. The older versions make sessions optional, and the
+// gateway serves them without: every request on a session of its own that ends
+// with it, and change notifications on a GET stream that the token alone ties
+// to a subject. Older than that, HTTP+SSE, needs sessions and is refused.
 //
 // # Shape
 //
@@ -120,6 +122,9 @@ type subjectServer struct {
 	server   *mcp.Server
 	tools    map[string]exposed
 	lastUsed time.Time
+	// streams are the GET streams agents of the session-based versions hold
+	// open to hear that the tools changed. The SDK knows nothing of them.
+	streams map[chan struct{}]struct{}
 }
 
 // exposed is one tool registered on a subject's server. tool is the catalog's
@@ -208,6 +213,9 @@ func (g *Gateway) idle(ss *subjectServer, now time.Time) bool {
 	if now.Sub(ss.lastUsed) < g.opts.IdleServerTTL {
 		return false
 	}
+	if len(ss.streams) > 0 {
+		return false
+	}
 	// A request in flight, a listen stream above all, is a session to the
 	// SDK for as long as it lasts.
 	for range ss.server.Sessions() {
@@ -216,8 +224,14 @@ func (g *Gateway) idle(ss *subjectServer, now time.Time) bool {
 	return true
 }
 
-// ProtocolVersion is the one MCP version the gateway speaks to agents.
+// ProtocolVersion is the newest MCP version the gateway speaks to agents, the
+// one without sessions.
 const ProtocolVersion = "2026-07-28"
+
+// ProtocolVersions are all the versions the gateway speaks to agents, newest
+// first: 2026-07-28 and the Streamable HTTP versions before it, which it serves
+// without sessions.
+var ProtocolVersions = []string{ProtocolVersion, "2025-11-25", "2025-06-18", "2025-03-26"}
 
 // serverFor returns the MCP server of a subject, creating and populating it on
 // first use. It is the getServer function of the Streamable HTTP handler.
@@ -227,8 +241,9 @@ func (g *Gateway) serverFor(subject string) *mcp.Server {
 	ss, ok := g.subjects[subject]
 	if !ok {
 		ss = &subjectServer{
-			server: g.newServer(),
-			tools:  map[string]exposed{},
+			server:  g.newServer(),
+			tools:   map[string]exposed{},
+			streams: map[chan struct{}]struct{}{},
 		}
 		ss.server.AddReceivingMiddleware(traceCalls, g.auditRefusals(subject), g.forwardInstructions(subject))
 		g.subjects[subject] = ss
@@ -256,7 +271,7 @@ func (g *Gateway) auditRefusals(subject string) mcp.Middleware {
 }
 
 // forwardInstructions puts the backends' instructions into the answer a client
-// gets when it starts: server/discover.
+// gets when it starts: server/discover, or initialize in the older versions.
 //
 // A backend's instructions tell a model how to use its tools — which one to
 // reach for first, what an argument means, what a partial answer looks like.
@@ -281,7 +296,7 @@ func (g *Gateway) newServer() *mcp.Server {
 		SetCacheable: func(_ context.Context, _ mcp.Request, c *mcp.Cacheable) {
 			c.CacheScope = "private"
 		},
-		SupportedProtocolVersions: []string{ProtocolVersion},
+		SupportedProtocolVersions: ProtocolVersions,
 	})
 }
 
@@ -292,7 +307,10 @@ func (g *Gateway) forwardInstructions(subject string) mcp.Middleware {
 			if err != nil {
 				return res, err
 			}
-			if r, ok := res.(*mcp.DiscoverResult); ok {
+			switch r := res.(type) {
+			case *mcp.DiscoverResult:
+				r.Instructions = g.instructionsFor(subject)
+			case *mcp.InitializeResult:
 				r.Instructions = g.instructionsFor(subject)
 			}
 			return res, nil
@@ -430,9 +448,21 @@ func (g *Gateway) usableCatalog(server string) (*discovery.Catalog, bool) {
 
 // syncLocked brings one subject's registered tools in line with desired. Only
 // actual differences touch the server, because every AddTool and RemoveTools
-// sends the subject's listen streams a list_changed notification.
+// sends the subject's listen streams a list_changed notification — and the
+// subject's GET streams are told the same here.
 func (g *Gateway) syncLocked(subject string, ss *subjectServer) {
 	want := g.desired(subject)
+	changed := false
+	defer func() {
+		if changed {
+			for stream := range ss.streams {
+				select {
+				case stream <- struct{}{}:
+				default: // one pending notification says it all
+				}
+			}
+		}
+	}()
 
 	var remove []string
 	for name := range ss.tools {
@@ -455,9 +485,11 @@ func (g *Gateway) syncLocked(subject string, ss *subjectServer) {
 			continue
 		}
 		ss.tools[name] = w
+		changed = true
 	}
 
 	if len(remove) > 0 {
+		changed = true
 		ss.server.RemoveTools(remove...)
 		for _, name := range remove {
 			delete(ss.tools, name)

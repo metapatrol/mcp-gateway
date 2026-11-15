@@ -1,11 +1,9 @@
 package gateway
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -455,19 +453,6 @@ func TestUnauthenticatedRequestsGetAChallenge(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// MCP 2026-07-28 is the only version spoken. A client of the session-based
-// protocol does not get as far as a tool list.
-func TestTheSessionBasedProtocolIsRefused(t *testing.T) {
-	e := newEnv(t, Options{})
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	_, err := mcp.NewClient(&mcp.Implementation{Name: "old-agent", Version: "test"}, nil).Connect(ctx,
-		&mcp.StreamableClientTransport{Endpoint: e.url, HTTPClient: &http.Client{Transport: bearer("token-reviewer")}},
-		&mcp.ClientSessionOptions{ProtocolVersion: "2025-11-25"})
-	require.Error(t, err)
-	assert.Zero(t, e.artifact.Calls.Load())
-}
-
 func TestProtectedResourceMetadata(t *testing.T) {
 	e := newEnv(t, Options{})
 	base := strings.TrimSuffix(e.url, "/mcp")
@@ -832,63 +817,4 @@ func TestProgress_ReachesTheAgent(t *testing.T) {
 			}, got)
 		})
 	}
-}
-
-// A client of the session-based protocols is refused at its first request,
-// whatever it sends — not answered until a later request names a version.
-func TestOnlyTheStatelessProtocolIsAnswered(t *testing.T) {
-	e := newEnv(t, Options{})
-	meta := map[string]any{
-		"io.modelcontextprotocol/protocolVersion":    ProtocolVersion,
-		"io.modelcontextprotocol/clientInfo":         map[string]any{"name": "agent", "version": "test"},
-		"io.modelcontextprotocol/clientCapabilities": map[string]any{},
-	}
-	send := func(httpMethod, method, version string, params map[string]any) (int, string) {
-		t.Helper()
-		var body io.Reader = http.NoBody
-		if httpMethod == http.MethodPost {
-			raw, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": 1, "method": method, "params": params})
-			body = bytes.NewReader(raw)
-		}
-		req, _ := http.NewRequest(httpMethod, e.url, body)
-		req.Header.Set("Authorization", "Bearer token-reviewer")
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Accept", "application/json, text/event-stream")
-		if version != "" {
-			req.Header.Set("MCP-Protocol-Version", version)
-		}
-		if method != "" {
-			req.Header.Set("Mcp-Method", method)
-		}
-		resp, err := http.DefaultClient.Do(req)
-		require.NoError(t, err)
-		defer func() { _ = resp.Body.Close() }()
-		raw, _ := io.ReadAll(resp.Body)
-		return resp.StatusCode, string(raw)
-	}
-	initialize := map[string]any{"protocolVersion": "2025-11-25", "capabilities": map[string]any{},
-		"clientInfo": map[string]any{"name": "old-agent", "version": "test"}}
-
-	for name, tc := range map[string]struct{ httpMethod, method, version string }{
-		"initialize without a version":      {http.MethodPost, "initialize", ""},
-		"initialize naming an old version":  {http.MethodPost, "initialize", "2025-11-25"},
-		"tools/list without a version":      {http.MethodPost, "tools/list", ""},
-		"tools/list naming an old version":  {http.MethodPost, "tools/list", "2025-06-18"},
-		"a GET stream without a version":    {http.MethodGet, "", ""},
-		"a session ended without a version": {http.MethodDelete, "", ""},
-	} {
-		code, body := send(tc.httpMethod, tc.method, tc.version, initialize)
-		assert.Equal(t, http.StatusBadRequest, code, name)
-		assert.Contains(t, body, "supported versions: "+ProtocolVersion, name)
-	}
-	assert.Zero(t, e.artifact.Calls.Load())
-
-	code, body := send(http.MethodPost, "tools/list", ProtocolVersion, map[string]any{"_meta": meta})
-	assert.Equal(t, http.StatusOK, code)
-	assert.Contains(t, body, "artifact_publish")
-
-	// MCP 2026-07-28 has no initialize; server/discover takes its place.
-	code, body = send(http.MethodPost, "initialize", ProtocolVersion, map[string]any{"_meta": meta})
-	assert.Equal(t, http.StatusNotFound, code)
-	assert.Contains(t, body, "method not found")
 }

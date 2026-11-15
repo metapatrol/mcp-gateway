@@ -20,9 +20,9 @@ import (
 // Backend is a client connection to one MCP server.
 //
 // The protocol version is the SDK's to negotiate: MCP 2026-07-28 with a backend
-// that speaks it, the backend's newest session-based version otherwise. The
-// gateway serves agents in 2026-07-28 alone, but backends are not the gateway's
-// to choose, and talking to an older one takes no code of its own here.
+// that speaks it, the backend's newest session-based version otherwise.
+// Backends are not the gateway's to choose, and talking to an older one takes
+// no code of its own here.
 //
 // Requests go out on one client connection per backend, shared by every caller.
 // The SDK multiplexes concurrent requests over it, so a hundred agents calling

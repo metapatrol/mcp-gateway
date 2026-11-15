@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 
@@ -89,7 +90,7 @@ func (g *Gateway) Handler(opts HandlerOptions) (http.Handler, error) {
 		AllowMissingExpiration: true,
 		ClockSkew:              30 * time.Second,
 	})
-	mux.Handle(opts.Path, countMissingTokens(requireToken(requireProtocol(streamable))))
+	mux.Handle(opts.Path, countMissingTokens(requireToken(requireProtocol(g.routeChanges(streamable)))))
 	return mux, nil
 }
 
@@ -115,22 +116,31 @@ func countMissingTokens(next http.Handler) http.Handler {
 	})
 }
 
-// requireProtocol refuses every request that does not name MCP 2026-07-28 in
-// its MCP-Protocol-Version header. The SDK takes a request without the header
-// for one of the session-based protocols and answers it — initialize included,
-// with a version the next request is refused for. A client of those protocols
-// would get halfway and then fail; refused here, it learns at once what the
-// gateway speaks.
+// requireProtocol refuses a request that names a version the gateway does not
+// speak, with a 400 that lists the ones it does. A request without the header
+// goes through: a client of 2025-03-26 sends none, and nor does initialize in
+// any version before 2026-07-28; the SDK takes such a request for the oldest
+// of them.
 func requireProtocol(next http.Handler) http.Handler {
+	supported := strings.Join(ProtocolVersions, ", ")
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch v := r.Header.Get("MCP-Protocol-Version"); v {
-		case ProtocolVersion:
-			next.ServeHTTP(w, r)
-		case "":
-			http.Error(w, "Bad Request: missing MCP-Protocol-Version header (supported versions: "+ProtocolVersion+")", http.StatusBadRequest)
-		default:
-			http.Error(w, "Bad Request: Unsupported protocol version (supported versions: "+ProtocolVersion+")", http.StatusBadRequest)
+		if v := r.Header.Get("MCP-Protocol-Version"); v != "" && !slices.Contains(ProtocolVersions, v) {
+			http.Error(w, "Bad Request: Unsupported protocol version (supported versions: "+supported+")", http.StatusBadRequest)
+			return
 		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// routeChanges sends the GET of an agent of a session-based version to
+// serveChanges, and everything else to the SDK.
+func (g *Gateway) routeChanges(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			g.serveChanges(w, r)
+			return
+		}
+		next.ServeHTTP(w, r)
 	})
 }
 
@@ -157,7 +167,9 @@ func streamableOptions(logger *slog.Logger) *mcp.StreamableHTTPOptions {
 		// stream open. Any replica answers any request, and every replica
 		// keeps each subject's tools in step with the API on its own, so a
 		// listen stream on one replica learns what a grant change on any of
-		// them means. The SDK serves that protocol only on a stateless handler.
+		// them means. The SDK serves that protocol only on a stateless handler,
+		// and serves the session-based versions on it too, without sessions;
+		// their GET stream is the gateway's own (serveChanges).
 		Stateless: true,
 		Logger:    logger,
 		// The SDK refuses requests that arrive over loopback with a foreign

@@ -50,8 +50,8 @@ controller:
 
 gateway:
   # Every replica serves traffic; there is no leader, and nothing pins an agent
-  # to a replica. Agents speak MCP 2026-07-28, which has no sessions: any
-  # replica answers any request.
+  # to a replica. Agents speak MCP 2026-07-28, or a Streamable HTTP version back
+  # to 2025-03-26, all served without sessions: any replica answers any request.
   replicaCount: 2
   image:
     repository: ghcr.io/metapatrol/mcp-gateway
