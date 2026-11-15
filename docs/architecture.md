@@ -306,27 +306,34 @@ since it carries backend addresses.
 
 ### Protocol and replicas
 
-Agents speak **MCP 2026-07-28** to the gateway, and nothing older. That version has
-no sessions: every request carries its own identity and is answered on its own,
-and a client that wants to hear about changes keeps a `subscriptions/listen`
-stream open. A client of a session-based version is refused at its first
-authenticated request: anything without `MCP-Protocol-Version: 2026-07-28` gets
-a 400 that names the supported version, before the SDK could take it for an
-older protocol. The token is checked first, so a request without one still
-gets the 401 that says where to get one. The gateway keeps no compatibility layer for a superseded
-specification.
+Agents speak **MCP 2026-07-28** to the gateway. That version has no sessions:
+every request carries its own identity and is answered on its own, and a
+client that wants to hear about changes keeps a `subscriptions/listen` stream
+open.
+
+The Streamable HTTP versions before it, 2025-03-26 to 2025-11-25, make
+sessions optional, and the gateway serves them without: the SDK answers each
+request on a session of its own that ends with it, and issues no
+`Mcp-Session-Id`. Those clients hear about changes on a `GET` stream, which the
+SDK refuses without a session; the gateway serves it itself. The token names
+the subject, and the stream gets `notifications/tools/list_changed` whenever
+that subject's tools change on the replica holding it.
+
+A request naming any other version — HTTP+SSE's 2024-11-05 among them — gets a
+400 that lists the supported ones. The token is checked first, so a request
+without one still gets the 401 that says where to get one.
 
 That is what makes replicas plain. Any replica answers any request, nothing pins
 an agent to one, and every replica keeps each subject's tools in step with the
-API on its own — so a listen stream held by one replica hears about a grant
-change as soon as that replica has applied it. Scale the Deployment; no ingress
+API on its own — so a listen stream, or a `GET` stream, held by one replica
+hears about a grant change as soon as that replica has applied it. Scale the Deployment; no ingress
 affinity is needed.
 
 Towards backends the protocol is the SDK's to negotiate: 2026-07-28 with a
 backend that speaks it, the backend's newest session-based version with one
 that does not. Backends are not the gateway's to choose, and talking to an older
-one takes no code of the gateway's own. The
-[FAQ](./faq.md#which-mcp-versions-does-it-speak) has the matrix.
+one takes no code of the gateway's own.
+[Protocol compatibility](./protocol-compatibility.md) has the matrix.
 
 A backend speaks Streamable HTTP unless its `spec.transport` is `SSE`: the
 HTTP+SSE transport of MCP 2024-11-05, for backends that never moved on. There

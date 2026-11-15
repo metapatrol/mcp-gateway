@@ -98,9 +98,10 @@ Authentication and authorisation stay separate: the token says who is calling,
 authorise.
 
 Agents speak **MCP 2026-07-28**, which has no sessions: every request carries
-its own token and is authenticated on its own. Clients of the older,
-session-based versions are refused; there is no compatibility layer for a
-superseded specification.
+its own token and is authenticated on its own. The Streamable HTTP versions
+before it, back to 2025-03-26, make sessions optional, and are served without
+them; HTTP+SSE, which needs them, is refused. Nothing pins an agent to a
+replica. → [Protocol compatibility](protocol-compatibility.md)
 
 → [Authentication](authentication.md)
 

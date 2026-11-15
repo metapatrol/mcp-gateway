@@ -14,7 +14,7 @@
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache--2.0-blue"></a>
   <a href="https://github.com/metapatrol/mcp-gateway/pkgs/container/mcp-gateway"><img alt="Container images" src="https://img.shields.io/badge/images-ghcr.io-2496ed"></a>
   <img alt="Go" src="https://img.shields.io/badge/go-1.27-00add8">
-  <img alt="MCP" src="https://img.shields.io/badge/MCP-2026--07--28-6e56cf">
+  <img alt="MCP" src="https://img.shields.io/badge/MCP-2025--03--26%20to%202026--07--28-6e56cf">
 </p>
 
 <p align="center">
@@ -114,9 +114,10 @@ where it is   which tools    a useful ability  who holds it
 
 **Operations**
 
-- Agents speak MCP 2026-07-28, without sessions: any replica answers any
-  request. Backends may speak any version since 2024-11-05 — see the
-  [compatibility matrix](docs/faq.md#which-mcp-versions-does-it-speak).
+- Agents speak MCP 2026-07-28, or a Streamable HTTP version back to
+  2025-03-26 — all without sessions: any replica answers any request.
+  Backends may speak any version since 2024-11-05. See
+  [protocol compatibility](docs/protocol-compatibility.md).
 - OAuth 2.0 with any provider: JWTs against a JWKS, or RFC 7662 introspection;
   RFC 9728 protected resource metadata.
 - Prometheus metrics, a Grafana dashboard chart, an audit record for every
@@ -200,7 +201,8 @@ including the network policies that keep agents from going around the gateway.
 | [Console](docs/console.md) | what the console shows, and how data reaches it |
 | [Operations](docs/operations.md) | metrics, alerts, audit records, traces, troubleshooting, upgrades |
 | [Architecture](docs/architecture.md) | how it works inside |
-| [FAQ](docs/faq.md) | why discovery, why cluster scope, why only MCP 2026-07-28, and more |
+| [Protocol compatibility](docs/protocol-compatibility.md) | which MCP versions and transports work towards agents and backends |
+| [FAQ](docs/faq.md) | why discovery, why cluster scope, which MCP versions, and more |
 | [Development](docs/development.md) | building, testing and changing it |
 | [Design](docs/design.md) | the design record: the model and the decisions behind it |
 

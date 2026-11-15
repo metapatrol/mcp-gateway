@@ -15,6 +15,7 @@ Kubernetes cluster, and shows each agent exactly the tools its grants allow.
 | | |
 |---|---|
 | [CRD Reference](crd-reference.md) | every field and condition of the four kinds |
+| [Protocol compatibility](protocol-compatibility.md) | which MCP versions and transports work towards agents and backends, and what each gets |
 | [Authentication](authentication.md) | token verification, the subject, protected resource metadata, credentials towards backends, mcp-gateway-proxy |
 | [Console](console.md) | mcp-gateway-ui: enabling it, what it shows, how data and changes reach it |
 | [Operations](operations.md) | health, metrics, alerts, audit records, what to do when something is not Ready, scaling, upgrades |

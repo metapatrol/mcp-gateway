@@ -59,31 +59,12 @@ maintainers use it. See [authentication](authentication.md).
 
 ## Which MCP versions does it speak?
 
-Towards agents, **MCP 2026-07-28** only. It has no sessions, so any replica
-answers any request; clients of the older, session-based versions are
-refused. Towards backends, whatever they speak: the SDK negotiates
-2026-07-28 or the backend's newest session-based version.
-
-| MCP version | Transport | Agent → gateway | Gateway → backend |
-|---|---|---|---|
-| 2026-07-28 | Streamable HTTP, stateless | ✅ the only one | ✅ preferred: no sessions |
-| 2025-11-25 | Streamable HTTP, sessions | ❌ 400 | ✅ |
-| 2025-06-18 | Streamable HTTP, sessions | ❌ 400 | ✅ |
-| 2025-03-26 | Streamable HTTP, sessions | ❌ 400 | ✅ |
-| 2024-11-05 | HTTP+SSE | ❌ 400 | ✅ with `transport: SSE` |
-| any | stdio | ❌ | ❌ — wrap it in an HTTP server |
-
-Every request from an agent must carry `MCP-Protocol-Version: 2026-07-28`,
-the `Mcp-Method` header and the `io.modelcontextprotocol/*` fields in
-`params._meta`; it starts with `server/discover`, not `initialize`. A request
-without the version header, `initialize` included, is answered 400 with the
-supported version. `mcp-gateway-proxy` forwards HTTP unchanged, so an agent
-behind it speaks 2026-07-28 too.
-
-There is no compatibility layer for a superseded version towards agents. A
-backend is someone else's software, so there the gateway takes what the SDK
-can negotiate. When a new revision is released, the gateway will accept it
-next to 2026-07-28 until its own agents have moved.
+Towards agents, **MCP 2026-07-28** and the Streamable HTTP versions before it,
+back to **2025-03-26** — all without sessions, so any replica answers any
+request. HTTP+SSE (2024-11-05) is refused: it cannot work without sessions.
+Towards backends, whatever they speak, HTTP+SSE included. The
+[protocol compatibility](protocol-compatibility.md) page has the matrix and
+what each version gets.
 
 ## Our agent cannot do OAuth. Can it still connect?
 

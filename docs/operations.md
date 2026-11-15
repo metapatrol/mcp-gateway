@@ -187,8 +187,8 @@ replica answered.
 
 ## Scaling
 
-**The gateway** scales horizontally. Agents speak MCP 2026-07-28, which has no
-sessions: any replica answers any request, and no ingress affinity is needed.
+**The gateway** scales horizontally. It keeps no sessions in any MCP version
+it speaks: any replica answers any request, and no ingress affinity is needed.
 The chart runs two replicas with a PodDisruptionBudget. Each replica discovers
 the backends itself and keeps its own connections to them.
 

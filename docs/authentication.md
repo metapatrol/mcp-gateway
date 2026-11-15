@@ -81,7 +81,7 @@ This is Hydra's default token strategy.
 | No `Authorization: Bearer` | 401 | `missing_token` |
 | Bad signature, wrong issuer or audience, expired, no subject … | 401 | `signature`, `issuer`, `audience`, `expired`, `no_subject`, … |
 | JWKS or introspection endpoint unreachable | 500 | `unavailable` |
-| Valid token, but no `MCP-Protocol-Version: 2026-07-28` | 400, naming the supported version | — |
+| Valid token, but `MCP-Protocol-Version` names a version the gateway does not speak | 400, listing the supported versions | — |
 
 The provider being down is deliberately not a 401: a 401 tells a well-behaved
 client its token is bad, and it would go and fetch a new one from the provider
@@ -144,11 +144,12 @@ so an OAuth-capable MCP client can find the authorization server on its own.
 
 ## Every request on its own
 
-MCP 2026-07-28 has no sessions, so there is nothing to bind a subject to beyond the
-request. Every request is authenticated with the token it carries, and every
+The gateway keeps no sessions, in any version it speaks, so there is nothing to
+bind a subject to beyond the request. Every request is authenticated with the token it carries, and every
 `tools/call` is authorised against the subject of that token, at the moment it
-arrives. A `subscriptions/listen` stream is authenticated when it is opened, and
-tells its holder only about the tools of the subject it was opened for.
+arrives. A `subscriptions/listen` stream — or the `GET` stream of an agent of a
+session-based version — is authenticated when it is opened, and tells its
+holder only about the tools of the subject it was opened for.
 
 ## Towards backends
 
