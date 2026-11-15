@@ -1,3 +1,10 @@
+## [1.13.1](https://github.com/metapatrol/mcp-gateway/compare/v1.13.0...v1.13.1) (2026-11-15)
+
+
+### Bug Fixes
+
+* **gateway:** hold a GET open only for a client that asks for the stream ([b73d3eb](https://github.com/metapatrol/mcp-gateway/commit/b73d3eb70ea1d91b810e2a60659e5e69c996af21))
+
 # [1.13.0](https://github.com/metapatrol/mcp-gateway/compare/v1.12.0...v1.13.0) (2026-11-15)
 
 
