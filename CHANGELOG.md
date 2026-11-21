@@ -1,3 +1,12 @@
+## [1.13.2](https://github.com/metapatrol/mcp-gateway/compare/v1.13.1...v1.13.2) (2026-11-21)
+
+
+### Bug Fixes
+
+* **deps:** update module github.com/oapi-codegen/oapi-codegen/v2 to v2.9.0 ([0fb87e4](https://github.com/metapatrol/mcp-gateway/commit/0fb87e405a11ebdc8114acf6cd610f34f94d342c))
+* **deps:** update module github.com/oapi-codegen/runtime to v1.9.1 ([0b3689a](https://github.com/metapatrol/mcp-gateway/commit/0b3689ab0279544284bbcb5a9b193957138a50c0))
+* **deps:** update module sigs.k8s.io/controller-runtime to v0.25.3 ([1f8006b](https://github.com/metapatrol/mcp-gateway/commit/1f8006bb4ac286fd12886f0a7b947bf4ff90cb6a))
+
 ## [1.13.1](https://github.com/metapatrol/mcp-gateway/compare/v1.13.0...v1.13.1) (2026-11-15)
 
 
