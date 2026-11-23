@@ -83,6 +83,7 @@ spec:
             {{- end }}
             - --catalog-max-age={{ .Values.gateway.catalogMaxAge }}
             - --call-timeout={{ .Values.gateway.callTimeout }}
+            - --backend-connect-timeout={{ .Values.backends.connectTimeout }}
             {{- if .Values.gateway.instructions }}
             - --instructions-file=/etc/mcp-gateway/instructions/instructions.md
             {{- end }}

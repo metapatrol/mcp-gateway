@@ -48,6 +48,7 @@ spec:
             {{- end }}
             - --log-format={{ .Values.logging.format }}
             - --secret-namespace={{ .Release.Namespace }}
+            - --backend-connect-timeout={{ .Values.backends.connectTimeout }}
           ports:
             - name: metrics
               containerPort: {{ include "mcp-gateway.port" .Values.controller.metricsBindAddress }}

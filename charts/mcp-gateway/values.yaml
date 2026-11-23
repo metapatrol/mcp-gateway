@@ -18,6 +18,11 @@ logging:
   # Log format: text (human-readable) or json (structured, recommended for production)
   format: json
 
+# Connections to the backends, shared by the controller and the gateway
+backends:
+  # How long the MCP handshake with a backend may take
+  connectTimeout: 10s
+
 controller:
   # A single replica does the work; more replicas only make sense with
   # leaderElect, and then only one of them is active.

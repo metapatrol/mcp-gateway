@@ -16,6 +16,7 @@ Kubernetes-native access layer for MCP backends — one governed MCP endpoint, t
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
+| backends.connectTimeout | string | `"10s"` |  |
 | controller.affinity | object | `{}` |  |
 | controller.env | list | `[]` |  |
 | controller.healthProbeBindAddress | string | `":8081"` |  |

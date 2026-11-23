@@ -171,6 +171,7 @@ Every condition has a stable reason, listed in the
 |---|---|---|
 | MCPServer | `DiscoveryFailed` | The endpoint, and whether the controller may reach it — a NetworkPolicy in the backend's namespace that admits only the gateway also keeps the controller out. |
 | MCPServer | `CredentialsUnavailable` | The message names the Secret and key, and lists the keys the Secret has. Secrets are read from the chart's namespace only. |
+| MCPServer | `DiscoveryFailed` with `context deadline exceeded` | A backend slower to answer the handshake than `backends.connectTimeout` (ten seconds by default). |
 | MCPServer | `Unauthorized` | The backend refused the credentials `spec.auth` sends, or wants some and gets none. |
 | MCPToolSet | `MissingTools` | A named tool the backend does not offer — renamed or removed on the backend's side, or a typo. |
 | MCPToolSet | `UnmatchedPatterns` | A pattern that selects nothing; almost always a typo. |
