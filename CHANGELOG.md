@@ -1,3 +1,10 @@
+# [1.14.0](https://github.com/metapatrol/mcp-gateway/compare/v1.13.2...v1.14.0) (2026-11-23)
+
+
+### Features
+
+* **chart:** set the backend handshake timeout with backends.connectTimeout ([955e82e](https://github.com/metapatrol/mcp-gateway/commit/955e82eb8426e09433e756bc42f3ce50be8b029a))
+
 ## [1.13.2](https://github.com/metapatrol/mcp-gateway/compare/v1.13.1...v1.13.2) (2026-11-21)
 
 
